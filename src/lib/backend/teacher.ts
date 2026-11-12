@@ -66,7 +66,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }));
   const classIds = classes.map((item) => item.id);
   if (!classIds.length) {
-    return { classes, enrollments: [] as TeacherEnrollment[], attendance: [] as TeacherAttendance[], grades: [] as TeacherGrade[], requests: [] as TeacherRequest[] };
+    return { classes, enrollments: [] as TeacherEnrollment[], attendance: [] as TeacherAttendance[], grades: [] as TeacherGrade[], hifzRecords: [] as TeacherHifzRecord[], requests: [] as TeacherRequest[] };
   }
 
   const [enrollmentResult, requestResult] = await Promise.all([
@@ -83,7 +83,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   ])];
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
-  const [profileResult, attendanceResult, gradeResult] = await Promise.all([
+  const [profileResult, attendanceResult, gradeResult, hifzResult] = await Promise.all([
     studentIds.length
       ? sb.from("profiles").select("id,full_name").in("id", studentIds)
       : Promise.resolve({ data: [], error: null }),
@@ -96,7 +96,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   ]);
   fail(profileResult.error);
   fail(attendanceResult.error);
-  fail(gradeResult.error);
+  fail(gradeResult.error);\n  fail(hifzResult.error);
 
   const names = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
   const enrollments: TeacherEnrollment[] = enrollmentRows.map((row) => ({
@@ -128,7 +128,12 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     score: Number(row.score),
     createdAt: row.created_at,
   }));
-  return { classes, enrollments, attendance, grades, requests };
+  const hifzRecords: TeacherHifzRecord[] = (hifzResult.data ?? []).map((row) => ({
+    id: row.id, enrollmentId: row.enrollment_id, surahNumber: row.surah_number,
+    ayahStart: row.ayah_start, ayahEnd: row.ayah_end, recordType: row.record_type,
+    assessment: row.assessment, sessionDate: row.session_date, notes: row.notes,
+  }));
+  return { classes, enrollments, attendance, grades, hifzRecords, requests };
 }
 
 export async function saveTeacherAttendance(
@@ -165,6 +170,38 @@ export async function saveTeacherGrade(
     enrollment_id: input.enrollmentId,
     title: input.title.trim(),
     score: input.score,
+  });
+  fail(error);
+}
+
+export async function saveTeacherHifzRecord(
+  sb: SupabaseClient,
+  input: {
+    enrollmentId: string;
+    surahNumber: number;
+    ayahStart: number;
+    ayahEnd: number;
+    recordType: "memorization" | "review";
+    assessment: "excellent" | "good" | "fair" | "needs_practice";
+    sessionDate: string;
+    notes: string;
+  },
+) {
+  if (!input.enrollmentId || !Number.isInteger(input.surahNumber) || input.surahNumber < 1 || input.surahNumber > 114
+    || !Number.isInteger(input.ayahStart) || input.ayahStart < 1 || input.ayahStart > 286
+    || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > 286
+    || !input.sessionDate || input.notes.length > 1000) {
+    throw new Error("اطلاعات محفوظات معتبر نیست.");
+  }
+  const { error } = await sb.from("hifz_records").insert({
+    enrollment_id: input.enrollmentId,
+    surah_number: input.surahNumber,
+    ayah_start: input.ayahStart,
+    ayah_end: input.ayahEnd,
+    record_type: input.recordType,
+    assessment: input.assessment,
+    session_date: input.sessionDate,
+    notes: input.notes.trim() || null,
   });
   fail(error);
 }
