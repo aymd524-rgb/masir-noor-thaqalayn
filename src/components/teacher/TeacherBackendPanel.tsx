@@ -1,0 +1,167 @@
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { getSupabase } from "@/lib/backend/supabase";
+import {
+  loadTeacherWorkspace,
+  saveTeacherAttendance,
+  saveTeacherGrade,
+  type TeacherAttendance,
+} from "@/lib/backend/teacher";
+import type { User } from "@/lib/domain/types";
+
+const statusLabels: Record<TeacherAttendance["status"], string> = {
+  present: "حاضر",
+  absent: "غایب",
+  late: "با تأخیر",
+  excused: "غیبت موجه",
+};
+
+export function TeacherBackendPanel({ user }: { user: User }) {
+  const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadTeacherWorkspace>> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [classId, setClassId] = useState("");
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [gradeEnrollmentId, setGradeEnrollmentId] = useState("");
+  const [gradeTitle, setGradeTitle] = useState("");
+  const [gradeScore, setGradeScore] = useState("0");
+
+  const reload = async () => {
+    const sb = getSupabase();
+    if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
+    const data = await loadTeacherWorkspace(sb, user.id, user.role === "admin");
+    setWorkspace(data);
+    setClassId((current) => data.classes.some((item) => item.id === current) ? current : data.classes[0]?.id ?? "");
+  };
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const sb = getSupabase();
+        if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
+        const data = await loadTeacherWorkspace(sb, user.id, user.role === "admin");
+        if (active) {
+          setWorkspace(data);
+          setClassId(data.classes[0]?.id ?? "");
+        }
+      } catch (error) {
+        if (active) toast.error(error instanceof Error ? error.message : "دریافت اطلاعات کلاس‌ها انجام نشد.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [user.id, user.role]);
+
+  const activeClass = workspace?.classes.find((item) => item.id === classId);
+  const enrollments = useMemo(
+    () => (workspace?.enrollments ?? []).filter((item) => item.classId === classId),
+    [workspace, classId],
+  );
+  const requests = (workspace?.requests ?? []).filter((item) => item.classId === classId);
+  const selectedEnrollmentId = enrollments.some((item) => item.id === gradeEnrollmentId)
+    ? gradeEnrollmentId
+    : enrollments[0]?.id ?? "";
+
+  const saveAttendance = async (enrollmentId: string, status: TeacherAttendance["status"]) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    setSaving(true);
+    try {
+      await saveTeacherAttendance(sb, { enrollmentId, sessionDate, status });
+      await reload();
+      toast.success("حضور و غیاب در پایگاه داده ذخیره شد.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ذخیره حضور و غیاب انجام نشد.");
+    } finally { setSaving(false); }
+  };
+
+  const submitGrade = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const sb = getSupabase();
+    if (!sb || !selectedEnrollmentId) return;
+    setSaving(true);
+    try {
+      await saveTeacherGrade(sb, { enrollmentId: selectedEnrollmentId, title: gradeTitle, score: Number(gradeScore) });
+      await reload();
+      setGradeTitle("");
+      setGradeScore("0");
+      toast.success("نمره در پایگاه داده ذخیره شد.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ثبت نمره انجام نشد.");
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <p className="rounded-xl border p-4 text-sm text-muted-foreground">در حال دریافت اطلاعات از پایگاه داده…</p>;
+  if (!workspace) return <p className="rounded-xl border p-4 text-sm">اطلاعات کلاس‌ها بارگذاری نشد. اتصال و دسترسی پایگاه داده را بررسی کنید.</p>;
+
+  return <div className="space-y-5">
+    <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">کلاس‌های من</h2>
+      {workspace.classes.length ? <div className="mt-3">
+        <label className="text-sm font-semibold">انتخاب کلاس
+          <select value={classId} onChange={(event) => setClassId(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">
+            {workspace.classes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+        </label>
+        {activeClass?.description && <p className="mt-2 text-sm text-muted-foreground">{activeClass.description}</p>}
+      </div> : <p className="mt-3 text-sm text-muted-foreground">هنوز کلاسی برای این حساب تعریف نشده است.</p>}
+    </section>
+
+    {activeClass && <>
+      <section className="rounded-2xl border bg-card p-5">
+        <h2 className="font-extrabold">دانش‌پژوهان کلاس</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{enrollments.length} ثبت‌نام قطعی</p>
+        {enrollments.length ? <ul className="mt-3 divide-y">{enrollments.map((item) => <li key={item.id} className="py-2 text-sm">{item.studentName}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز دانش‌پژوهی در این کلاس ثبت‌نام قطعی ندارد.</p>}
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div><h2 className="font-extrabold">ثبت حضور و غیاب</h2><p className="mt-1 text-sm text-muted-foreground">تاریخ جلسه را انتخاب کنید و وضعیت هر دانش‌پژوه را ثبت کنید.</p></div>
+        <label className="block text-sm font-semibold">تاریخ جلسه
+          <input type="date" value={sessionDate} onChange={(event) => setSessionDate(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+        </label>
+        {enrollments.length ? <div className="divide-y rounded-xl border">{enrollments.map((item) => {
+          const record = workspace.attendance.find((row) => row.enrollmentId === item.id && row.sessionDate === sessionDate);
+          return <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
+            <span className="text-sm font-semibold">{item.studentName}</span>
+            <select aria-label={`وضعیت حضور ${item.studentName}`} disabled={saving} value={record?.status ?? ""} onChange={(event) => {
+              if (event.target.value) void saveAttendance(item.id, event.target.value as TeacherAttendance["status"]);
+            }} className="min-w-36 rounded-lg border bg-background px-3 py-2 text-sm">
+              <option value="" disabled>ثبت نشده</option>
+              <option value="present">حاضر</option><option value="absent">غایب</option><option value="late">با تأخیر</option><option value="excused">غیبت موجه</option>
+            </select>
+            {record && <span className="text-xs text-muted-foreground">{statusLabels[record.status]}</span>}
+          </div>;
+        })}</div> : <p className="text-sm text-muted-foreground">برای ثبت حضور و غیاب، ابتدا باید دانش‌پژوهی ثبت‌نام قطعی داشته باشد.</p>}
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div><h2 className="font-extrabold">ثبت نمره</h2><p className="mt-1 text-sm text-muted-foreground">نمره در پایگاه داده مشترک ذخیره می‌شود.</p></div>
+        <form onSubmit={submitGrade} className="grid gap-3">
+          <label className="text-sm font-semibold">دانش‌پژوه
+            <select value={selectedEnrollmentId} onChange={(event) => setGradeEnrollmentId(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">
+              {enrollments.map((item) => <option key={item.id} value={item.id}>{item.studentName}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-semibold">عنوان ارزشیابی
+            <input value={gradeTitle} onChange={(event) => setGradeTitle(event.target.value)} required placeholder="مثلاً آزمون حفظ سوره نبأ" className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold">نمره
+            <input type="number" min="0" step="0.25" value={gradeScore} onChange={(event) => setGradeScore(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <button type="submit" disabled={saving || !selectedEnrollmentId || !gradeTitle.trim()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">ذخیره نمره</button>
+        </form>
+        {workspace.grades.filter((item) => enrollments.some((enrollment) => enrollment.id === item.enrollmentId)).length > 0 && <ul className="divide-y border-t pt-2">{workspace.grades.filter((item) => enrollments.some((enrollment) => enrollment.id === item.enrollmentId)).map((item) => <li key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span>{enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.studentName} · {item.title}</span><strong>{item.score}</strong></li>)}</ul>}
+      </section>
+    </>}
+
+    {requests.length > 0 && <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">درخواست‌های ثبت‌نام در انتظار بررسی</h2>
+      <p className="mt-1 text-sm text-muted-foreground">طبق سیاست امنیتی فعلی پایگاه داده، بررسی نهایی این درخواست‌ها فقط از حساب مدیر انجام می‌شود.</p>
+      <ul className="mt-3 divide-y">{requests.map((item) => <li key={item.id} className="py-2 text-sm">{item.studentName} <span className="text-muted-foreground">· وضعیت پرداخت: {item.paymentStatus === "paid" ? "پرداخت‌شده" : item.paymentStatus === "waived" ? "معاف" : item.paymentStatus === "failed" ? "ناموفق" : "در انتظار"}</span></li>)}</ul>
+    </section>}
+    <p className="text-xs text-muted-foreground">اطلاعات این صفحه از پایگاه داده Supabase خوانده می‌شود و دسترسی هر عملیات را سیاست‌های امنیتی پایگاه داده کنترل می‌کنند.</p>
+  </div>;
+}
