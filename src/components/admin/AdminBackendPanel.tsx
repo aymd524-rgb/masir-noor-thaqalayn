@@ -23,11 +23,15 @@ export function AdminBackendPanel() {
  const [paymentChoices,setPaymentChoices]=useState<Record<string,"paid"|"waived"|"">>({});
  const [enrollmentClassFilter,setEnrollmentClassFilter]=useState("");
  const [enrollmentSearch,setEnrollmentSearch]=useState("");
+ const [userSearch,setUserSearch]=useState("");
+ const [userRoleFilter,setUserRoleFilter]=useState("all");
+ const [currentUserId,setCurrentUserId]=useState<string|null>(null);
 
  const loadData=useCallback(async()=>{
   const sb=getSupabase();
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
-  const [p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
+  const [{data:userResult,error:userError},p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
+   sb.auth.getUser(),
    sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
    sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).limit(200),
@@ -39,6 +43,8 @@ export function AdminBackendPanel() {
    sb.from("hifz_assignments").select("id,enrollment_id,due_date").order("created_at",{ascending:false}).limit(1000),
    sb.from("hifz_assignment_completions").select("id,assignment_id,student_id,status").limit(2000),
   ]);
+  if(userError) throw new Error(userError.message);
+  setCurrentUserId(userResult.user?.id??null);
   for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
   setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[],hifzRecords:h.data??[],hifzAssignments:ha.data??[],hifzCompletions:hc.data??[]});
  },[]);
@@ -49,6 +55,25 @@ export function AdminBackendPanel() {
    .finally(()=>{if(active) setLoading(false);});
   return ()=>{active=false;};
  },[loadData]);
+
+ const updateUserRole=async(profile:{id:string;full_name:string|null;role:string|null},nextRole:"student"|"teacher"|"admin")=>{
+  if(profile.id===currentUserId){toast.error("برای جلوگیری از قفل‌شدن دسترسی، نقش حساب مدیر فعلی از این بخش تغییر نمی‌کند.");return;}
+  if(profile.role===nextRole)return;
+  const label=(role:string|null)=>role==="admin"?"مدیر":role==="teacher"?"استاد":"دانش‌پژوه";
+  const name=profile.full_name||"این کاربر";
+  if(!window.confirm("نقش «"+name+"» از "+label(profile.role)+" به "+label(nextRole)+" تغییر کند؟"))return;
+  const sb=getSupabase();
+  if(!sb)return;
+  setSavingId(profile.id);
+  try{
+   const {data:updated,error}=await sb.from("profiles").update({role:nextRole}).eq("id",profile.id).select("id").maybeSingle();
+   if(error)throw new Error(error.message);
+   if(!updated)throw new Error("تغییر نقش انجام نشد؛ مجوز مدیر یا وضعیت حساب را بررسی کنید.");
+   await loadData();
+   toast.success("نقش کاربر تغییر کرد.");
+  }catch(error){toast.error(error instanceof Error?error.message:"تغییر نقش انجام نشد.");}
+  finally{setSavingId(null);}
+ };
 
  const reviewRequest=async(id:string,status:"approved"|"rejected")=>{
   const payment=status==="approved"?paymentChoices[id]:"";
@@ -92,6 +117,15 @@ export function AdminBackendPanel() {
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ترکیب کاربران</h2><ul className="mt-3 space-y-3 text-sm"><li className="flex justify-between"><span>دانش‌پژوه</span><b>{roleCount("student")}</b></li><li className="flex justify-between"><span>استاد</span><b>{roleCount("teacher")}</b></li><li className="flex justify-between"><span>مدیر</span><b>{roleCount("admin")}</b></li></ul></section>
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ثبت‌نام‌های قطعی</h2><p className="mt-3 text-3xl font-extrabold">{data.enrollments.length}</p><p className="mt-1 text-xs text-muted-foreground">بر اساس جدول ثبت‌نام‌های تأییدشده</p></section>
   </div>
+  <section className="rounded-2xl border bg-card p-5">
+   <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-extrabold">مدیریت کاربران و نقش‌ها</h2><p className="mt-1 text-xs text-muted-foreground">جست‌وجو و تغییر نقش حساب‌ها؛ تغییر نقش فقط با دسترسی مدیر و تأیید شما انجام می‌شود.</p></div><b>{data.profiles.length} حساب بارگذاری‌شده</b></div>
+   <div className="mt-3 grid gap-2 sm:grid-cols-2">
+    <label className="text-sm font-semibold">جست‌وجوی کاربر<input value={userSearch} onChange={event=>setUserSearch(event.target.value)} placeholder="نام یا شناسه حساب" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"/></label>
+    <label className="text-sm font-semibold">فیلتر نقش<select value={userRoleFilter} onChange={event=>setUserRoleFilter(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"><option value="all">همه نقش‌ها</option><option value="student">دانش‌پژوه</option><option value="teacher">استاد</option><option value="admin">مدیر</option></select></label>
+   </div>
+   {(()=>{const term=userSearch.trim().toLocaleLowerCase();const rows=data.profiles.filter(profile=>(userRoleFilter==="all"||profile.role===userRoleFilter)&&((profile.full_name||"").toLocaleLowerCase().includes(term)||profile.id.toLocaleLowerCase().includes(term)));return rows.length?<ul className="mt-3 divide-y">{rows.map(profile=><li key={profile.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="font-semibold">{profile.full_name||"کاربر بدون نام"}{profile.id===currentUserId?<span className="mr-2 text-xs text-muted-foreground">(حساب فعلی)</span>:null}</p><p className="break-all text-xs text-muted-foreground">{profile.id}</p><p className="text-xs text-muted-foreground">عضویت: {profile.created_at?new Date(profile.created_at).toLocaleDateString("fa-IR"):"نامشخص"}</p></div><div className="flex items-center gap-2"><select aria-label={"نقش "+(profile.full_name||"کاربر")} disabled={profile.id===currentUserId||savingId===profile.id} value={profile.role||"student"} onChange={event=>void updateUserRole(profile,event.target.value as "student"|"teacher"|"admin")} className="rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"><option value="student">دانش‌پژوه</option><option value="teacher">استاد</option><option value="admin">مدیر</option></select>{savingId===profile.id?<span className="text-xs text-muted-foreground">در حال ذخیره…</span>:null}</div></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">کاربری با این جست‌وجو پیدا نشد.</p>})()}
+   <p className="mt-2 text-xs text-muted-foreground">این فهرست فعلاً حداکثر ۲۰۰ حساب اخیر را نشان می‌دهد. ایجاد حساب جدید و حذف حساب از این پنل انجام نمی‌شود. تغییر نقش با سیاست امنیتی پایگاه داده و تابع محافظت از نقش کنترل می‌شود.</p>
+  </section>
   <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold">گزارش ثبت‌نام‌های قطعی</h2><p className="mt-1 text-xs text-muted-foreground">آخرین {data.enrollments.length} ثبت‌نام قطعی ثبت‌شده در سامانه</p></div><b className="text-2xl">{data.enrollments.length}</b></div>
    <div className="mt-3 grid gap-2 sm:grid-cols-2">
     <label className="text-sm font-semibold">فیلتر کلاس<select value={enrollmentClassFilter} onChange={event=>setEnrollmentClassFilter(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"><option value="">همهٔ کلاس‌ها</option>{data.classes.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
