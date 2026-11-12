@@ -49,6 +49,13 @@ export function StudentBackendPanel({ user }: { user: User }) {
   if (!workspace) return <p className="rounded-xl border p-4 text-sm">اطلاعات بارگذاری نشد. اتصال و دسترسی پایگاه داده را بررسی کنید.</p>;
   const present = workspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
   const attendanceRate = workspace.attendance.length ? Math.round(present / workspace.attendance.length * 100) : null;
+  const enrollmentProgress = workspace.enrollments.map((enrollment) => {
+    const records = workspace.attendance.filter((item) => item.enrollmentId === enrollment.id);
+    const effective = records.filter((item) => item.status === "present" || item.status === "late").length;
+    const grades = workspace.grades.filter((item) => item.enrollmentId === enrollment.id);
+    const average = grades.length ? grades.reduce((sum, item) => sum + item.score, 0) / grades.length : null;
+    return { ...enrollment, attendanceCount: records.length, attendanceRate: records.length ? Math.round(effective / records.length * 100) : null, gradeCount: grades.length, average };
+  });
 
   return <div className="space-y-5">
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -57,6 +64,20 @@ export function StudentBackendPanel({ user }: { user: User }) {
       <Metric label="نمره‌ها" value={workspace.grades.length}/>
       <Metric label="حضور مؤثر" value={attendanceRate === null ? "—" : attendanceRate + "٪"}/>
     </div>
+    <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">گزارش پیشرفت آموزشی من</h2>
+      <p className="mt-1 text-xs text-muted-foreground">این گزارش بر اساس حضور و غیاب و نمره‌های ثبت‌شده برای هر ثبت‌نام تهیه شده است.</p>
+      {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((item) => <li key={item.id} className="py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2"><b>{item.classTitle}</b><span className="text-xs text-muted-foreground">شروع ثبت‌نام: {new Date(item.createdAt).toLocaleDateString("fa-IR")}</span></div>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceCount}</p><p className="text-xs text-muted-foreground">جلسات ثبت‌شده</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceRate === null ? "—" : item.attendanceRate + "٪"}</p><p className="text-xs text-muted-foreground">حضور مؤثر</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.gradeCount}</p><p className="text-xs text-muted-foreground">نمره‌های ثبت‌شده</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.average === null ? "—" : Number(item.average.toFixed(2))}</p><p className="text-xs text-muted-foreground">میانگین نمره</p></div>
+        </div>
+      </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
+      <p className="mt-3 text-xs text-muted-foreground">وضعیت حفظ قرآن هنوز در سامانه ثبت نمی‌شود؛ بنابراین در این گزارش عدد یا درصدی برای حفظ نمایش داده نشده است.</p>
+    </section>
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">کلاس‌های قابل ثبت‌نام</h2>
       {workspace.classes.length ? <ul className="mt-3 divide-y">{workspace.classes.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
