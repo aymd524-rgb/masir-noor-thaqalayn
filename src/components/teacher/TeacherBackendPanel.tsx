@@ -1,3 +1,4 @@
+import { QURAN_SURAHS, getSurah } from "@/lib/quran/surahs";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
@@ -166,7 +167,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-card p-5">
-        <div><h2 className="font-extrabold">ثبت حفظ و مرور قرآن</h2><p className="mt-1 text-sm text-muted-foreground">محدوده آیات و ارزیابی هر جلسه را برای دانش‌پژوه ثبت کنید.</p></div>
+        <div><h2 className="font-extrabold">ثبت حفظ و مرور قرآن</h2><p className="mt-1 text-sm text-muted-foreground">محدوده آیات و ارزیابی هر جلسه را برای دانش‌پژوه ثبت کنید. این سوره {selectedSurah?.ayahCount ?? "—"} آیه دارد.</p></div>
         <form onSubmit={async (event) => {
           event.preventDefault();
           const sb = getSupabase();
@@ -183,17 +184,19 @@ export function TeacherBackendPanel({ user }: { user: User }) {
           <label className="text-sm font-semibold sm:col-span-2">دانش‌پژوه
             <select value={selectedHifzEnrollmentId} onChange={(event) => setHifzEnrollmentId(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">{enrollments.map((item) => <option key={item.id} value={item.id}>{item.studentName}</option>)}</select>
           </label>
-          <label className="text-sm font-semibold">شماره سوره
-            <input type="number" min="1" max="114" value={hifzSurah} onChange={(event) => setHifzSurah(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          <label className="text-sm font-semibold">سوره
+            <select value={hifzSurah} onChange={(event) => { setHifzSurah(event.target.value); setHifzAyahStart("1"); setHifzAyahEnd("1"); }} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">
+              {QURAN_SURAHS.map(([name], index) => <option key={index + 1} value={String(index + 1)}>{index + 1}. {name}</option>)}
+            </select>
           </label>
           <label className="text-sm font-semibold">نوع فعالیت
             <select value={hifzType} onChange={(event) => setHifzType(event.target.value as "memorization" | "review")} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"><option value="memorization">حفظ جدید</option><option value="review">مرور محفوظات</option></select>
           </label>
           <label className="text-sm font-semibold">از آیه
-            <input type="number" min="1" max="286" value={hifzAyahStart} onChange={(event) => setHifzAyahStart(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+            <input type="number" min="1" max={selectedSurah?.ayahCount ?? 1} value={hifzAyahStart} onChange={(event) => setHifzAyahStart(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
           </label>
           <label className="text-sm font-semibold">تا آیه
-            <input type="number" min={hifzAyahStart} max="286" value={hifzAyahEnd} onChange={(event) => setHifzAyahEnd(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+            <input type="number" min={hifzAyahStart} max={selectedSurah?.ayahCount ?? 1} value={hifzAyahEnd} onChange={(event) => setHifzAyahEnd(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
           </label>
           <label className="text-sm font-semibold sm:col-span-2">نتیجه ارزیابی
             <select value={hifzAssessment} onChange={(event) => setHifzAssessment(event.target.value as typeof hifzAssessment)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"><option value="excellent">عالی</option><option value="good">خوب</option><option value="fair">قابل قبول</option><option value="needs_practice">نیازمند تمرین</option></select>
