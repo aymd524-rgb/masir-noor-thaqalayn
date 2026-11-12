@@ -9,6 +9,8 @@ type AdminData = {
   classes: { id: string; title: string; is_active: boolean; teacher_id: string | null }[];
   requests: { id: string; student_id: string; class_id: string; status: string; payment_status: string; created_at: string }[];
   enrollments: { id: string; student_id: string; class_id: string; created_at: string }[];
+  attendance: { id: string; enrollment_id: string; session_date: string; status: string }[];
+  grades: { id: string; enrollment_id: string; title: string; score: number }[];
 };
 
 export function AdminBackendPanel() {
@@ -22,15 +24,17 @@ export function AdminBackendPanel() {
  const loadData=useCallback(async()=>{
   const sb=getSupabase();
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
-  const [p,c,cl,r,e]=await Promise.all([
+  const [p,c,cl,r,e,a,g]=await Promise.all([
    sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
    sb.from("classes").select("id,title,is_active,teacher_id").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).limit(200),
+   sb.from("attendance").select("id,enrollment_id,session_date,status").order("session_date",{ascending:false}).limit(1000),
+   sb.from("grades").select("id,enrollment_id,title,score").order("created_at",{ascending:false}).limit(1000),
   ]);
-  for(const result of [p,c,cl,r,e]) if(result.error) throw new Error(result.error.message);
-  setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[]});
+  for(const result of [p,c,cl,r,e,a,g]) if(result.error) throw new Error(result.error.message);
+  setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[]});
  },[]);
 
  useEffect(()=>{
@@ -89,6 +93,10 @@ export function AdminBackendPanel() {
    </div>
    {(()=>{const rows=data.enrollments.filter(item=>(!enrollmentClassFilter||item.class_id===enrollmentClassFilter)&&((profileNames.get(item.student_id)??"دانش‌پژوه").toLocaleLowerCase().includes(enrollmentSearch.trim().toLocaleLowerCase())));return rows.length?<ul className="mt-3 divide-y">{rows.map(item=><li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><p className="font-semibold">{profileNames.get(item.student_id)??"دانش‌پژوه"}</p><p className="text-xs text-muted-foreground">{classNames.get(item.class_id)??"کلاس نامشخص"}</p></div><span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString("fa-IR")}</span></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">ثبت‌نامی با این فیلتر پیدا نشد.</p>})()}
    <p className="mt-2 text-xs text-muted-foreground">این گزارش حداکثر ۲۰۰ ثبت‌نام اخیر را نشان می‌دهد.</p>
+  </section>
+  <section className="rounded-2xl border bg-card p-5"><div><h2 className="font-extrabold">گزارش حضور و نمرات</h2><p className="mt-1 text-xs text-muted-foreground">خلاصهٔ اطلاعات ثبت‌شده برای حداکثر ۲۰۰ ثبت‌نام اخیر</p></div>
+   {(()=>{const ids=new Set(data.enrollments.map(item=>item.id));const records=data.attendance.filter(item=>ids.has(item.enrollment_id));const grades=data.grades.filter(item=>ids.has(item.enrollment_id));const present=records.filter(item=>item.status==="present").length;const absent=records.filter(item=>item.status==="absent").length;const late=records.filter(item=>item.status==="late").length;const excused=records.filter(item=>item.status==="excused").length;const average=grades.length?grades.reduce((sum,item)=>sum+Number(item.score),0)/grades.length:null;return <><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="حضور" value={present}/><Metric label="غیبت" value={absent}/><Metric label="تأخیر" value={late}/><Metric label="موجه" value={excused}/></div><div className="mt-3 flex flex-wrap justify-between gap-2 rounded-xl bg-muted/40 p-3 text-sm"><span>تعداد نمرات ثبت‌شده: <b>{grades.length}</b></span><span>میانگین نمرات: <b>{average===null?"—":average.toLocaleString("fa-IR",{maximumFractionDigits:2})}</b></span></div></>})()}
+   <p className="mt-2 text-xs text-muted-foreground">این آمار فقط ثبت‌نام‌های اخیر بارگذاری‌شده در این پنل را پوشش می‌دهد و گزارش کل تاریخچهٔ سامانه نیست.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">درخواست‌های ثبت‌نام در انتظار بررسی</h2>
    {pending.length?<ul className="mt-3 divide-y">{pending.slice(0,30).map(req=><li key={req.id} className="space-y-3 py-3 text-sm">
