@@ -1,3 +1,4 @@
+import { getSurah } from "@/lib/quran/surahs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { validateAttendanceInput, validateGradeInput } from "./validation";
 
@@ -189,8 +190,10 @@ export async function saveTeacherHifzRecord(
   },
 ) {
   if (!input.enrollmentId || !Number.isInteger(input.surahNumber) || input.surahNumber < 1 || input.surahNumber > 114
-    || !Number.isInteger(input.ayahStart) || input.ayahStart < 1 || input.ayahStart > 286
-    || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > 286
+    || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
+    || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart
+    || !getSurah(input.surahNumber)
+    || input.ayahEnd > (getSurah(input.surahNumber)?.ayahCount ?? 0)
     || !input.sessionDate || input.notes.length > 1000) {
     throw new Error("اطلاعات محفوظات معتبر نیست.");
   }
