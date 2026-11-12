@@ -10,12 +10,13 @@ import { AppError } from "@/lib/domain/actions";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "@/lib/domain/seed";
 import { readDb } from "@/lib/store";
 import { dashboardPath } from "@/lib/nav";
+import { safeAuthRedirect } from "@/lib/auth-redirect";
 
 type AuthSearch = { redirect?: string; mode?: "signin" | "signup" };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): AuthSearch => ({
-    redirect: typeof s.redirect === "string" && s.redirect.startsWith("/") ? s.redirect : undefined,
+    redirect: safeAuthRedirect(s.redirect),
     mode: s.mode === "signup" ? "signup" : "signin",
   }),
   head: () => ({
