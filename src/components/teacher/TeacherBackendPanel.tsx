@@ -77,6 +77,10 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const selectedEnrollmentId = enrollments.some((item) => item.id === gradeEnrollmentId)
     ? gradeEnrollmentId
     : enrollments[0]?.id ?? "";
+  const selectedHifzEnrollmentId = enrollments.some((item) => item.id === hifzEnrollmentId)
+    ? hifzEnrollmentId
+    : enrollments[0]?.id ?? "";
+  const selectedSurah = getSurah(Number(hifzSurah));
 
   const saveAttendance = async (enrollmentId: string, status: TeacherAttendance["status"]) => {
     const sb = getSupabase();
