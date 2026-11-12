@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
+import { toLocalDateInputValue } from "@/lib/date";
 import {
   loadTeacherWorkspace,
   saveTeacherAttendance,
@@ -21,7 +22,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [classId, setClassId] = useState("");
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [sessionDate, setSessionDate] = useState(toLocalDateInputValue(new Date()));
   const [gradeEnrollmentId, setGradeEnrollmentId] = useState("");
   const [gradeTitle, setGradeTitle] = useState("");
   const [gradeScore, setGradeScore] = useState("0");
