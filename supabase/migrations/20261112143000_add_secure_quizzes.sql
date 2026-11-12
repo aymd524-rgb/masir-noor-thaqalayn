@@ -88,6 +88,7 @@ as $function$
 declare
   v_user_id uuid := auth.uid();
   v_total integer;
+  v_key_count integer;
   v_correct integer := 0;
   v_question record;
   v_answer integer;
@@ -102,13 +103,14 @@ begin
   end if;
   if jsonb_typeof(p_answers) <> 'object' then raise exception 'ساختار پاسخ‌ها معتبر نیست.'; end if;
   select count(*) into v_total from public.quiz_questions qq where qq.quiz_id = p_quiz_id;
-  if v_total = 0 or jsonb_object_length(p_answers) <> v_total then
-    raise exception 'باید به همه پرسش‌ها پاسخ داده شود.';
+  select count(*) into v_key_count from public.quiz_questions qq
+    join public.quiz_answer_keys ak on ak.question_id = qq.id where qq.quiz_id = p_quiz_id;
+  if v_total = 0 or v_key_count <> v_total or jsonb_object_length(p_answers) <> v_total then
+    raise exception 'ساختار آزمون یا پاسخ‌ها کامل نیست.';
   end if;
   for v_question in
-    select qq.id, qq.options, ak.answer_index
-    from public.quiz_questions qq join public.quiz_answer_keys ak on ak.question_id = qq.id
-    where qq.quiz_id = p_quiz_id
+    select qq.id, qq.options, ak.answer_index from public.quiz_questions qq
+    join public.quiz_answer_keys ak on ak.question_id = qq.id where qq.quiz_id = p_quiz_id
   loop
     if not (p_answers ? v_question.id::text) then raise exception 'پاسخ همه پرسش‌ها باید ثبت شود.'; end if;
     begin v_answer := (p_answers ->> v_question.id::text)::integer;
