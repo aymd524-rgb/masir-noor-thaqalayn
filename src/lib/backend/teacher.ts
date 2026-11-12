@@ -30,6 +30,16 @@ export type TeacherGrade = {
   score: number;
   createdAt: string;
 };
+export type TeacherHifzRecord = {
+  id: string; enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number;
+  recordType: "memorization" | "review"; assessment: "excellent" | "good" | "fair" | "needs_practice";
+  sessionDate: string; notes: string | null;
+};
+export type TeacherHifzAssignment = {
+  id: string; enrollmentId: string; studentName: string; surahNumber: number; ayahStart: number;
+  ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string | null;
+  completionStatus: "in_progress" | "completed" | "needs_help" | null; completionNote: string | null;
+};
 export type TeacherRequest = {
   id: string;
   classId: string;
@@ -67,7 +77,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }));
   const classIds = classes.map((item) => item.id);
   if (!classIds.length) {
-    return { classes, enrollments: [] as TeacherEnrollment[], attendance: [] as TeacherAttendance[], grades: [] as TeacherGrade[], hifzRecords: [] as TeacherHifzRecord[], requests: [] as TeacherRequest[] };
+    return { classes, enrollments: [] as TeacherEnrollment[], attendance: [] as TeacherAttendance[], grades: [] as TeacherGrade[], hifzRecords: [] as TeacherHifzRecord[], hifzAssignments: [] as TeacherHifzAssignment[], requests: [] as TeacherRequest[] };
   }
 
   const [enrollmentResult, requestResult] = await Promise.all([
@@ -84,7 +94,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   ])];
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
-  const [profileResult, attendanceResult, gradeResult, hifzResult] = await Promise.all([
+  const [profileResult, attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
     studentIds.length
       ? sb.from("profiles").select("id,full_name").in("id", studentIds)
       : Promise.resolve({ data: [], error: null }),
@@ -98,7 +108,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   fail(profileResult.error);
   fail(attendanceResult.error);
   fail(gradeResult.error);
-  fail(hifzResult.error);
+  fail(hifzResult.error);\n  fail(assignmentResult.error);
 
   const names = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
   const enrollments: TeacherEnrollment[] = enrollmentRows.map((row) => ({
@@ -135,7 +145,25 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     ayahStart: row.ayah_start, ayahEnd: row.ayah_end, recordType: row.record_type,
     assessment: row.assessment, sessionDate: row.session_date, notes: row.notes,
   }));
-  return { classes, enrollments, attendance, grades, hifzRecords, requests };
+  const assignmentRows = assignmentResult.data ?? [];
+  const assignmentIds = assignmentRows.map((row) => row.id);
+  const completionResult = assignmentIds.length
+    ? await sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", assignmentIds)
+    : { data: [], error: null };
+  fail(completionResult.error);
+  const completionMap = new Map((completionResult.data ?? []).map((row) => [row.assignment_id, row]));
+  const enrollmentMap = new Map(enrollments.map((row) => [row.id, row]));
+  const hifzAssignments: TeacherHifzAssignment[] = assignmentRows.map((row) => {
+    const completion = completionMap.get(row.id);
+    return {
+      id: row.id, enrollmentId: row.enrollment_id,
+      studentName: enrollmentMap.get(row.enrollment_id)?.studentName ?? "دانش‌پژوه",
+      surahNumber: row.surah_number, ayahStart: row.ayah_start, ayahEnd: row.ayah_end,
+      assignmentType: row.assignment_type, dueDate: row.due_date, instructions: row.instructions,
+      completionStatus: completion?.status ?? null, completionNote: completion?.note ?? null,
+    };
+  });
+  return { classes, enrollments, attendance, grades, hifzRecords, hifzAssignments, requests };
 }
 
 export async function saveTeacherAttendance(
@@ -206,6 +234,25 @@ export async function saveTeacherHifzRecord(
     assessment: input.assessment,
     session_date: input.sessionDate,
     notes: input.notes.trim() || null,
+  });
+  fail(error);
+}
+
+
+export async function saveTeacherHifzAssignment(
+  sb: SupabaseClient,
+  input: { enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string; assignedBy: string },
+) {
+  const surah = getSurah(input.surahNumber);
+  if (!input.enrollmentId || !surah || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
+    || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > surah.ayahCount
+    || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input.dueDate) || input.instructions.length > 1000 || !input.assignedBy) {
+    throw new Error("اطلاعات برنامه حفظ معتبر نیست.");
+  }
+  const { error } = await sb.from("hifz_assignments").insert({
+    enrollment_id: input.enrollmentId, assigned_by: input.assignedBy, surah_number: input.surahNumber,
+    ayah_start: input.ayahStart, ayah_end: input.ayahEnd, assignment_type: input.assignmentType,
+    due_date: input.dueDate, instructions: input.instructions.trim() || null,
   });
   fail(error);
 }
