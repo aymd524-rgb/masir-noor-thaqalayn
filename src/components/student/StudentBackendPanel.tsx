@@ -13,7 +13,8 @@ const hifzAssessmentLabel = { excellent: "عالی", good: "خوب", fair: "قا
 export function StudentBackendPanel({ user }: { user: User }) {
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadStudentWorkspace>> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busyClass, setBusyClass] = useState("");\n  const [busyAssignment, setBusyAssignment] = useState("");
+  const [busyClass, setBusyClass] = useState("");
+  const [busyAssignment, setBusyAssignment] = useState("");
   const reload = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
