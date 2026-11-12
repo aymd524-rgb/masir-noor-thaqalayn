@@ -147,7 +147,6 @@ export function AdminBackendPanel() {
       const teacher=data.profiles.find(item=>item.id===cls.teacher_id);
       return <li key={cls.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{cls.title} <span className="text-xs text-muted-foreground">· {teacher?.full_name||"بدون استاد"}</span></span><span className="text-xs text-muted-foreground">{capacityLabel} · {cls.is_active?"فعال":"غیرفعال"}</span></li>
      })}</ul>:<p className="mt-2 text-xs text-muted-foreground">هنوز کلاسی برای این دوره ساخته نشده است.</p>}
-    </div>
     </details>
    })}</div>:<p className="mt-3 text-sm text-muted-foreground">دوره‌ای برای گزارش وجود ندارد.</p>}
    <p className="mt-3 text-xs text-muted-foreground">محدودیت داده: حداکثر ۲۰۰ دوره/کلاس/ثبت‌نام، ۱۰۰۰ حضور و نمره، ۲۰۰۰ رکورد حفظ و تکمیل برنامه و ۱۰۰۰ برنامه اخیر. این اعداد گزارش کامل تاریخی نیستند. درصد تکمیل برنامه از رکوردهای تکمیل‌شده برای هر دانش‌پژوه/برنامه محاسبه می‌شود.</p>
