@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { addGrade, decideEnrollment, recordAttendance } from "@/lib/domain/actions";
 import type { AttendanceStatus } from "@/lib/domain/types";
 import { attendanceLabel, enrollmentLabel, faNum } from "@/lib/format";
+import { TeacherBackendPanel } from "@/components/teacher/TeacherBackendPanel";
 
 export const Route = createFileRoute("/teacher")({ component: TeacherDashboard });
 
 function TeacherDashboard() {
- const { user } = useAuth();
+ const { user, mode } = useAuth();
  const db = useDb();
  const courses = user ? db.courses.filter((c) => user.role === "admin" || c.teacherId === user.id) : [];
  const courseIds = new Set(courses.map((c) => c.id));
@@ -70,7 +71,7 @@ function TeacherDashboard() {
  return <>
   <PageHeader title="پیشخوان استاد" subtitle="مدیریت کلاس‌ها، حضور و غیاب و نمرات" icon={GraduationCap}/>
   <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-   {!user ? <Button asChild><Link to="/auth">ورود به حساب</Link></Button> : user.role !== "teacher" && user.role !== "admin" ? <p className="rounded-xl border p-4 text-sm">این بخش برای حساب استاد طراحی شده است.</p> : <>
+   {!user ? <Button asChild><Link to="/auth">ورود به حساب</Link></Button> : user.role !== "teacher" && user.role !== "admin" ? <p className="rounded-xl border p-4 text-sm">این بخش برای حساب استاد طراحی شده است.</p> : mode === "backend" ? <TeacherBackendPanel user={user}/> : <>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
      <Metric icon={BookOpen} label="دوره‌ها" value={courses.length}/>
      <Metric icon={Users} label="دانش‌پژوهان تأییدشده" value={students.size}/>
