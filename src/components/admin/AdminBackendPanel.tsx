@@ -16,6 +16,8 @@ export function AdminBackendPanel() {
  const [loading,setLoading]=useState(true);
  const [savingId,setSavingId]=useState<string|null>(null);
  const [paymentChoices,setPaymentChoices]=useState<Record<string,"paid"|"waived"|"">>({});
+ const [enrollmentClassFilter,setEnrollmentClassFilter]=useState("");
+ const [enrollmentSearch,setEnrollmentSearch]=useState("");
 
  const loadData=useCallback(async()=>{
   const sb=getSupabase();
@@ -80,6 +82,14 @@ export function AdminBackendPanel() {
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ترکیب کاربران</h2><ul className="mt-3 space-y-3 text-sm"><li className="flex justify-between"><span>دانش‌پژوه</span><b>{roleCount("student")}</b></li><li className="flex justify-between"><span>استاد</span><b>{roleCount("teacher")}</b></li><li className="flex justify-between"><span>مدیر</span><b>{roleCount("admin")}</b></li></ul></section>
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ثبت‌نام‌های قطعی</h2><p className="mt-3 text-3xl font-extrabold">{data.enrollments.length}</p><p className="mt-1 text-xs text-muted-foreground">بر اساس جدول ثبت‌نام‌های تأییدشده</p></section>
   </div>
+  <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold">گزارش ثبت‌نام‌های قطعی</h2><p className="mt-1 text-xs text-muted-foreground">آخرین {data.enrollments.length} ثبت‌نام قطعی ثبت‌شده در سامانه</p></div><b className="text-2xl">{data.enrollments.length}</b></div>
+   <div className="mt-3 grid gap-2 sm:grid-cols-2">
+    <label className="text-sm font-semibold">فیلتر کلاس<select value={enrollmentClassFilter} onChange={event=>setEnrollmentClassFilter(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"><option value="">همهٔ کلاس‌ها</option>{data.classes.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+    <label className="text-sm font-semibold">جست‌وجوی نام دانش‌پژوه<input value={enrollmentSearch} onChange={event=>setEnrollmentSearch(event.target.value)} placeholder="نام یا بخشی از نام" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"/></label>
+   </div>
+   {(()=>{const rows=data.enrollments.filter(item=>(!enrollmentClassFilter||item.class_id===enrollmentClassFilter)&&((profileNames.get(item.student_id)??"دانش‌پژوه").toLocaleLowerCase().includes(enrollmentSearch.trim().toLocaleLowerCase())));return rows.length?<ul className="mt-3 divide-y">{rows.map(item=><li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><p className="font-semibold">{profileNames.get(item.student_id)??"دانش‌پژوه"}</p><p className="text-xs text-muted-foreground">{classNames.get(item.class_id)??"کلاس نامشخص"}</p></div><span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString("fa-IR")}</span></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">ثبت‌نامی با این فیلتر پیدا نشد.</p>})()}
+   <p className="mt-2 text-xs text-muted-foreground">این گزارش حداکثر ۲۰۰ ثبت‌نام اخیر را نشان می‌دهد.</p>
+  </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">درخواست‌های ثبت‌نام در انتظار بررسی</h2>
    {pending.length?<ul className="mt-3 divide-y">{pending.slice(0,30).map(req=><li key={req.id} className="space-y-3 py-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><span className="text-xs text-muted-foreground">وضعیت پرداخت: {req.payment_status==="paid"?"پرداخت‌شده":req.payment_status==="waived"?"معاف":req.payment_status==="failed"?"ناموفق":"در انتظار"}</span></div>
