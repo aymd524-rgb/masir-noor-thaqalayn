@@ -6,6 +6,7 @@ import {
   loadTeacherWorkspace,
   saveTeacherAttendance,
   saveTeacherGrade,
+  saveTeacherHifzRecord,
   type TeacherAttendance,
 } from "@/lib/backend/teacher";
 import type { User } from "@/lib/domain/types";
