@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Trophy, CheckCircle2, ClipboardList } from "lucide-react";
+import { Trophy, CheckCircle2, ClipboardList, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/ui-bits";
 import { EmptyState } from "@/components/common/states";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
+import { createQuiz, setQuizOpen } from "@/lib/domain/actions";
+import type { QuizQuestion } from "@/lib/domain/types";
 import { commit, useDb } from "@/lib/store";
 import { faNum } from "@/lib/format";
 import { scoreQuizAnswers } from "@/lib/quizzes/scoring";
@@ -19,9 +22,15 @@ function QuizzesPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<{ quizId: string; correct: number; total: number; score: number } | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
+  const [draftTime, setDraftTime] = useState("10");
+  const [draftCompetition, setDraftCompetition] = useState(false);
+  const [draftQuestions, setDraftQuestions] = useState<QuizQuestion[]>([{ id: "draft-1", text: "", options: ["", "", "", ""], answerIndex: 0 }]);
   const activeQuiz = quizzes.find((quiz) => quiz.id === activeId);
   const attempts = user ? db.attempts.filter((attempt) => attempt.userId === user.id) : [];
   const competitionBoards = quizzes.filter((quiz) => quiz.isCompetition).map((quiz) => ({ quiz, entries: buildCompetitionLeaderboard(quiz, db.attempts, db.users) }));
+  const managedQuizzes = user && (user.role === "teacher" || user.role === "admin") ? db.quizzes.filter((quiz) => user.role === "admin" || quiz.createdBy === user.id) : [];
 
   const startQuiz = (quizId: string) => {
     setAnswers({});
@@ -43,10 +52,56 @@ function QuizzesPage() {
     setResult({ quizId: activeQuiz.id, ...scored });
   };
 
+  const addDraftQuestion = () => setDraftQuestions((current) => [...current, { id: `draft-${Date.now()}`, text: "", options: ["", "", "", ""], answerIndex: 0 }]);
+  const updateDraftQuestion = (id: string, patch: Partial<QuizQuestion>) => setDraftQuestions((current) => current.map((question) => question.id === id ? { ...question, ...patch } : question));
+  const updateDraftOption = (id: string, index: number, value: string) => setDraftQuestions((current) => current.map((question) => question.id === id ? { ...question, options: question.options.map((option, optionIndex) => optionIndex === index ? value : option) } : question));
+  const saveNewQuiz = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user || (user.role !== "teacher" && user.role !== "admin") || mode !== "demo") return;
+    try {
+      commit((current) => createQuiz(current, user, { title: draftTitle, description: draftDescription, timeLimitMin: Number(draftTime), open: true, isCompetition: draftCompetition, questions: draftQuestions }));
+      setDraftTitle(""); setDraftDescription(""); setDraftTime("10"); setDraftCompetition(false);
+      setDraftQuestions([{ id: `draft-${Date.now()}`, text: "", options: ["", "", "", ""], answerIndex: 0 }]);
+      toast.success("آزمون ساخته و منتشر شد.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "ساخت آزمون انجام نشد."); }
+  };
+  const toggleQuiz = (quizId: string, open: boolean) => {
+    if (!user || mode !== "demo") return;
+    try {
+      commit((current) => setQuizOpen(current, user, quizId, open));
+      toast.success(open ? "آزمون منتشر شد." : "آزمون غیرفعال شد.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "تغییر وضعیت آزمون انجام نشد."); }
+  };
+
   return <>
     <PageHeader title="مسابقات و آزمون‌ها" subtitle="آزمون‌های فعال و سنجش آموخته‌ها" icon={Trophy} />
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
       {mode === "backend" && <p className="rounded-xl border p-4 text-sm text-muted-foreground">اجرای آزمون و ثبت پاسخ‌ها در نسخه متصل به پایگاه داده هنوز فعال نشده است؛ در این حالت نتیجه‌ای به‌صورت آزمایشی ذخیره نمی‌شود.</p>}
+      {(user?.role === "teacher" || user?.role === "admin") && mode === "demo" && !activeQuiz && <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div><h2 className="font-extrabold">مدیریت آزمون‌ها</h2><p className="mt-1 text-sm text-muted-foreground">آزمون جدید بسازید، سؤال و گزینه‌ها را وارد کنید و وضعیت انتشار را مدیریت کنید.</p></div>
+        <form onSubmit={saveNewQuiz} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-semibold">عنوان آزمون<input required value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal" placeholder="مثلاً آزمون روان‌خوانی"/></label>
+            <label className="text-sm font-semibold">مدت آزمون (دقیقه)<input required type="number" min="1" max="240" value={draftTime} onChange={(event) => setDraftTime(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/></label>
+          </div>
+          <label className="block text-sm font-semibold">توضیحات<textarea value={draftDescription} onChange={(event) => setDraftDescription(event.target.value)} rows={2} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal" placeholder="هدف و محدوده آزمون"/></label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draftCompetition} onChange={(event) => setDraftCompetition(event.target.checked)}/> این آزمون به‌صورت مسابقه و همراه رتبه‌بندی باشد</label>
+          <div className="space-y-3">
+            {draftQuestions.map((question, index) => <fieldset key={question.id} className="space-y-3 rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-2"><legend className="text-sm font-bold">پرسش {faNum(index + 1)}</legend>{draftQuestions.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => setDraftQuestions((current) => current.filter((item) => item.id !== question.id))}><Trash2 className="me-1 h-4 w-4"/>حذف پرسش</Button>}</div>
+              <input required value={question.text} onChange={(event) => updateDraftQuestion(question.id, { text: event.target.value })} className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm" placeholder="متن پرسش را وارد کنید"/>
+              <div className="grid gap-2 sm:grid-cols-2">{question.options.map((option, optionIndex) => <label key={optionIndex} className="text-xs font-semibold">گزینه {faNum(optionIndex + 1)}<input required value={option} onChange={(event) => updateDraftOption(question.id, optionIndex, event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" placeholder={`متن گزینه ${faNum(optionIndex + 1)}`}/></label>)}</div>
+              <label className="block text-sm font-semibold">پاسخ صحیح<select value={question.answerIndex} onChange={(event) => updateDraftQuestion(question.id, { answerIndex: Number(event.target.value) })} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">{question.options.map((_, optionIndex) => <option key={optionIndex} value={optionIndex}>گزینه {faNum(optionIndex + 1)}</option>)}</select></label>
+            </fieldset>)}
+            <Button type="button" variant="outline" onClick={addDraftQuestion}><Plus className="me-2 h-4 w-4"/>افزودن پرسش</Button>
+          </div>
+          <Button type="submit" disabled={!draftTitle.trim() || !draftQuestions.length}>ساخت و انتشار آزمون</Button>
+        </form>
+        <div className="border-t pt-4"><h3 className="font-bold">آزمون‌های ساخته‌شده</h3>
+          {managedQuizzes.length ? <ul className="mt-2 divide-y">{managedQuizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{quiz.title}</p><p className="text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {quiz.open ? "منتشرشده" : "غیرفعال"}</p></div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
+        </div>
+      </section>}
+      {mode === "backend" && (user?.role === "teacher" || user?.role === "admin") && <p className="rounded-xl border p-4 text-sm text-muted-foreground">مدیریت آزمون در حالت اتصال واقعی هنوز فعال نشده است؛ این ابزار فعلاً فقط در حالت نمایشی کار می‌کند.</p>}
       {!user && <p className="rounded-xl border p-4 text-sm">برای شرکت در آزمون ابتدا <Link className="font-bold text-primary underline" to="/auth">وارد حساب دانش‌پژوه</Link> شوید.</p>}
       {user && user.role !== "student" && <p className="rounded-xl border p-4 text-sm">شرکت در آزمون از حساب دانش‌پژوه امکان‌پذیر است.</p>}
       {activeQuiz && user?.role === "student" && mode === "demo" ? (
