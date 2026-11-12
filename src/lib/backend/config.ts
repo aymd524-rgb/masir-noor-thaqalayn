@@ -20,7 +20,7 @@ export const REQUIRED_CONNECTION = [
 
 /** Database objects the app reads. Existing ones are used as-is, never altered. */
 export const EXPECTED_BACKEND_OBJECTS = [
-  "جدول profiles با ستون‌های id و full_name و role (موجود)",
+  "جدول profiles با ستون‌های id و full_name و role و phone (موجود)",
   "تابع is_admin() برای تشخیص مدیر (موجود)",
   "سیاست‌های امنیتی profiles_select و profiles_admin (موجود — دست‌نخورده)",
 ] as const;
