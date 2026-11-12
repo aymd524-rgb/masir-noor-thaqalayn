@@ -26,6 +26,13 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const [gradeEnrollmentId, setGradeEnrollmentId] = useState("");
   const [gradeTitle, setGradeTitle] = useState("");
   const [gradeScore, setGradeScore] = useState("0");
+  const [hifzEnrollmentId, setHifzEnrollmentId] = useState("");
+  const [hifzSurah, setHifzSurah] = useState("1");
+  const [hifzAyahStart, setHifzAyahStart] = useState("1");
+  const [hifzAyahEnd, setHifzAyahEnd] = useState("1");
+  const [hifzType, setHifzType] = useState<"memorization" | "review">("memorization");
+  const [hifzAssessment, setHifzAssessment] = useState<"excellent" | "good" | "fair" | "needs_practice">("good");
+  const [hifzNotes, setHifzNotes] = useState("");
 
   const reload = async () => {
     const sb = getSupabase();
@@ -155,6 +162,47 @@ export function TeacherBackendPanel({ user }: { user: User }) {
           <button type="submit" disabled={saving || !selectedEnrollmentId || !gradeTitle.trim()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">ذخیره نمره</button>
         </form>
         {workspace.grades.filter((item) => enrollments.some((enrollment) => enrollment.id === item.enrollmentId)).length > 0 && <ul className="divide-y border-t pt-2">{workspace.grades.filter((item) => enrollments.some((enrollment) => enrollment.id === item.enrollmentId)).map((item) => <li key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span>{enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.studentName} · {item.title}</span><strong>{item.score}</strong></li>)}</ul>}
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div><h2 className="font-extrabold">ثبت حفظ و مرور قرآن</h2><p className="mt-1 text-sm text-muted-foreground">محدوده آیات و ارزیابی هر جلسه را برای دانش‌پژوه ثبت کنید.</p></div>
+        <form onSubmit={async (event) => {
+          event.preventDefault();
+          const sb = getSupabase();
+          if (!sb || !selectedHifzEnrollmentId) return;
+          setSaving(true);
+          try {
+            await saveTeacherHifzRecord(sb, { enrollmentId: selectedHifzEnrollmentId, surahNumber: Number(hifzSurah), ayahStart: Number(hifzAyahStart), ayahEnd: Number(hifzAyahEnd), recordType: hifzType, assessment: hifzAssessment, sessionDate, notes: hifzNotes });
+            await reload();
+            setHifzNotes("");
+            toast.success("ارزیابی حفظ قرآن ثبت شد.");
+          } catch (error) { toast.error(error instanceof Error ? error.message : "ثبت ارزیابی حفظ انجام نشد."); }
+          finally { setSaving(false); }
+        }} className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-semibold sm:col-span-2">دانش‌پژوه
+            <select value={selectedHifzEnrollmentId} onChange={(event) => setHifzEnrollmentId(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">{enrollments.map((item) => <option key={item.id} value={item.id}>{item.studentName}</option>)}</select>
+          </label>
+          <label className="text-sm font-semibold">شماره سوره
+            <input type="number" min="1" max="114" value={hifzSurah} onChange={(event) => setHifzSurah(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold">نوع فعالیت
+            <select value={hifzType} onChange={(event) => setHifzType(event.target.value as "memorization" | "review")} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"><option value="memorization">حفظ جدید</option><option value="review">مرور محفوظات</option></select>
+          </label>
+          <label className="text-sm font-semibold">از آیه
+            <input type="number" min="1" max="286" value={hifzAyahStart} onChange={(event) => setHifzAyahStart(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold">تا آیه
+            <input type="number" min={hifzAyahStart} max="286" value={hifzAyahEnd} onChange={(event) => setHifzAyahEnd(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold sm:col-span-2">نتیجه ارزیابی
+            <select value={hifzAssessment} onChange={(event) => setHifzAssessment(event.target.value as typeof hifzAssessment)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"><option value="excellent">عالی</option><option value="good">خوب</option><option value="fair">قابل قبول</option><option value="needs_practice">نیازمند تمرین</option></select>
+          </label>
+          <label className="text-sm font-semibold sm:col-span-2">یادداشت استاد (اختیاری)
+            <textarea maxLength={1000} rows={2} value={hifzNotes} onChange={(event) => setHifzNotes(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal" placeholder="نکته‌ای درباره کیفیت حفظ یا مرور..."/>
+          </label>
+          <button type="submit" disabled={saving || !selectedHifzEnrollmentId} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:col-span-2">ثبت ارزیابی قرآن</button>
+        </form>
+        {workspace.hifzRecords.filter((record) => enrollments.some((item) => item.id === record.enrollmentId)).slice(0, 12).map((record) => <p key={record.id} className="border-t pt-2 text-sm"><b>{enrollments.find((item) => item.id === record.enrollmentId)?.studentName}</b><span className="text-muted-foreground"> · {record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · سوره {record.surahNumber}، آیات {record.ayahStart} تا {record.ayahEnd} · {record.assessment}</span></p>)}
       </section>
     </>}
 
