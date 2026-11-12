@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trophy, CheckCircle2, ClipboardList, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/ui-bits";
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { createQuiz, setQuizOpen } from "@/lib/domain/actions";
-import type { QuizQuestion } from "@/lib/domain/types";
+import type { Quiz, QuizAttempt, QuizQuestion } from "@/lib/domain/types";
+import { getSupabase } from "@/lib/backend/supabase";
+import { createBackendQuiz, loadBackendQuizWorkspace, setBackendQuizPublished, submitBackendQuizAttempt } from "@/lib/backend/quizzes";
 import { commit, useDb } from "@/lib/store";
 import { faNum } from "@/lib/format";
 import { scoreQuizAnswers } from "@/lib/quizzes/scoring";
@@ -27,10 +29,37 @@ function QuizzesPage() {
   const [draftTime, setDraftTime] = useState("10");
   const [draftCompetition, setDraftCompetition] = useState(false);
   const [draftQuestions, setDraftQuestions] = useState<QuizQuestion[]>([{ id: "draft-1", text: "", options: ["", "", "", ""], answerIndex: 0 }]);
+  const [backendQuizzes, setBackendQuizzes] = useState<Quiz[]>([]);
+  const [backendAttempts, setBackendAttempts] = useState<QuizAttempt[]>([]);
+  const [backendLoading, setBackendLoading] = useState(false);
+  const [backendSubmitting, setBackendSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (mode !== "backend" || !user) return;
+    let alive = true;
+    const sb = getSupabase();
+    if (!sb) return;
+    setBackendLoading(true);
+    loadBackendQuizWorkspace(sb, user)
+      .then((workspace) => {
+        if (!alive) return;
+        setBackendQuizzes(workspace.quizzes);
+        setBackendAttempts(workspace.attempts);
+      })
+      .catch((error) => {
+        if (alive) toast.error(error instanceof Error ? error.message : "بارگذاری آزمون‌ها انجام نشد.");
+      })
+      .finally(() => { if (alive) setBackendLoading(false); });
+    return () => { alive = false; };
+  }, [mode, user?.id, user?.role]);
+
+  const sourceQuizzes = mode === "backend" ? backendQuizzes : db.quizzes;
+  const quizzes = sourceQuizzes.filter((quiz) => quiz.open);
   const activeQuiz = quizzes.find((quiz) => quiz.id === activeId);
-  const attempts = user ? db.attempts.filter((attempt) => attempt.userId === user.id) : [];
-  const competitionBoards = quizzes.filter((quiz) => quiz.isCompetition).map((quiz) => ({ quiz, entries: buildCompetitionLeaderboard(quiz, db.attempts, db.users) }));
-  const managedQuizzes = user && (user.role === "teacher" || user.role === "admin") ? db.quizzes.filter((quiz) => user.role === "admin" || quiz.createdBy === user.id) : [];
+  const allAttempts = mode === "backend" ? backendAttempts : db.attempts;
+  const attempts = user ? allAttempts.filter((attempt) => attempt.userId === user.id) : [];
+  const competitionBoards = mode === "demo" ? quizzes.filter((quiz) => quiz.isCompetition).map((quiz) => ({ quiz, entries: buildCompetitionLeaderboard(quiz, db.attempts, db.users) })) : [];
+  const managedQuizzes = user && (user.role === "teacher" || user.role === "admin") ? sourceQuizzes.filter((quiz) => user.role === "admin" || quiz.createdBy === user.id) : [];
 
   const startQuiz = (quizId: string) => {
     setAnswers({});
@@ -38,37 +67,64 @@ function QuizzesPage() {
     setActiveId(quizId);
   };
 
-  const submitQuiz = () => {
-    if (!activeQuiz || !user || user.role !== "student" || mode !== "demo") return;
-    const scored = scoreQuizAnswers(activeQuiz.questions, answers);
-    const attemptId = `attempt-${user.id}-${activeQuiz.id}-${Date.now()}`;
-    commit((current) => ({
-      ...current,
-      attempts: [...current.attempts, {
+  const submitQuiz = async () => {
+    if (!activeQuiz || !user || user.role !== "student" || backendSubmitting) return;
+    if (mode === "demo") {
+      const scored = scoreQuizAnswers(activeQuiz.questions, answers);
+      const attemptId = `attempt-${user.id}-${activeQuiz.id}-${Date.now()}`;
+      commit((current) => ({ ...current, attempts: [...current.attempts, {
         id: attemptId, quizId: activeQuiz.id, userId: user.id,
         score: scored.correct, total: scored.total, at: new Date().toISOString(),
-      }],
-    }));
-    setResult({ quizId: activeQuiz.id, ...scored });
+      }] }));
+      setResult({ quizId: activeQuiz.id, ...scored });
+      return;
+    }
+    const sb = getSupabase();
+    if (!sb) return;
+    setBackendSubmitting(true);
+    try {
+      const saved = await submitBackendQuizAttempt(sb, activeQuiz.id, answers);
+      setResult({ quizId: activeQuiz.id, correct: saved.correct_count, total: saved.total_questions, score: saved.percentage });
+      const workspace = await loadBackendQuizWorkspace(sb, user);
+      setBackendAttempts(workspace.attempts);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ثبت پاسخ‌ها انجام نشد.");
+    } finally { setBackendSubmitting(false); }
   };
 
   const addDraftQuestion = () => setDraftQuestions((current) => [...current, { id: `draft-${Date.now()}`, text: "", options: ["", "", "", ""], answerIndex: 0 }]);
   const updateDraftQuestion = (id: string, patch: Partial<QuizQuestion>) => setDraftQuestions((current) => current.map((question) => question.id === id ? { ...question, ...patch } : question));
   const updateDraftOption = (id: string, index: number, value: string) => setDraftQuestions((current) => current.map((question) => question.id === id ? { ...question, options: question.options.map((option, optionIndex) => optionIndex === index ? value : option) } : question));
-  const saveNewQuiz = (event: React.FormEvent<HTMLFormElement>) => {
+  const saveNewQuiz = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || (user.role !== "teacher" && user.role !== "admin") || mode !== "demo") return;
+    if (!user || (user.role !== "teacher" && user.role !== "admin")) return;
     try {
-      commit((current) => createQuiz(current, user, { title: draftTitle, description: draftDescription, timeLimitMin: Number(draftTime), open: true, isCompetition: draftCompetition, questions: draftQuestions }));
+      if (mode === "demo") {
+        commit((current) => createQuiz(current, user, { title: draftTitle, description: draftDescription, timeLimitMin: Number(draftTime), open: true, isCompetition: draftCompetition, questions: draftQuestions }));
+      } else {
+        const sb = getSupabase();
+        if (!sb) throw new Error("اتصال پایگاه داده در دسترس نیست.");
+        await createBackendQuiz(sb, user, { title: draftTitle, description: draftDescription, timeLimitMin: Number(draftTime), isCompetition: draftCompetition, questions: draftQuestions });
+        const workspace = await loadBackendQuizWorkspace(sb, user);
+        setBackendQuizzes(workspace.quizzes);
+        setBackendAttempts(workspace.attempts);
+      }
       setDraftTitle(""); setDraftDescription(""); setDraftTime("10"); setDraftCompetition(false);
       setDraftQuestions([{ id: `draft-${Date.now()}`, text: "", options: ["", "", "", ""], answerIndex: 0 }]);
       toast.success("آزمون ساخته و منتشر شد.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "ساخت آزمون انجام نشد."); }
   };
-  const toggleQuiz = (quizId: string, open: boolean) => {
-    if (!user || mode !== "demo") return;
+  const toggleQuiz = async (quizId: string, open: boolean) => {
+    if (!user) return;
     try {
-      commit((current) => setQuizOpen(current, user, quizId, open));
+      if (mode === "demo") commit((current) => setQuizOpen(current, user, quizId, open));
+      else {
+        const sb = getSupabase();
+        if (!sb) throw new Error("اتصال پایگاه داده در دسترس نیست.");
+        await setBackendQuizPublished(sb, quizId, open);
+        const workspace = await loadBackendQuizWorkspace(sb, user);
+        setBackendQuizzes(workspace.quizzes);
+      }
       toast.success(open ? "آزمون منتشر شد." : "آزمون غیرفعال شد.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "تغییر وضعیت آزمون انجام نشد."); }
   };
@@ -76,8 +132,8 @@ function QuizzesPage() {
   return <>
     <PageHeader title="مسابقات و آزمون‌ها" subtitle="آزمون‌های فعال و سنجش آموخته‌ها" icon={Trophy} />
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      {mode === "backend" && <p className="rounded-xl border p-4 text-sm text-muted-foreground">اجرای آزمون و ثبت پاسخ‌ها در نسخه متصل به پایگاه داده هنوز فعال نشده است؛ در این حالت نتیجه‌ای به‌صورت آزمایشی ذخیره نمی‌شود.</p>}
-      {(user?.role === "teacher" || user?.role === "admin") && mode === "demo" && !activeQuiz && <section className="space-y-4 rounded-2xl border bg-card p-5">
+      {mode === "backend" && <p className="rounded-xl border p-4 text-sm text-muted-foreground">{backendLoading ? "در حال دریافت آزمون‌ها از پایگاه داده..." : "آزمون‌ها و نتایج این بخش از پایگاه داده دریافت و در همان‌جا ثبت می‌شوند."}</p>}
+      {(user?.role === "teacher" || user?.role === "admin") && !activeQuiz && <section className="space-y-4 rounded-2xl border bg-card p-5">
         <div><h2 className="font-extrabold">مدیریت آزمون‌ها</h2><p className="mt-1 text-sm text-muted-foreground">آزمون جدید بسازید، سؤال و گزینه‌ها را وارد کنید و وضعیت انتشار را مدیریت کنید.</p></div>
         <form onSubmit={saveNewQuiz} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -101,10 +157,9 @@ function QuizzesPage() {
           {managedQuizzes.length ? <ul className="mt-2 divide-y">{managedQuizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{quiz.title}</p><p className="text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {quiz.open ? "منتشرشده" : "غیرفعال"}</p></div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
         </div>
       </section>}
-      {mode === "backend" && (user?.role === "teacher" || user?.role === "admin") && <p className="rounded-xl border p-4 text-sm text-muted-foreground">مدیریت آزمون در حالت اتصال واقعی هنوز فعال نشده است؛ این ابزار فعلاً فقط در حالت نمایشی کار می‌کند.</p>}
       {!user && <p className="rounded-xl border p-4 text-sm">برای شرکت در آزمون ابتدا <Link className="font-bold text-primary underline" to="/auth">وارد حساب دانش‌پژوه</Link> شوید.</p>}
       {user && user.role !== "student" && <p className="rounded-xl border p-4 text-sm">شرکت در آزمون از حساب دانش‌پژوه امکان‌پذیر است.</p>}
-      {activeQuiz && user?.role === "student" && mode === "demo" ? (
+      {activeQuiz && user?.role === "student" ? (
         <section className="rounded-2xl border bg-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><h2 className="text-lg font-extrabold">{activeQuiz.title}</h2><p className="mt-1 text-sm text-muted-foreground">{activeQuiz.description}</p></div>
@@ -134,7 +189,7 @@ function QuizzesPage() {
             </div>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">{faNum(Object.keys(answers).length)} پاسخ از {faNum(activeQuiz.questions.length)} پرسش</p>
-              <Button disabled={Object.keys(answers).length !== activeQuiz.questions.length} onClick={submitQuiz}>ثبت پاسخ‌ها و مشاهده نتیجه</Button>
+              <Button disabled={Object.keys(answers).length !== activeQuiz.questions.length || backendSubmitting} onClick={submitQuiz}>{backendSubmitting ? "در حال ثبت..." : "ثبت پاسخ‌ها و مشاهده نتیجه"}</Button>
             </div>
           </>}
         </section>
@@ -147,12 +202,12 @@ function QuizzesPage() {
             <p className="mt-3 text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {faNum(quiz.timeLimitMin)} دقیقه</p>
             <span className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{quiz.isCompetition ? "مسابقه" : "آزمون"}</span>
             {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].total ? Math.round((previous[previous.length - 1].score / previous[previous.length - 1].total) * 100) : 0)}٪</p>}
-            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || mode !== "demo"} onClick={() => startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
+            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading} onClick={() => startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
           </li>;
         })}</ul> : <EmptyState icon={Trophy} title="آزمون فعالی وجود ندارد" description="پس از انتشار آزمون توسط مدرس، اینجا نمایش داده می‌شود." />}
       </>}
       {mode === "demo" && !activeQuiz && competitionBoards.some((board) => board.entries.length > 0) && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">جدول رتبه‌بندی مسابقات</h2><div className="mt-4 space-y-5">{competitionBoards.filter((board) => board.entries.length > 0).map(({ quiz, entries }) => <div key={quiz.id}><h3 className="text-sm font-bold">{quiz.title}</h3><ol className="mt-2 divide-y">{entries.map((entry, index) => <li key={entry.userId} className="flex items-center justify-between gap-3 py-2 text-sm"><span>{faNum(index + 1)}. {entry.fullName}<span className="ms-2 text-xs text-muted-foreground">({faNum(entry.attempts)} شرکت)</span></span><b>{faNum(entry.score)}٪</b></li>)}</ol></div>)}</div></section>}
-      {user?.role === "student" && mode === "demo" && attempts.length > 0 && !activeQuiz && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">سوابق آزمون من</h2><ul className="mt-3 divide-y">{attempts.slice().reverse().map((attempt) => <li key={attempt.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{quizzes.find((quiz) => quiz.id === attempt.quizId)?.title ?? "آزمون"}</span><b>{faNum(attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0)}٪</b></li>)}</ul></section>}
+      {user?.role === "student" && attempts.length > 0 && !activeQuiz && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">سوابق آزمون من</h2><ul className="mt-3 divide-y">{attempts.slice().reverse().map((attempt) => <li key={attempt.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{quizzes.find((quiz) => quiz.id === attempt.quizId)?.title ?? "آزمون"}</span><b>{faNum(attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0)}٪</b></li>)}</ul></section>}
       <p className="text-xs text-muted-foreground">توجه: در حالت نمایشی، نتایج فقط روی همین دستگاه ذخیره می‌شوند و به حساب‌های دیگر منتقل نمی‌شوند.</p>
     </div>
   </>;
