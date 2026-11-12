@@ -153,7 +153,17 @@ function QuizzesPage() {
           <Button type="submit" disabled={!draftTitle.trim() || !draftQuestions.length}>ساخت و انتشار آزمون</Button>
         </form>
         <div className="border-t pt-4"><h3 className="font-bold">آزمون‌های ساخته‌شده</h3>
-          {managedQuizzes.length ? <ul className="mt-2 divide-y">{managedQuizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{quiz.title}</p><p className="text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {quiz.open ? "منتشرشده" : "غیرفعال"}</p></div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
+          {managedQuizzes.length ? <ul className="mt-2 divide-y">{managedQuizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{quiz.title}</p><p className="text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {quiz.open ? "منتشرشده" : "غیرفعال"}</p>
+                {(() => {
+                  const quizAttempts = allAttempts.filter((attempt) => attempt.quizId === quiz.id);
+                  const average = quizAttempts.length
+                    ? Math.round(quizAttempts.reduce((sum, attempt) => sum + (attempt.total ? (attempt.score / attempt.total) * 100 : 0), 0) / quizAttempts.length)
+                    : null;
+                  const best = quizAttempts.length
+                    ? Math.max(...quizAttempts.map((attempt) => attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0))
+                    : null;
+                  return <p className="mt-1 text-xs text-muted-foreground">شرکت‌کنندگان: {faNum(quizAttempts.length)} · میانگین: {average === null ? "—" : `${faNum(average)}٪`} · بهترین نتیجه: {best === null ? "—" : `${faNum(best)}٪`}</p>;
+                })()}</div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
         </div>
       </section>}
       {!user && <p className="rounded-xl border p-4 text-sm">برای شرکت در آزمون ابتدا <Link className="font-bold text-primary underline" to="/auth">وارد حساب دانش‌پژوه</Link> شوید.</p>}
