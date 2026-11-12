@@ -6,11 +6,14 @@ import { AdminCourseClassManager } from "./AdminCourseClassManager";
 type AdminData = {
   profiles: { id: string; full_name: string | null; role: string | null; created_at: string | null }[];
   courses: { id: string; title: string; is_active: boolean }[];
-  classes: { id: string; title: string; is_active: boolean; teacher_id: string | null }[];
+  classes: { id: string; title: string; is_active: boolean; teacher_id: string | null; course_id: string | null; capacity: number | null }[];
   requests: { id: string; student_id: string; class_id: string; status: string; payment_status: string; created_at: string }[];
   enrollments: { id: string; student_id: string; class_id: string; created_at: string }[];
   attendance: { id: string; enrollment_id: string; session_date: string; status: string }[];
   grades: { id: string; enrollment_id: string; title: string; score: number }[];
+  hifzRecords: { id: string; enrollment_id: string; record_type: string; assessment: string; ayah_start: number; ayah_end: number }[];
+  hifzAssignments: { id: string; enrollment_id: string; due_date: string }[];
+  hifzCompletions: { id: string; assignment_id: string; student_id: string; status: string }[];
 };
 
 export function AdminBackendPanel() {
@@ -24,17 +27,20 @@ export function AdminBackendPanel() {
  const loadData=useCallback(async()=>{
   const sb=getSupabase();
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
-  const [p,c,cl,r,e,a,g]=await Promise.all([
+  const [p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
    sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
-   sb.from("classes").select("id,title,is_active,teacher_id").order("created_at",{ascending:false}).limit(200),
+   sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("attendance").select("id,enrollment_id,session_date,status").order("session_date",{ascending:false}).limit(1000),
    sb.from("grades").select("id,enrollment_id,title,score").order("created_at",{ascending:false}).limit(1000),
+   sb.from("hifz_records").select("id,enrollment_id,record_type,assessment,ayah_start,ayah_end").order("session_date",{ascending:false}).limit(2000),
+   sb.from("hifz_assignments").select("id,enrollment_id,due_date").order("created_at",{ascending:false}).limit(1000),
+   sb.from("hifz_assignment_completions").select("id,assignment_id,student_id,status").limit(2000),
   ]);
-  for(const result of [p,c,cl,r,e,a,g]) if(result.error) throw new Error(result.error.message);
-  setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[]});
+  for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
+  setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[],hifzRecords:h.data??[],hifzAssignments:ha.data??[],hifzCompletions:hc.data??[]});
  },[]);
 
  useEffect(()=>{
@@ -101,6 +107,50 @@ export function AdminBackendPanel() {
   <section className="rounded-2xl border bg-card p-5"><div><h2 className="font-extrabold">گزارش تفصیلی کلاس‌ها</h2><p className="mt-1 text-xs text-muted-foreground">فهرست دانش‌پژوهان قطعی، وضعیت حضور و میانگین نمرات هر کلاس</p></div>
    {data.classes.length?<div className="mt-3 divide-y">{data.classes.map(cls=>{const classEnrollments=data.enrollments.filter(item=>item.class_id===cls.id);const enrollmentIds=new Set(classEnrollments.map(item=>item.id));const classAttendance=data.attendance.filter(item=>enrollmentIds.has(item.enrollment_id));const classGrades=data.grades.filter(item=>enrollmentIds.has(item.enrollment_id));const avg=classGrades.length?classGrades.reduce((sum,item)=>sum+Number(item.score),0)/classGrades.length:null;const count=(status:string)=>classAttendance.filter(item=>item.status===status).length;return <details key={cls.id} className="py-3"><summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2"><span className="font-semibold">{cls.title}</span><span className="text-xs text-muted-foreground">{classEnrollments.length} دانش‌پژوه · {cls.is_active?"فعال":"غیرفعال"}</span></summary><div className="mt-3 rounded-xl bg-muted/30 p-3"><div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4"><span>حضور: <b>{count("present")}</b></span><span>غیبت: <b>{count("absent")}</b></span><span>تأخیر: <b>{count("late")}</b></span><span>موجه: <b>{count("excused")}</b></span></div><p className="mt-2 text-xs">نمرات ثبت‌شده: <b>{classGrades.length}</b> · میانگین: <b>{avg===null?"—":avg.toLocaleString("fa-IR",{maximumFractionDigits:2})}</b></p>{classEnrollments.length?<ul className="mt-3 divide-y border-t">{classEnrollments.map(enrollment=><li key={enrollment.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{profileNames.get(enrollment.student_id)??"دانش‌پژوه"}</span><span className="text-xs text-muted-foreground">{classAttendance.filter(item=>item.enrollment_id===enrollment.id).length} رکورد حضور · {classGrades.filter(item=>item.enrollment_id===enrollment.id).length} نمره</span></li>)}</ul>:<p className="mt-3 text-xs text-muted-foreground">هنوز ثبت‌نام قطعی ندارد.</p>}</div></details>})}</div>:<p className="mt-3 text-sm text-muted-foreground">کلاسی ثبت نشده است.</p>}
    <p className="mt-2 text-xs text-muted-foreground">گزارش بر اساس حداکثر ۲۰۰ ثبت‌نام، ۱۰۰۰ رکورد حضور و ۱۰۰۰ نمرهٔ اخیر بارگذاری‌شده است؛ برای گزارش حسابرسی کامل باید صفحه‌بندی جداگانه اضافه شود.</p>
+  </section>
+  <section className="rounded-2xl border bg-card p-5">
+   <div><h2 className="font-extrabold">داشبورد عملکرد دوره‌ها و کلاس‌ها</h2><p className="mt-1 text-xs text-muted-foreground">مقایسه ثبت‌نام، حضور مؤثر، میانگین نمرات و فعالیت‌های حفظ قرآن در هر دوره؛ فقط بر اساس داده‌های بارگذاری‌شده.</p></div>
+   {data.courses.length?<div className="mt-3 divide-y">{data.courses.map(course=>{
+    const courseClasses=data.classes.filter(item=>item.course_id===course.id);
+    const classIds=new Set(courseClasses.map(item=>item.id));
+    const courseEnrollments=data.enrollments.filter(item=>classIds.has(item.class_id));
+    const enrollmentIds=new Set(courseEnrollments.map(item=>item.id));
+    const attendance=data.attendance.filter(item=>enrollmentIds.has(item.enrollment_id));
+    const present=attendance.filter(item=>item.status==="present"||item.status==="late").length;
+    const grades=data.grades.filter(item=>enrollmentIds.has(item.enrollment_id));
+    const average=grades.length?grades.reduce((sum,item)=>sum+Number(item.score),0)/grades.length:null;
+    const records=data.hifzRecords.filter(item=>enrollmentIds.has(item.enrollment_id));
+    const memorization=records.filter(item=>item.record_type==="memorization");
+    const reviews=records.filter(item=>item.record_type==="review");
+    const assignments=data.hifzAssignments.filter(item=>enrollmentIds.has(item.enrollment_id));
+    const assignmentIds=new Set(assignments.map(item=>item.id));
+    const completions=data.hifzCompletions.filter(item=>assignmentIds.has(item.assignment_id));
+    const completedIds=new Set(completions.filter(item=>item.status==="completed").map(item=>item.assignment_id+"|"+item.student_id));
+    const completed=completedIds.size;
+    const assignmentTotal=assignments.length;
+    return <details key={course.id} className="py-3">
+     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2"><span className="font-semibold">{course.title}</span><span className="text-xs text-muted-foreground">{courseClasses.length} کلاس · {courseEnrollments.length} ثبت‌نام</span></summary>
+     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="rounded-lg bg-muted/40 p-3"><b>{courseClasses.filter(item=>item.is_active).length}</b><p className="text-xs text-muted-foreground">کلاس فعال</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{new Set(courseEnrollments.map(item=>item.student_id)).size}</b><p className="text-xs text-muted-foreground">دانش‌پژوه یکتا</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{attendance.length?Math.round(present/attendance.length*100)+"٪":"—"}</b><p className="text-xs text-muted-foreground">حضور مؤثر</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{average===null?"—":average.toLocaleString("fa-IR",{maximumFractionDigits:2})}</b><p className="text-xs text-muted-foreground">میانگین نمرات</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{memorization.length}</b><p className="text-xs text-muted-foreground">رکورد حفظ جدید</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{reviews.length}</b><p className="text-xs text-muted-foreground">رکورد مرور</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{records.filter(item=>item.assessment==="excellent").length}</b><p className="text-xs text-muted-foreground">ارزیابی عالی</p></div>
+      <div className="rounded-lg bg-muted/40 p-3"><b>{assignmentTotal?Math.round(completed/assignmentTotal*100)+"٪":"—"}</b><p className="text-xs text-muted-foreground">تکمیل برنامه‌ها</p></div>
+     </div>
+     {courseClasses.length?<ul className="mt-3 divide-y border-t">{courseClasses.map(cls=>{
+      const rows=courseEnrollments.filter(item=>item.class_id===cls.id);
+      const used=rows.length;
+      const capacityLabel=cls.capacity===null?"ظرفیت نامحدود":used+" از "+cls.capacity+" نفر";
+      const teacher=data.profiles.find(item=>item.id===cls.teacher_id);
+      return <li key={cls.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{cls.title} <span className="text-xs text-muted-foreground">· {teacher?.full_name||"بدون استاد"}</span></span><span className="text-xs text-muted-foreground">{capacityLabel} · {cls.is_active?"فعال":"غیرفعال"}</span></li>
+     })}</ul>:<p className="mt-2 text-xs text-muted-foreground">هنوز کلاسی برای این دوره ساخته نشده است.</p>}
+    </div>
+    </details>
+   })}</div>:<p className="mt-3 text-sm text-muted-foreground">دوره‌ای برای گزارش وجود ندارد.</p>}
+   <p className="mt-3 text-xs text-muted-foreground">محدودیت داده: حداکثر ۲۰۰ دوره/کلاس/ثبت‌نام، ۱۰۰۰ حضور و نمره، ۲۰۰۰ رکورد حفظ و تکمیل برنامه و ۱۰۰۰ برنامه اخیر. این اعداد گزارش کامل تاریخی نیستند. درصد تکمیل برنامه از رکوردهای تکمیل‌شده برای هر دانش‌پژوه/برنامه محاسبه می‌شود.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">درخواست‌های ثبت‌نام در انتظار بررسی</h2>
    {pending.length?<ul className="mt-3 divide-y">{pending.slice(0,30).map(req=><li key={req.id} className="space-y-3 py-3 text-sm">
