@@ -16,6 +16,21 @@ type AdminData = {
   hifzCompletions: { id: string; assignment_id: string; student_id: string; status: string }[];
 };
 
+
+async function readAllPages<T>(
+ makeQuery:(from:number,to:number)=>PromiseLike<{data:T[]|null;error:{message:string}|null}>,
+ pageSize=500,
+):Promise<T[]>{
+ const rows:T[]=[];
+ for(let from=0;;from+=pageSize){
+  const {data,error}=await makeQuery(from,from+pageSize-1);
+  if(error)throw new Error(error.message);
+  const page=data??[];
+  rows.push(...page);
+  if(page.length<pageSize)return rows;
+ }
+}
+
 export function AdminBackendPanel() {
  const [data,setData]=useState<AdminData|null>(null);
  const [loading,setLoading]=useState(true);
@@ -36,23 +51,23 @@ export function AdminBackendPanel() {
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
   const [{data:userResult,error:userError},p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
    sb.auth.getUser(),
-   sb.from("profiles").select("id,full_name,phone,role,created_at",{count:"exact"}).order("created_at",{ascending:false}).range(0,199),
-   sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
-   sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).limit(200),
-   sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).limit(200),
-   sb.from("enrollments").select("id,student_id,class_id,created_at",{count:"exact"}).order("created_at",{ascending:false}).range(0,199),
-   sb.from("attendance").select("id,enrollment_id,session_date,status").order("session_date",{ascending:false}).limit(1000),
-   sb.from("grades").select("id,enrollment_id,title,score").order("created_at",{ascending:false}).limit(1000),
-   sb.from("hifz_records").select("id,enrollment_id,record_type,assessment,ayah_start,ayah_end").order("session_date",{ascending:false}).limit(2000),
-   sb.from("hifz_assignments").select("id,enrollment_id,due_date").order("created_at",{ascending:false}).limit(1000),
-   sb.from("hifz_assignment_completions").select("id,assignment_id,student_id,status").limit(2000),
+   readAllPages((from,to)=>sb.from("profiles").select("id,full_name,phone,role,created_at").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("attendance").select("id,enrollment_id,session_date,status").order("session_date",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("grades").select("id,enrollment_id,title,score").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("hifz_records").select("id,enrollment_id,record_type,assessment,ayah_start,ayah_end").order("session_date",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("hifz_assignments").select("id,enrollment_id,due_date").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("hifz_assignment_completions").select("id,assignment_id,student_id,status").range(from,to)),
   ]);
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
-  setProfilesTotal(p.count??p.data?.length??0);
-  setEnrollmentsTotal(e.count??e.data?.length??0);
+  setProfilesTotal(p.length);
+  setEnrollmentsTotal(e.length);
   for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
-  setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[],hifzRecords:h.data??[],hifzAssignments:ha.data??[],hifzCompletions:hc.data??[]});
+  setData({profiles:p,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
  },[]);
 
  useEffect(()=>{
