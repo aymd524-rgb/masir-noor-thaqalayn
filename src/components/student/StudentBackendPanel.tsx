@@ -124,6 +124,24 @@ export function StudentBackendPanel({ user }: { user: User }) {
       </div>
     </section>
     <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">برنامه هفتگی حفظ و مرور من</h2>
+      <p className="mt-1 text-xs text-muted-foreground">برنامه‌های تعیین‌شده توسط استاد و مهلت انجام آن‌ها در این قسمت نمایش داده می‌شود.</p>
+      {workspace.hifzAssignments.length ? <ul className="mt-3 divide-y">{workspace.hifzAssignments.map((item) => <li key={item.id} className="py-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <b className="text-sm">{item.assignmentType === "memorization" ? "حفظ جدید" : "مرور"} · {getSurah(item.surahNumber)?.name ?? ("سوره " + item.surahNumber)}، آیات {item.ayahStart} تا {item.ayahEnd}</b>
+            <p className="mt-1 text-xs text-muted-foreground">{item.classTitle} · مهلت: {new Date(item.dueDate + "T00:00:00").toLocaleDateString("fa-IR")}</p>
+            {item.instructions && <p className="mt-1 text-sm">{item.instructions}</p>}
+          </div>
+          <select aria-label="وضعیت برنامه حفظ" disabled={busyAssignment === item.id} value={item.status ?? "in_progress"} onChange={(event) => void updateAssignment(item.id, event.target.value as "in_progress" | "completed" | "needs_help")} className="rounded-lg border bg-background px-3 py-2 text-sm">
+            <option value="in_progress">در حال انجام</option>
+            <option value="completed">انجام شد</option>
+            <option value="needs_help">نیاز به کمک دارم</option>
+          </select>
+        </div>
+      </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز برنامه‌ای از طرف استاد تعیین نشده است.</p>}
+    </section>
+    <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">کلاس‌های قابل ثبت‌نام</h2>
       {workspace.classes.length ? <ul className="mt-3 divide-y">{workspace.classes.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div><p className="font-semibold">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.courseTitle}{item.description ? " · " + item.description : ""}</p><p className="mt-1 text-xs font-medium text-muted-foreground">{item.capacity === null ? "ظرفیت نامحدود" : item.remainingSeats === 0 ? "ظرفیت تکمیل" : `${item.remainingSeats} جای خالی از ${item.capacity}`}</p></div>
