@@ -51,6 +51,11 @@ export function StudentBackendPanel({ user }: { user: User }) {
   if (!workspace) return <p className="rounded-xl border p-4 text-sm">اطلاعات بارگذاری نشد. اتصال و دسترسی پایگاه داده را بررسی کنید.</p>;
   const present = workspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
   const attendanceRate = workspace.attendance.length ? Math.round(present / workspace.attendance.length * 100) : null;
+  const memorizationRecords = workspace.hifzRecords.filter((record) => record.recordType === "memorization");
+  const reviewRecords = workspace.hifzRecords.filter((record) => record.recordType === "review");
+  const memorizationAyahEntries = memorizationRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
+  const reviewAyahEntries = reviewRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
+  const excellentHifzAssessments = workspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
   const enrollmentProgress = workspace.enrollments.map((enrollment) => {
     const records = workspace.attendance.filter((item) => item.enrollmentId === enrollment.id);
     const effective = records.filter((item) => item.status === "present" || item.status === "late").length;
@@ -80,7 +85,14 @@ export function StudentBackendPanel({ user }: { user: User }) {
       </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
       <div className="mt-4 border-t pt-4">
         <h3 className="font-bold">گزارش حفظ و مرور قرآن</h3>
-        <p className="mt-1 text-xs text-muted-foreground">ارزیابی‌های ثبت‌شده توسط استاد برای هر کلاس</p>
+        <p className="mt-1 text-xs text-muted-foreground">ارزیابی‌های ثبت‌شده توسط استاد برای هر کلاس؛ آمار زیر تعداد آیاتِ موجود در رکوردهاست و آیات تکراری را حذف نمی‌کند.</p>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationRecords.length}</p><p className="text-xs text-muted-foreground">جلسات ثبت حفظ جدید</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationAyahEntries}</p><p className="text-xs text-muted-foreground">آیه در رکوردهای حفظ</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewRecords.length}</p><p className="text-xs text-muted-foreground">جلسات ثبت مرور</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewAyahEntries}</p><p className="text-xs text-muted-foreground">آیه در رکوردهای مرور</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{excellentHifzAssessments}</p><p className="text-xs text-muted-foreground">ارزیابی عالی</p></div>
+        </div>
         {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((enrollment) => {
           const records = workspace.hifzRecords.filter((record) => record.enrollmentId === enrollment.id);
           return <li key={enrollment.id} className="py-3">
