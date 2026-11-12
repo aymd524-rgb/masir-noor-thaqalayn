@@ -2,7 +2,7 @@ import { getSurah } from "@/lib/quran/surahs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
-import { loadStudentWorkspace, requestStudentEnrollment } from "@/lib/backend/student";
+import { loadStudentWorkspace, requestStudentEnrollment, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
 
 const statusLabel = { pending: "در انتظار بررسی", approved: "تأیید شده", rejected: "رد شده" } as const;
@@ -13,7 +13,7 @@ const hifzAssessmentLabel = { excellent: "عالی", good: "خوب", fair: "قا
 export function StudentBackendPanel({ user }: { user: User }) {
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadStudentWorkspace>> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busyClass, setBusyClass] = useState("");
+  const [busyClass, setBusyClass] = useState("");\n  const [busyAssignment, setBusyAssignment] = useState("");
   const reload = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
@@ -36,6 +36,18 @@ export function StudentBackendPanel({ user }: { user: User }) {
 
   const pendingIds = useMemo(() => new Set((workspace?.requests ?? []).filter((r) => r.status === "pending").map((r) => r.classId)), [workspace]);
   const enrolledIds = useMemo(() => new Set((workspace?.enrollments ?? []).map((r) => r.classId)), [workspace]);
+  const updateAssignment = async (assignmentId: string, status: "in_progress" | "completed" | "needs_help") => {
+    const sb = getSupabase();
+    if (!sb) return;
+    setBusyAssignment(assignmentId);
+    try {
+      await saveStudentHifzAssignmentStatus(sb, { assignmentId, studentId: user.id, status, note: "" });
+      await reload();
+      toast.success("وضعیت برنامه حفظ به‌روزرسانی شد.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "به‌روزرسانی وضعیت انجام نشد."); }
+    finally { setBusyAssignment(""); }
+  };
+
   const submitRequest = async (classId: string) => {
     const sb = getSupabase();
     if (!sb) return;
