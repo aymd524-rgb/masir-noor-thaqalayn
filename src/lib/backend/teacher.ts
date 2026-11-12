@@ -104,6 +104,12 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     enrollmentIds.length
       ? sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", enrollmentIds)
       : Promise.resolve({ data: [], error: null }),
+    enrollmentIds.length
+      ? sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", enrollmentIds)
+      : Promise.resolve({ data: [], error: null }),
+    enrollmentIds.length
+      ? sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", enrollmentIds).order("due_date", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
   fail(profileResult.error);
   fail(attendanceResult.error);
