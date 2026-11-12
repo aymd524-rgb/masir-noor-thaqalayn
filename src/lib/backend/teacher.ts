@@ -253,7 +253,7 @@ export async function saveTeacherHifzAssignment(
   const surah = getSurah(input.surahNumber);
   if (!input.enrollmentId || !surah || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > surah.ayahCount
-    || !/^\\d{4}-\\d{2}-\\d{2}$/.test(input.dueDate) || input.instructions.length > 1000 || !input.assignedBy) {
+    || !/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) || input.instructions.length > 1000 || !input.assignedBy) {
     throw new Error("اطلاعات برنامه حفظ معتبر نیست.");
   }
   const { error } = await sb.from("hifz_assignments").insert({
