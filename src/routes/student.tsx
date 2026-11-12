@@ -5,10 +5,11 @@ import { useAuth } from "@/lib/auth";
 import { useDb } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { attendanceLabel, enrollmentLabel, faNum } from "@/lib/format";
+import { StudentBackendPanel } from "@/components/student/StudentBackendPanel";
 
 export const Route = createFileRoute("/student")({ component: StudentDashboard });
 function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, mode } = useAuth();
   const db = useDb();
   const enrollments = user ? db.enrollments.filter((e) => e.studentId === user.id) : [];
   const active = enrollments.filter((e) => e.status === "approved");
@@ -18,7 +19,7 @@ function StudentDashboard() {
   const present = attendance.filter((a) => a.status === "present" || a.status === "late").length;
   const attendanceRate = attendance.length ? Math.round((present / attendance.length) * 100) : 0;
   return <><PageHeader title="پیشخوان دانش‌پژوه" subtitle="پیگیری دوره‌ها و روند یادگیری" icon={GraduationCap}/><div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-    {!user ? <Button asChild><Link to="/auth">ورود به حساب</Link></Button> : user.role !== "student" ? <p className="rounded-xl border p-4 text-sm">این بخش برای حساب دانش‌پژوه طراحی شده است.</p> : <>
+    {!user ? <Button asChild><Link to="/auth">ورود به حساب</Link></Button> : user.role !== "student" ? <p className="rounded-xl border p-4 text-sm">این بخش برای حساب دانش‌پژوه طراحی شده است.</p> : mode === "backend" ? <StudentBackendPanel user={user}/> : <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric icon={BookOpen} label="دوره‌های تأییدشده" value={active.length}/>
         <Metric icon={CalendarCheck} label="حضور مؤثر" value={attendance.length ? faNum(attendanceRate)+"٪" : "—"}/>
