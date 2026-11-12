@@ -308,3 +308,31 @@
 @utility animate-glow {
   animation: shimmer-glow 4s ease-in-out infinite;
 }
+
+/* Print only the selected student's detailed report card. */
+@media print {
+  @page { size: A4 portrait; margin: 14mm; }
+  body * { visibility: hidden !important; }
+  #student-report-print-root,
+  #student-report-print-root * { visibility: visible !important; }
+  #student-report-print-root {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+  }
+  #student-report-print-root details:not(.print-selected) { display: none !important; }
+  #student-report-print-root details.print-selected > :not(summary) { display: block !important; }
+  #student-report-print-root .no-print { display: none !important; }
+  #student-report-print-root .bg-muted\/50 { background: #f5f5f5 !important; }
+  #student-report-print-root p,
+  #student-report-print-root span,
+  #student-report-print-root b,
+  #student-report-print-root h2,
+  #student-report-print-root h3 { color: black !important; }
+  #student-report-print-root details { break-inside: avoid; }
+}
