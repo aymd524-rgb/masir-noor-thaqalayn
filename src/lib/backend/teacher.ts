@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { validateAttendanceInput, validateGradeInput } from "./validation";
 
 export type TeacherClass = {
   id: string;
@@ -134,6 +135,7 @@ export async function saveTeacherAttendance(
   sb: SupabaseClient,
   input: { enrollmentId: string; sessionDate: string; status: TeacherAttendance["status"] },
 ) {
+  validateAttendanceInput(input);
   const { data: existing, error: findError } = await sb
     .from("attendance")
     .select("id")
@@ -158,8 +160,7 @@ export async function saveTeacherGrade(
   sb: SupabaseClient,
   input: { enrollmentId: string; title: string; score: number },
 ) {
-  if (!input.title.trim()) throw new Error("عنوان ارزشیابی الزامی است.");
-  if (!Number.isFinite(input.score) || input.score < 0) throw new Error("نمره باید عددی و نامنفی باشد.");
+  validateGradeInput(input);
   const { error } = await sb.from("grades").insert({
     enrollment_id: input.enrollmentId,
     title: input.title.trim(),
