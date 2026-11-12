@@ -17,7 +17,16 @@ export function AdminCourseClassManager() {
   const [courseId, setCourseId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [capacity, setCapacity] = useState("20");
-  const [busy, setBusy] = useState(false);\n  const [editingCourse, setEditingCourse] = useState<string | null>(null);\n  const [editCourseTitle, setEditCourseTitle] = useState("");\n  const [editCourseDescription, setEditCourseDescription] = useState("");\n  const [editingClass, setEditingClass] = useState<string | null>(null);\n  const [editClassTitle, setEditClassTitle] = useState("");\n  const [editClassDescription, setEditClassDescription] = useState("");\n  const [editCourseId, setEditCourseId] = useState("");\n  const [editTeacherId, setEditTeacherId] = useState("");\n  const [editCapacity, setEditCapacity] = useState("20");
+  const [busy, setBusy] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<string | null>(null);
+  const [editCourseTitle, setEditCourseTitle] = useState("");
+  const [editCourseDescription, setEditCourseDescription] = useState("");
+  const [editingClass, setEditingClass] = useState<string | null>(null);
+  const [editClassTitle, setEditClassTitle] = useState("");
+  const [editClassDescription, setEditClassDescription] = useState("");
+  const [editCourseId, setEditCourseId] = useState("");
+  const [editTeacherId, setEditTeacherId] = useState("");
+  const [editCapacity, setEditCapacity] = useState("20");
 
   async function reload() {
     const sb = getSupabase();
