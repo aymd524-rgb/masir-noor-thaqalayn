@@ -2,6 +2,7 @@ import { getSurah } from "@/lib/quran/surahs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
+import { toLocalDateInputValue } from "@/lib/date";
 import { loadStudentWorkspace, requestStudentEnrollment, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
 
@@ -70,7 +71,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
   const memorizationAyahEntries = memorizationRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const reviewAyahEntries = reviewRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const excellentHifzAssessments = workspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
-  const todayIso = new Date().toLocaleDateString("en-CA");
+  const todayIso = toLocalDateInputValue(new Date());
   const completedHifzAssignments = workspace.hifzAssignments.filter((item) => item.status === "completed").length;
   const overdueHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed" && item.dueDate < todayIso).length;
   const activeHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed").length;
