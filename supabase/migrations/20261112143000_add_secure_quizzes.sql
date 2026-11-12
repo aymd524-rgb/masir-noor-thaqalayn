@@ -101,7 +101,9 @@ begin
   if not exists (select 1 from public.quizzes q where q.id = p_quiz_id and q.is_published = true) then
     raise exception 'آزمون منتشرشده‌ای با این شناسه وجود ندارد.';
   end if;
-  if jsonb_typeof(p_answers) <> 'object' then raise exception 'ساختار پاسخ‌ها معتبر نیست.'; end if;
+  if p_answers is null or jsonb_typeof(p_answers) is distinct from 'object' then
+    raise exception 'ساختار پاسخ‌ها معتبر نیست.';
+  end if;
   select count(*) into v_total from public.quiz_questions qq where qq.quiz_id = p_quiz_id;
   select count(*) into v_key_count from public.quiz_questions qq
     join public.quiz_answer_keys ak on ak.question_id = qq.id where qq.quiz_id = p_quiz_id;
@@ -115,8 +117,8 @@ begin
     if not (p_answers ? v_question.id::text) then raise exception 'پاسخ همه پرسش‌ها باید ثبت شود.'; end if;
     begin v_answer := (p_answers ->> v_question.id::text)::integer;
     exception when others then raise exception 'یکی از پاسخ‌ها معتبر نیست.'; end;
-    if v_answer < 0 or v_answer >= jsonb_array_length(v_question.options)
-       or v_question.answer_index >= jsonb_array_length(v_question.options) then
+    if v_answer is null or v_answer < 0 or v_answer >= jsonb_array_length(v_question.options)
+       or v_question.answer_index < 0 or v_question.answer_index >= jsonb_array_length(v_question.options) then
       raise exception 'گزینه انتخاب‌شده معتبر نیست.';
     end if;
     if v_answer = v_question.answer_index then v_correct := v_correct + 1; end if;
