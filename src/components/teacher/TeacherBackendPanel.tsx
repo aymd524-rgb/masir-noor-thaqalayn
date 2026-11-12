@@ -97,6 +97,43 @@ export function TeacherBackendPanel({ user }: { user: User }) {
     return { ...enrollment, total: items.length, completed, rate: items.length ? Math.round(completed / items.length * 100) : 0 };
   }).filter((item) => item.total > 0);
 
+  const studentReportCards = enrollments.map((enrollment) => {
+    const hifzRecords = (workspace?.hifzRecords ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const memorization = hifzRecords.filter((item) => item.recordType === "memorization");
+    const reviews = hifzRecords.filter((item) => item.recordType === "review");
+    const attendance = (workspace?.attendance ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const grades = (workspace?.grades ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const assignments = (workspace?.hifzAssignments ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const present = attendance.filter((item) => item.status === "present").length;
+    const late = attendance.filter((item) => item.status === "late").length;
+    const absent = attendance.filter((item) => item.status === "absent").length;
+    const excused = attendance.filter((item) => item.status === "excused").length;
+    const average = grades.length ? grades.reduce((sum, item) => sum + item.score, 0) / grades.length : null;
+    const completed = assignments.filter((item) => item.completionStatus === "completed").length;
+    const overdue = assignments.filter((item) => item.completionStatus !== "completed" && item.dueDate < todayIso).length;
+    const countAyahEntries = (items: typeof hifzRecords) => items.reduce((sum, item) => sum + item.ayahEnd - item.ayahStart + 1, 0);
+    return {
+      ...enrollment,
+      memorizationCount: memorization.length,
+      memorizationAyahs: countAyahEntries(memorization),
+      reviewCount: reviews.length,
+      reviewAyahs: countAyahEntries(reviews),
+      assessmentCount: hifzRecords.length,
+      excellent: hifzRecords.filter((item) => item.assessment === "excellent").length,
+      good: hifzRecords.filter((item) => item.assessment === "good").length,
+      fair: hifzRecords.filter((item) => item.assessment === "fair").length,
+      needsPractice: hifzRecords.filter((item) => item.assessment === "needs_practice").length,
+      attendanceCount: attendance.length,
+      present, late, absent, excused,
+      attendanceRate: attendance.length ? Math.round((present + late) / attendance.length * 100) : null,
+      gradeCount: grades.length,
+      average,
+      assignmentCount: assignments.length,
+      completedAssignments: completed,
+      overdueAssignments: overdue,
+      assignmentRate: assignments.length ? Math.round(completed / assignments.length * 100) : null,
+    };
+  });
 
   const saveAttendance = async (enrollmentId: string, status: TeacherAttendance["status"]) => {
     const sb = getSupabase();
@@ -281,6 +318,56 @@ export function TeacherBackendPanel({ user }: { user: User }) {
           <button type="submit" disabled={saving || !selectedHifzEnrollmentId} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:col-span-2">ثبت ارزیابی قرآن</button>
         </form>
         {workspace.hifzRecords.filter((record) => enrollments.some((item) => item.id === record.enrollmentId)).slice(0, 12).map((record) => <p key={record.id} className="border-t pt-2 text-sm"><b>{enrollments.find((item) => item.id === record.enrollmentId)?.studentName}</b><span className="text-muted-foreground"> · {record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · سوره {record.surahNumber}، آیات {record.ayahStart} تا {record.ayahEnd} · {record.assessment}</span></p>)}
+      </section>
+      <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div>
+          <h2 className="font-extrabold">کارنامه تفصیلی دانش‌پژوهان</h2>
+          <p className="mt-1 text-sm text-muted-foreground">گزارش هر ثبت‌نام شامل محفوظات، ارزیابی استاد، حضور و غیاب، نمرات و برنامه‌های هفتگی است. برای مشاهده جزئیات، نام دانش‌پژوه را باز کنید.</p>
+        </div>
+        {studentReportCards.length ? <div className="space-y-3">
+          {studentReportCards.map((item) => <details key={item.id} className="rounded-xl border p-3">
+            <summary className="cursor-pointer list-none">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold">{item.studentName}</span>
+                <span className="text-xs text-muted-foreground">{item.attendanceCount} جلسه · {item.assessmentCount} ارزیابی حفظ · {item.assignmentCount} برنامه</span>
+              </div>
+            </summary>
+            <div className="mt-4 space-y-4 border-t pt-3">
+              <div>
+                <h3 className="mb-2 text-sm font-bold">حفظ و مرور قرآن</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationCount}</b><p className="text-xs text-muted-foreground">جلسات حفظ جدید</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationAyahs}</b><p className="text-xs text-muted-foreground">آیه در رکوردهای حفظ</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewCount}</b><p className="text-xs text-muted-foreground">جلسات مرور</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewAyahs}</b><p className="text-xs text-muted-foreground">آیه در رکوردهای مرور</p></div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">تعداد آیات، مجموع محدوده‌های ثبت‌شده است؛ آیات تکراری حذف نشده‌اند و این عدد به‌تنهایی نشان‌دهنده تعداد آیات یکتای حفظ‌شده نیست.</p>
+                <p className="mt-2 text-sm">ارزیابی‌ها: عالی {item.excellent} · خوب {item.good} · قابل قبول {item.fair} · نیازمند تمرین {item.needsPractice}</p>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-bold">حضور و غیاب</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.attendanceCount}</b><p className="text-xs text-muted-foreground">جلسات ثبت‌شده</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.present}</b><p className="text-xs text-muted-foreground">حاضر</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.late}</b><p className="text-xs text-muted-foreground">با تأخیر</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.absent}</b><p className="text-xs text-muted-foreground">غایب</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.excused}</b><p className="text-xs text-muted-foreground">غیبت موجه</p></div>
+                </div>
+                <p className="mt-2 text-sm">درصد حضور مؤثر (حاضر و با تأخیر): <b>{item.attendanceRate === null ? "بدون داده" : item.attendanceRate + "٪"}</b></p>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-bold">نمرات</h3>
+                <p className="text-sm">{item.gradeCount} نمره ثبت‌شده · میانگین: <b>{item.average === null ? "بدون نمره" : Number(item.average.toFixed(2))}</b></p>
+                {(workspace?.grades ?? []).filter((grade) => grade.enrollmentId === item.id).slice(0, 8).map((grade) => <p key={grade.id} className="mt-1 text-xs text-muted-foreground">{grade.title}: {grade.score}</p>)}
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-bold">برنامه‌های هفتگی</h3>
+                <p className="text-sm">{item.completedAssignments} از {item.assignmentCount} انجام‌شده · {item.assignmentRate === null ? "بدون برنامه" : item.assignmentRate + "٪ تکمیل"} · {item.overdueAssignments} عقب‌افتاده</p>
+                {(workspace?.hifzAssignments ?? []).filter((assignment) => assignment.enrollmentId === item.id).slice(0, 8).map((assignment) => <p key={assignment.id} className="mt-1 text-xs text-muted-foreground">{getSurah(assignment.surahNumber)?.name}، آیات {assignment.ayahStart} تا {assignment.ayahEnd} · {assignment.completionStatus === "completed" ? "انجام‌شده" : assignment.completionStatus === "needs_help" ? "نیازمند کمک" : assignment.completionStatus === "in_progress" ? "در حال انجام" : "اعلام‌نشده"}</p>)}
+              </div>
+            </div>
+          </details>)}
+        </div> : <p className="text-sm text-muted-foreground">برای این کلاس هنوز ثبت‌نام قطعی وجود ندارد.</p>}
       </section>
     </>}
 
