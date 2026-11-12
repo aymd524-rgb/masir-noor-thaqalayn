@@ -319,7 +319,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
         </form>
         {workspace.hifzRecords.filter((record) => enrollments.some((item) => item.id === record.enrollmentId)).slice(0, 12).map((record) => <p key={record.id} className="border-t pt-2 text-sm"><b>{enrollments.find((item) => item.id === record.enrollmentId)?.studentName}</b><span className="text-muted-foreground"> · {record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · سوره {record.surahNumber}، آیات {record.ayahStart} تا {record.ayahEnd} · {record.assessment}</span></p>)}
       </section>
-      <section className="space-y-4 rounded-2xl border bg-card p-5">
+      <section id="student-report-print-root" className="print-report-area space-y-4 rounded-2xl border bg-card p-5">
         <div>
           <h2 className="font-extrabold">کارنامه تفصیلی دانش‌پژوهان</h2>
           <p className="mt-1 text-sm text-muted-foreground">گزارش هر ثبت‌نام شامل محفوظات، ارزیابی استاد، حضور و غیاب، نمرات و برنامه‌های هفتگی است. برای مشاهده جزئیات، نام دانش‌پژوه را باز کنید.</p>
@@ -332,6 +332,15 @@ export function TeacherBackendPanel({ user }: { user: User }) {
                 <span className="text-xs text-muted-foreground">{item.attendanceCount} جلسه · {item.assessmentCount} ارزیابی حفظ · {item.assignmentCount} برنامه</span>
               </div>
             </summary>
+            <div className="no-print flex justify-end pt-3">
+              <button type="button" onClick={(event) => {
+                const selected = event.currentTarget.closest("details");
+                document.querySelectorAll("#student-report-print-root details").forEach((node) => {
+                  node.classList.toggle("print-selected", node === selected);
+                });
+                window.print();
+              }} className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-muted">چاپ کارنامه این دانش‌پژوه</button>
+            </div>
             <div className="mt-4 space-y-4 border-t pt-3">
               <div>
                 <h3 className="mb-2 text-sm font-bold">حفظ و مرور قرآن</h3>
