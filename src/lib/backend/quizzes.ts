@@ -68,7 +68,7 @@ export async function createBackendQuiz(
   try {
     const { data: questions, error: questionError } = await sb.from("quiz_questions").insert(input.questions.map((question, index) => ({
       quiz_id: quiz.id, prompt: question.text.trim(), options: question.options.map((option) => option.trim()), position: index + 1,
-    }))).select("id");
+    }))).select("id,position").order("position", { ascending: true });
     if (questionError) throw questionError;
     const keyRows = (questions ?? []).map((question, index) => ({ question_id: question.id, answer_index: input.questions[index].answerIndex }));
     const { error: keyError } = await sb.from("quiz_answer_keys").insert(keyRows);
