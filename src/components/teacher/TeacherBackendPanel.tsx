@@ -174,6 +174,39 @@ export function TeacherBackendPanel({ user }: { user: User }) {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-card p-5">
+        <div><h2 className="font-extrabold">برنامه هفتگی حفظ و مرور</h2><p className="mt-1 text-sm text-muted-foreground">برای هر دانش‌پژوه محدوده حفظ یا مرور و مهلت انجام تعیین کنید.</p></div>
+        <form onSubmit={async (event) => {
+          event.preventDefault();
+          const sb = getSupabase();
+          if (!sb || !selectedHifzEnrollmentId) return;
+          setSaving(true);
+          try {
+            await saveTeacherHifzAssignment(sb, { enrollmentId: selectedHifzEnrollmentId, surahNumber: Number(hifzSurah), ayahStart: Number(hifzAyahStart), ayahEnd: Number(hifzAyahEnd), assignmentType: hifzType, dueDate: assignmentDueDate, instructions: assignmentInstructions, assignedBy: user.id });
+            await reload();
+            setAssignmentInstructions("");
+            toast.success("برنامه هفتگی برای دانش‌پژوه ثبت شد.");
+          } catch (error) { toast.error(error instanceof Error ? error.message : "ثبت برنامه انجام نشد."); }
+          finally { setSaving(false); }
+        }} className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-semibold sm:col-span-2">دانش‌پژوه
+            <select value={selectedHifzEnrollmentId} onChange={(event) => setHifzEnrollmentId(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">{enrollments.map((item) => <option key={item.id} value={item.id}>{item.studentName}</option>)}</select>
+          </label>
+          <label className="text-sm font-semibold">مهلت انجام
+            <input type="date" value={assignmentDueDate} onChange={(event) => setAssignmentDueDate(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold">راهنمایی استاد
+            <input maxLength={1000} value={assignmentInstructions} onChange={(event) => setAssignmentInstructions(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal" placeholder="اختیاری"/>
+          </label>
+          <button type="submit" disabled={saving || !selectedHifzEnrollmentId} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:col-span-2">ثبت برنامه هفتگی با محدوده انتخاب‌شده در فرم حفظ</button>
+        </form>
+        <div className="divide-y">{(workspace.hifzAssignments ?? []).filter((item) => enrollments.some((enrollment) => enrollment.id === item.enrollmentId)).slice(0, 20).map((item) => <div key={item.id} className="py-3 text-sm">
+          <b>{item.studentName}</b> · {item.assignmentType === "memorization" ? "حفظ جدید" : "مرور"} · {getSurah(item.surahNumber)?.name}، آیات {item.ayahStart} تا {item.ayahEnd}
+          <p className="mt-1 text-xs text-muted-foreground">مهلت: {new Date(item.dueDate + "T00:00:00").toLocaleDateString("fa-IR")} · وضعیت: {item.completionStatus === "completed" ? "انجام‌شده" : item.completionStatus === "needs_help" ? "درخواست کمک" : item.completionStatus === "in_progress" ? "در حال انجام" : "اعلام نشده"}</p>
+          {item.completionNote && <p className="mt-1 text-xs">یادداشت دانش‌پژوه: {item.completionNote}</p>}
+        </div>)}</div>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-card p-5">
         <div><h2 className="font-extrabold">ثبت حفظ و مرور قرآن</h2><p className="mt-1 text-sm text-muted-foreground">محدوده آیات و ارزیابی هر جلسه را برای دانش‌پژوه ثبت کنید. این سوره {selectedSurah?.ayahCount ?? "—"} آیه دارد.</p></div>
         <form onSubmit={async (event) => {
           event.preventDefault();
