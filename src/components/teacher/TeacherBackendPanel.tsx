@@ -7,7 +7,8 @@ import {
   loadTeacherWorkspace,
   saveTeacherAttendance,
   saveTeacherGrade,
-  saveTeacherHifzRecord,\n  saveTeacherHifzAssignment,
+  saveTeacherHifzRecord,
+  saveTeacherHifzAssignment,
   type TeacherAttendance,
 } from "@/lib/backend/teacher";
 import type { User } from "@/lib/domain/types";
@@ -34,7 +35,9 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const [hifzAyahEnd, setHifzAyahEnd] = useState("1");
   const [hifzType, setHifzType] = useState<"memorization" | "review">("memorization");
   const [hifzAssessment, setHifzAssessment] = useState<"excellent" | "good" | "fair" | "needs_practice">("good");
-  const [hifzNotes, setHifzNotes] = useState("");\n  const [assignmentDueDate, setAssignmentDueDate] = useState(toLocalDateInputValue(new Date()));\n  const [assignmentInstructions, setAssignmentInstructions] = useState("");
+  const [hifzNotes, setHifzNotes] = useState("");
+  const [assignmentDueDate, setAssignmentDueDate] = useState(toLocalDateInputValue(new Date()));
+  const [assignmentInstructions, setAssignmentInstructions] = useState("");
 
   const reload = async () => {
     const sb = getSupabase();
