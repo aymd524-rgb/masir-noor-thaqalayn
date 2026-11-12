@@ -6,6 +6,8 @@ import type { User } from "@/lib/domain/types";
 
 const statusLabel = { pending: "در انتظار بررسی", approved: "تأیید شده", rejected: "رد شده" } as const;
 const attendanceLabel = { present: "حاضر", absent: "غایب", late: "با تأخیر", excused: "غیبت موجه" } as const;
+const hifzTypeLabel = { memorization: "حفظ جدید", review: "مرور" } as const;
+const hifzAssessmentLabel = { excellent: "عالی", good: "خوب", fair: "قابل قبول", needs_practice: "نیازمند تمرین" } as const;
 
 export function StudentBackendPanel({ user }: { user: User }) {
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadStudentWorkspace>> | null>(null);
@@ -76,7 +78,24 @@ export function StudentBackendPanel({ user }: { user: User }) {
           <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.average === null ? "—" : Number(item.average.toFixed(2))}</p><p className="text-xs text-muted-foreground">میانگین نمره</p></div>
         </div>
       </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
-      <p className="mt-3 text-xs text-muted-foreground">وضعیت حفظ قرآن هنوز در سامانه ثبت نمی‌شود؛ بنابراین در این گزارش عدد یا درصدی برای حفظ نمایش داده نشده است.</p>
+      <div className="mt-4 border-t pt-4">
+        <h3 className="font-bold">گزارش حفظ و مرور قرآن</h3>
+        <p className="mt-1 text-xs text-muted-foreground">ارزیابی‌های ثبت‌شده توسط استاد برای هر کلاس</p>
+        {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((enrollment) => {
+          const records = workspace.hifzRecords.filter((record) => record.enrollmentId === enrollment.id);
+          return <li key={enrollment.id} className="py-3">
+            <p className="text-sm font-semibold">{enrollment.classTitle} — {records.length} ارزیابی</p>
+            {records.length ? <ul className="mt-2 space-y-2">{records.slice(0, 8).map((record) => <li key={record.id} className="rounded-xl bg-muted/50 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <b>{hifzTypeLabel[record.recordType]} · سوره {record.surahNumber}، آیات {record.ayahStart}{record.ayahEnd !== record.ayahStart ? ` تا ${record.ayahEnd}` : ""}</b>
+                <span className="text-xs text-muted-foreground">{new Date(record.sessionDate + "T00:00:00").toLocaleDateString("fa-IR")}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">ارزیابی: {hifzAssessmentLabel[record.assessment]}</p>
+              {record.notes ? <p className="mt-1 text-xs">{record.notes}</p> : null}
+            </li>)}</ul> : <p className="mt-2 text-xs text-muted-foreground">هنوز ارزیابی حفظی برای این کلاس ثبت نشده است.</p>}
+          </li>;
+        })}</ul> : <p className="mt-2 text-xs text-muted-foreground">پس از ثبت‌نام قطعی در کلاس، ارزیابی‌های استاد در این قسمت نمایش داده می‌شود.</p>}
+      </div>
     </section>
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">کلاس‌های قابل ثبت‌نام</h2>
