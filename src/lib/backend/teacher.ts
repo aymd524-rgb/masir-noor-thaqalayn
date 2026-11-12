@@ -54,6 +54,29 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+async function readAllPages<T>(query: any, pageSize = 500): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    fail(error);
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function readRowsForIds<T>(
+  createQuery: (ids: string[]) => any,
+  ids: string[],
+  chunkSize = 200,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let offset = 0; offset < ids.length; offset += chunkSize) {
+    rows.push(...await readAllPages<T>(createQuery(ids.slice(offset, offset + chunkSize))));
+  }
+  return rows;
+}
+
 /**
  * Reads only rows the current user is allowed to see. Database RLS is the
  * authority; this helper does not use privileged keys or bypass policies.
@@ -65,8 +88,10 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     .eq("is_active", true);
   if (!isAdmin) classQuery = classQuery.eq("teacher_id", userId);
 
-  const { data: classRows, error: classError } = await classQuery.order("created_at", { ascending: false });
-  fail(classError);
+  const classRows = await readAllPages<{
+    id: string; title: string; course_id: string | null; teacher_id: string | null;
+    description: string | null; capacity: number | null;
+  }>(classQuery.order("created_at", { ascending: false }));
   const classes: TeacherClass[] = (classRows ?? []).map((row) => ({
     id: row.id,
     title: row.title,
@@ -80,44 +105,25 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     return { classes, enrollments: [] as TeacherEnrollment[], attendance: [] as TeacherAttendance[], grades: [] as TeacherGrade[], hifzRecords: [] as TeacherHifzRecord[], hifzAssignments: [] as TeacherHifzAssignment[], requests: [] as TeacherRequest[] };
   }
 
-  const [enrollmentResult, requestResult] = await Promise.all([
-    sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", classIds),
-    sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", classIds).eq("status", "pending"),
+  const [enrollmentRows, requestRows] = await Promise.all([
+    readRowsForIds<any>((ids) => sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", ids), classIds),
+    readRowsForIds<any>((ids) => sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", ids).eq("status", "pending"), classIds),
   ]);
-  fail(enrollmentResult.error);
-  fail(requestResult.error);
-
-  const enrollmentRows = enrollmentResult.data ?? [];
   const studentIds = [...new Set([
     ...enrollmentRows.map((row) => row.student_id),
-    ...(requestResult.data ?? []).map((row) => row.student_id),
+    ...requestRows.map((row) => row.student_id),
   ])];
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
-  const [profileResult, attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
-    studentIds.length
-      ? sb.from("profiles").select("id,full_name").in("id", studentIds)
-      : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length
-      ? sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", enrollmentIds)
-      : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length
-      ? sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", enrollmentIds)
-      : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length
-      ? sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", enrollmentIds)
-      : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length
-      ? sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", enrollmentIds).order("due_date", { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
+  const [profileRows, attendanceRows, gradeRows, hifzRows, assignmentRows] = await Promise.all([
+    studentIds.length ? readRowsForIds<any>((ids) => sb.from("profiles").select("id,full_name").in("id", ids), studentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", ids), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }), enrollmentIds) : Promise.resolve([]),
   ]);
-  fail(profileResult.error);
-  fail(attendanceResult.error);
-  fail(gradeResult.error);
-  fail(hifzResult.error);
-  fail(assignmentResult.error);
 
-  const names = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
+  const names = new Map(profileRows.map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
   const enrollments: TeacherEnrollment[] = enrollmentRows.map((row) => ({
     id: row.id,
     classId: row.class_id,
@@ -125,7 +131,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     studentName: names.get(row.student_id) ?? "دانش‌پژوه",
     createdAt: row.created_at,
   }));
-  const requests: TeacherRequest[] = (requestResult.data ?? []).map((row) => ({
+  const requests: TeacherRequest[] = requestRows.map((row) => ({
     id: row.id,
     classId: row.class_id,
     studentId: row.student_id,
@@ -134,31 +140,30 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     paymentStatus: row.payment_status,
     createdAt: row.created_at,
   }));
-  const attendance: TeacherAttendance[] = (attendanceResult.data ?? []).map((row) => ({
+  const attendance: TeacherAttendance[] = attendanceRows.map((row) => ({
     id: row.id,
     enrollmentId: row.enrollment_id,
     sessionDate: row.session_date,
     status: row.status,
   }));
-  const grades: TeacherGrade[] = (gradeResult.data ?? []).map((row) => ({
+  const grades: TeacherGrade[] = gradeRows.map((row) => ({
     id: row.id,
     enrollmentId: row.enrollment_id,
     title: row.title,
     score: Number(row.score),
     createdAt: row.created_at,
   }));
-  const hifzRecords: TeacherHifzRecord[] = (hifzResult.data ?? []).map((row) => ({
+  const hifzRecords: TeacherHifzRecord[] = hifzRows.map((row) => ({
     id: row.id, enrollmentId: row.enrollment_id, surahNumber: row.surah_number,
     ayahStart: row.ayah_start, ayahEnd: row.ayah_end, recordType: row.record_type,
     assessment: row.assessment, sessionDate: row.session_date, notes: row.notes,
   }));
-  const assignmentRows = assignmentResult.data ?? [];
+  
   const assignmentIds = assignmentRows.map((row) => row.id);
-  const completionResult = assignmentIds.length
-    ? await sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", assignmentIds)
-    : { data: [], error: null };
-  fail(completionResult.error);
-  const completionMap = new Map((completionResult.data ?? []).map((row) => [row.assignment_id, row]));
+  const completionRows = assignmentIds.length
+    ? await readRowsForIds<any>((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids), assignmentIds)
+    : [];
+  const completionMap = new Map(completionRows.map((row) => [row.assignment_id, row]));
   const enrollmentMap = new Map(enrollments.map((row) => [row.id, row]));
   const hifzAssignments: TeacherHifzAssignment[] = assignmentRows.map((row) => {
     const completion = completionMap.get(row.id);
