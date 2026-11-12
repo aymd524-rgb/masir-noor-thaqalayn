@@ -20,7 +20,6 @@ export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 function QuizzesPage() {
   const db = useDb();
   const { user, mode } = useAuth();
-  const quizzes = db.quizzes.filter((quiz) => quiz.open);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<{ quizId: string; correct: number; total: number; score: number } | null>(null);
