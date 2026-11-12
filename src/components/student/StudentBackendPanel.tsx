@@ -70,6 +70,14 @@ export function StudentBackendPanel({ user }: { user: User }) {
   const memorizationAyahEntries = memorizationRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const reviewAyahEntries = reviewRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const excellentHifzAssessments = workspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const completedHifzAssignments = workspace.hifzAssignments.filter((item) => item.status === "completed").length;
+  const overdueHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed" && item.dueDate < todayIso).length;
+  const activeHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed").length;
+  const hifzAssignmentRate = workspace.hifzAssignments.length
+    ? Math.round(completedHifzAssignments / workspace.hifzAssignments.length * 100)
+    : 0;
+
   const enrollmentProgress = workspace.enrollments.map((enrollment) => {
     const records = workspace.attendance.filter((item) => item.enrollmentId === enrollment.id);
     const effective = records.filter((item) => item.status === "present" || item.status === "late").length;
@@ -126,6 +134,18 @@ export function StudentBackendPanel({ user }: { user: User }) {
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">برنامه هفتگی حفظ و مرور من</h2>
       <p className="mt-1 text-xs text-muted-foreground">برنامه‌های تعیین‌شده توسط استاد و مهلت انجام آن‌ها در این قسمت نمایش داده می‌شود.</p>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{workspace.hifzAssignments.length}</p><p className="text-xs text-muted-foreground">کل برنامه‌ها</p></div>
+        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{completedHifzAssignments}</p><p className="text-xs text-muted-foreground">انجام‌شده</p></div>
+        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{overdueHifzAssignments}</p><p className="text-xs text-muted-foreground">عقب‌افتاده</p></div>
+        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{hifzAssignmentRate}٪</p><p className="text-xs text-muted-foreground">درصد انجام</p></div>
+      </div>
+      {workspace.hifzAssignments.length > 0 && <div className="mt-3 space-y-1">
+        <div className="flex justify-between text-xs"><span>پیشرفت برنامه‌های حفظ</span><b>{hifzAssignmentRate}٪</b></div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: hifzAssignmentRate + "%" }}/></div>
+        <p className="text-xs text-muted-foreground">{activeHifzAssignments} برنامه تکمیل‌نشده باقی مانده است.</p>
+      </div>}
+
       {workspace.hifzAssignments.length ? <ul className="mt-3 divide-y">{workspace.hifzAssignments.map((item) => <li key={item.id} className="py-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
