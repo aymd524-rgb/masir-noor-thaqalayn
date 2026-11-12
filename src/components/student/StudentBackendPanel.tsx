@@ -1,3 +1,4 @@
+import { getSurah } from "@/lib/quran/surahs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
@@ -99,7 +100,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
             <p className="text-sm font-semibold">{enrollment.classTitle} — {records.length} ارزیابی</p>
             {records.length ? <ul className="mt-2 space-y-2">{records.slice(0, 8).map((record) => <li key={record.id} className="rounded-xl bg-muted/50 p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <b>{hifzTypeLabel[record.recordType]} · سوره {record.surahNumber}، آیات {record.ayahStart}{record.ayahEnd !== record.ayahStart ? ` تا ${record.ayahEnd}` : ""}</b>
+                <b>{hifzTypeLabel[record.recordType]} · سوره {getSurah(record.surahNumber)?.name ?? record.surahNumber}، آیات {record.ayahStart}{record.ayahEnd !== record.ayahStart ? ` تا ${record.ayahEnd}` : ""}</b>
                 <span className="text-xs text-muted-foreground">{new Date(record.sessionDate + "T00:00:00").toLocaleDateString("fa-IR")}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">ارزیابی: {hifzAssessmentLabel[record.assessment]}</p>
