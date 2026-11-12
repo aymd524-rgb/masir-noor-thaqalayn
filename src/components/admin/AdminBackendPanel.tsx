@@ -28,6 +28,8 @@ export function AdminBackendPanel() {
  const [currentUserId,setCurrentUserId]=useState<string|null>(null);
  const [profilesTotal,setProfilesTotal]=useState(0);
  const [loadingMoreUsers,setLoadingMoreUsers]=useState(false);
+ const [enrollmentsTotal,setEnrollmentsTotal]=useState(0);
+ const [loadingMoreEnrollments,setLoadingMoreEnrollments]=useState(false);
 
  const loadData=useCallback(async()=>{
   const sb=getSupabase();
@@ -38,7 +40,7 @@ export function AdminBackendPanel() {
    sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
    sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).limit(200),
-   sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).limit(200),
+   sb.from("enrollments").select("id,student_id,class_id,created_at",{count:"exact"}).order("created_at",{ascending:false}).range(0,199),
    sb.from("attendance").select("id,enrollment_id,session_date,status").order("session_date",{ascending:false}).limit(1000),
    sb.from("grades").select("id,enrollment_id,title,score").order("created_at",{ascending:false}).limit(1000),
    sb.from("hifz_records").select("id,enrollment_id,record_type,assessment,ayah_start,ayah_end").order("session_date",{ascending:false}).limit(2000),
@@ -48,6 +50,7 @@ export function AdminBackendPanel() {
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
   setProfilesTotal(p.count??p.data?.length??0);
+  setEnrollmentsTotal(e.count??e.data?.length??0);
   for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
   setData({profiles:p.data??[],courses:c.data??[],classes:cl.data??[],requests:r.data??[],enrollments:e.data??[],attendance:a.data??[],grades:g.data??[],hifzRecords:h.data??[],hifzAssignments:ha.data??[],hifzCompletions:hc.data??[]});
  },[]);
@@ -88,6 +91,27 @@ export function AdminBackendPanel() {
    toast.success("نقش کاربر تغییر کرد.");
   }catch(error){toast.error(error instanceof Error?error.message:"تغییر نقش انجام نشد.");}
   finally{setSavingId(null);}
+ };
+
+ const loadMoreEnrollments=async()=>{
+  const sb=getSupabase();
+  if(!sb||loadingMoreEnrollments||data===null||data.enrollments.length>=enrollmentsTotal)return;
+  setLoadingMoreEnrollments(true);
+  try{
+   const start=data.enrollments.length;
+   const {data:rows,error}=await sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).range(start,start+199);
+   if(error)throw new Error(error.message);
+   const knownProfiles=new Set(data.profiles.map(item=>item.id));
+   const missingIds=[...new Set((rows??[]).map(item=>item.student_id).filter(id=>!knownProfiles.has(id)))];
+   let extraProfiles:AdminData["profiles"]=[];
+   if(missingIds.length){
+    const {data:profileRows,error:profileError}=await sb.from("profiles").select("id,full_name,phone,role,created_at").in("id",missingIds);
+    if(profileError)throw new Error(profileError.message);
+    extraProfiles=profileRows??[];
+   }
+   setData(current=>current?{...current,enrollments:[...current.enrollments,...(rows??[])],profiles:[...current.profiles,...extraProfiles.filter(item=>!current.profiles.some(existing=>existing.id===item.id))]}:current);
+  }catch(error){toast.error(error instanceof Error?error.message:"دریافت ثبت‌نام‌های بیشتر انجام نشد.");}
+  finally{setLoadingMoreEnrollments(false);}
  };
 
  const reviewRequest=async(id:string,status:"approved"|"rejected")=>{
@@ -142,13 +166,14 @@ export function AdminBackendPanel() {
    {data.profiles.length<profilesTotal?<button type="button" onClick={()=>void loadMoreUsers()} disabled={loadingMoreUsers} className="mt-3 w-full rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-60">{loadingMoreUsers?"در حال دریافت…":"بارگذاری ۲۰۰ کاربر بعدی"}</button>:null}
    <p className="mt-2 text-xs text-muted-foreground">اطلاعات ثبت‌نام و کلاس در این ردیف بر اساس حداکثر ۲۰۰ ثبت‌نام و ۲۰۰ درخواست اخیر بارگذاری‌شده در همین گزارش است؛ تعدادها ممکن است کل تاریخچه نباشد. ایجاد و حذف حساب از این پنل انجام نمی‌شود.</p>
   </section>
-  <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold">گزارش ثبت‌نام‌های قطعی</h2><p className="mt-1 text-xs text-muted-foreground">آخرین {data.enrollments.length} ثبت‌نام قطعی ثبت‌شده در سامانه</p></div><b className="text-2xl">{data.enrollments.length}</b></div>
+  <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold">گزارش ثبت‌نام‌های قطعی</h2><p className="mt-1 text-xs text-muted-foreground">{data.enrollments.length.toLocaleString("fa-IR")} از {enrollmentsTotal.toLocaleString("fa-IR")} ثبت‌نام بارگذاری‌شده</p></div><b className="text-2xl">{enrollmentsTotal.toLocaleString("fa-IR")}</b></div>
    <div className="mt-3 grid gap-2 sm:grid-cols-2">
     <label className="text-sm font-semibold">فیلتر کلاس<select value={enrollmentClassFilter} onChange={event=>setEnrollmentClassFilter(event.target.value)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"><option value="">همهٔ کلاس‌ها</option>{data.classes.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
     <label className="text-sm font-semibold">جست‌وجوی نام دانش‌پژوه<input value={enrollmentSearch} onChange={event=>setEnrollmentSearch(event.target.value)} placeholder="نام یا بخشی از نام" className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal"/></label>
    </div>
    {(()=>{const rows=data.enrollments.filter(item=>(!enrollmentClassFilter||item.class_id===enrollmentClassFilter)&&((profileNames.get(item.student_id)??"دانش‌پژوه").toLocaleLowerCase().includes(enrollmentSearch.trim().toLocaleLowerCase())));return rows.length?<ul className="mt-3 divide-y">{rows.map(item=><li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><p className="font-semibold">{profileNames.get(item.student_id)??"دانش‌پژوه"}</p><p className="text-xs text-muted-foreground">{classNames.get(item.class_id)??"کلاس نامشخص"}</p></div><span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleDateString("fa-IR")}</span></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">ثبت‌نامی با این فیلتر پیدا نشد.</p>})()}
-   <p className="mt-2 text-xs text-muted-foreground">این گزارش حداکثر ۲۰۰ ثبت‌نام اخیر را نشان می‌دهد.</p>
+   {data.enrollments.length<enrollmentsTotal?<button type="button" onClick={()=>void loadMoreEnrollments()} disabled={loadingMoreEnrollments} className="mt-3 w-full rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-60">{loadingMoreEnrollments?"در حال دریافت…":"بارگذاری ۲۰۰ ثبت‌نام بعدی"}</button>:null}
+   <p className="mt-2 text-xs text-muted-foreground">فیلترها و جست‌وجو روی ثبت‌نام‌های بارگذاری‌شده اعمال می‌شوند؛ برای مشاهده موارد قدیمی‌تر، صفحه‌های بعدی را بارگذاری کنید.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><div><h2 className="font-extrabold">گزارش حضور و نمرات</h2><p className="mt-1 text-xs text-muted-foreground">خلاصهٔ اطلاعات ثبت‌شده برای حداکثر ۲۰۰ ثبت‌نام اخیر</p></div>
    {(()=>{const ids=new Set(data.enrollments.map(item=>item.id));const records=data.attendance.filter(item=>ids.has(item.enrollment_id));const grades=data.grades.filter(item=>ids.has(item.enrollment_id));const present=records.filter(item=>item.status==="present").length;const absent=records.filter(item=>item.status==="absent").length;const late=records.filter(item=>item.status==="late").length;const excused=records.filter(item=>item.status==="excused").length;const average=grades.length?grades.reduce((sum,item)=>sum+Number(item.score),0)/grades.length:null;return <><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="حضور" value={present}/><Metric label="غیبت" value={absent}/><Metric label="تأخیر" value={late}/><Metric label="موجه" value={excused}/></div><div className="mt-3 flex flex-wrap justify-between gap-2 rounded-xl bg-muted/40 p-3 text-sm"><span>تعداد نمرات ثبت‌شده: <b>{grades.length}</b></span><span>میانگین نمرات: <b>{average===null?"—":average.toLocaleString("fa-IR",{maximumFractionDigits:2})}</b></span></div></>})()}
