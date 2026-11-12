@@ -6,7 +6,7 @@ import { AdminCourseClassManager } from "./AdminCourseClassManager";
 type AdminData = {
   profiles: { id: string; full_name: string | null; role: string | null; created_at: string | null }[];
   courses: { id: string; title: string; is_active: boolean }[];
-  classes: { id: string; title: string; is_active: boolean }[];
+  classes: { id: string; title: string; is_active: boolean; teacher_id: string | null }[];
   requests: { id: string; student_id: string; class_id: string; status: string; payment_status: string; created_at: string }[];
   enrollments: { id: string; student_id: string; class_id: string; created_at: string }[];
 };
@@ -25,7 +25,7 @@ export function AdminBackendPanel() {
   const [p,c,cl,r,e]=await Promise.all([
    sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
-   sb.from("classes").select("id,title,is_active").order("created_at",{ascending:false}).limit(200),
+   sb.from("classes").select("id,title,is_active,teacher_id").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).limit(200),
    sb.from("enrollments").select("id,student_id,class_id,created_at").order("created_at",{ascending:false}).limit(200),
   ]);
@@ -107,6 +107,11 @@ export function AdminBackendPanel() {
    {data.requests.length?<ul className="mt-3 divide-y">{data.requests.slice(0,12).map(req=><li key={req.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><b>{req.status==="pending"?"در انتظار":req.status==="approved"?"تأیید شده":req.status==="rejected"?"رد شده":req.status}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواستی ثبت نشده است.</p>}
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">دوره‌ها</h2>{data.courses.length?<ul className="mt-3 divide-y">{data.courses.slice(0,12).map(c=><li key={c.id} className="flex justify-between gap-3 py-2 text-sm"><span>{c.title}</span><b>{c.is_active?"فعال":"غیرفعال"}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">دوره‌ای ثبت نشده است.</p>}</section>
+  <section className="rounded-2xl border bg-card p-5"><div><h2 className="font-extrabold">گزارش عملکرد استادان</h2><p className="mt-1 text-xs text-muted-foreground">کلاس‌های تخصیص‌یافته و تعداد ثبت‌نام‌های قطعی هر استاد</p></div>
+   {(()=>{const teachers=data.profiles.filter(item=>item.role==="teacher");return teachers.length?<ul className="mt-3 divide-y">{teachers.map(teacher=>{const assigned=data.classes.filter(item=>item.teacher_id===teacher.id);const active=assigned.filter(item=>item.is_active);const studentCount=new Set(data.enrollments.filter(enrollment=>assigned.some(item=>item.id===enrollment.class_id)).map(enrollment=>enrollment.student_id)).size;return <li key={teacher.id} className="py-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{teacher.full_name||"استاد بدون نام"}</span><span className="text-xs text-muted-foreground">{active.length} کلاس فعال · {studentCount} دانش‌پژوه</span></div>{assigned.length?<ul className="mt-2 space-y-1 border-r-2 pr-3 text-sm">{assigned.map(item=><li key={item.id} className="flex flex-wrap justify-between gap-2"><span>{item.title}</span><span className="text-xs text-muted-foreground">{data.enrollments.filter(enrollment=>enrollment.class_id===item.id).length} ثبت‌نام · {item.is_active?"فعال":"غیرفعال"}</span></li>)}</ul>:<p className="mt-2 text-xs text-muted-foreground">هنوز کلاسی به این استاد تخصیص داده نشده است.</p>}</li>})}</ul>:<p className="mt-3 text-sm text-muted-foreground">حسابی با نقش استاد پیدا نشد.</p>})()}
+   <p className="mt-2 text-xs text-muted-foreground">آمار بر اساس حداکثر ۲۰۰ کلاس و ۲۰۰ ثبت‌نام اخیر بارگذاری‌شده در این پنل محاسبه می‌شود.</p>
+  </section>
+  <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">کلاس‌های بدون استاد</h2>{(()=>{const unassigned=data.classes.filter(item=>!item.teacher_id);return unassigned.length?<ul className="mt-2 divide-y">{unassigned.map(item=><li key={item.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{item.title}</span><span className="text-xs text-muted-foreground">{item.is_active?"فعال":"غیرفعال"}</span></li>)}</ul>:<p className="mt-2 text-sm text-muted-foreground">همهٔ کلاس‌ها استاد دارند.</p>})()}</section>
   <AdminCourseClassManager />
   <p className="text-xs text-muted-foreground">این پنل گزارش‌ها را می‌خواند و درخواست‌ها را بررسی می‌کند؛ مدیریت نقش کاربران و سیاست‌های امنیتی از اینجا انجام نمی‌شود.</p>
  </div>;
