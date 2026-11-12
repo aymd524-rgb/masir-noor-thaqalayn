@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
+import { AdminCourseClassManager } from "./AdminCourseClassManager";
 
 type AdminData = {
   profiles: { id: string; full_name: string | null; role: string | null; created_at: string | null }[];
@@ -96,6 +97,7 @@ export function AdminBackendPanel() {
    {data.requests.length?<ul className="mt-3 divide-y">{data.requests.slice(0,12).map(req=><li key={req.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><b>{req.status==="pending"?"در انتظار":req.status==="approved"?"تأیید شده":req.status==="rejected"?"رد شده":req.status}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواستی ثبت نشده است.</p>}
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">دوره‌ها</h2>{data.courses.length?<ul className="mt-3 divide-y">{data.courses.slice(0,12).map(c=><li key={c.id} className="flex justify-between gap-3 py-2 text-sm"><span>{c.title}</span><b>{c.is_active?"فعال":"غیرفعال"}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">دوره‌ای ثبت نشده است.</p>}</section>
+  <AdminCourseClassManager />
   <p className="text-xs text-muted-foreground">این پنل گزارش‌ها را می‌خواند و درخواست‌ها را بررسی می‌کند؛ مدیریت نقش کاربران و سیاست‌های امنیتی از اینجا انجام نمی‌شود.</p>
  </div>;
 }
