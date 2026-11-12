@@ -15,17 +15,28 @@ function mapAttempt(row: AttemptRow): QuizAttempt {
 }
 
 export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
-  const { data: quizRows, error: quizError } = await sb.from("quizzes")
-    .select("id,title,description,course_id,created_by,time_limit_min,is_competition,is_published,created_at,quiz_questions(id,prompt,options,position)")
-    .order("created_at", { ascending: false });
-  if (quizError) throw quizError;
-  const rows = (quizRows ?? []) as unknown as QuizRow[];
+  const pageSize = 500;
+  const rows: QuizRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb.from("quizzes")
+      .select("id,title,description,course_id,created_by,time_limit_min,is_competition,is_published,created_at,quiz_questions(id,prompt,options,position)")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as unknown as QuizRow[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
   const questionIds = rows.flatMap((row) => row.quiz_questions.map((question) => question.id));
   let answerKeys: AnswerKeyRow[] = [];
   if ((user.role === "teacher" || user.role === "admin") && questionIds.length) {
-    const { data, error } = await sb.from("quiz_answer_keys").select("question_id,answer_index").in("question_id", questionIds);
-    if (error) throw error;
-    answerKeys = (data ?? []) as AnswerKeyRow[];
+    // Keep each IN filter small enough for PostgREST URL and query limits.
+    for (let offset = 0; offset < questionIds.length; offset += 200) {
+      const chunk = questionIds.slice(offset, offset + 200);
+      const { data, error } = await sb.from("quiz_answer_keys").select("question_id,answer_index").in("question_id", chunk);
+      if (error) throw error;
+      answerKeys.push(...((data ?? []) as AnswerKeyRow[]));
+    }
   }
   const keyByQuestion = new Map(answerKeys.map((key) => [key.question_id, key.answer_index]));
   const quizzes: Quiz[] = rows.map((row) => ({
@@ -38,11 +49,18 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
       answerIndex: keyByQuestion.get(question.id) ?? -1,
     })),
   }));
-  const { data: attemptRows, error: attemptError } = await sb.from("quiz_attempts")
-    .select("id,quiz_id,student_id,correct_count,total_questions,submitted_at")
-    .order("submitted_at", { ascending: false });
-  if (attemptError) throw attemptError;
-  return { quizzes, attempts: ((attemptRows ?? []) as AttemptRow[]).map(mapAttempt) };
+  const attemptRows: AttemptRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb.from("quiz_attempts")
+      .select("id,quiz_id,student_id,correct_count,total_questions,submitted_at")
+      .order("submitted_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as AttemptRow[];
+    attemptRows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return { quizzes, attempts: attemptRows.map(mapAttempt) };
 }
 
 export async function createBackendQuiz(
