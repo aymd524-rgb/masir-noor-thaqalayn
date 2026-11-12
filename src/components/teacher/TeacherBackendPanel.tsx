@@ -81,6 +81,22 @@ export function TeacherBackendPanel({ user }: { user: User }) {
     ? hifzEnrollmentId
     : enrollments[0]?.id ?? "";
   const selectedSurah = getSurah(Number(hifzSurah));
+  const classHifzAssignments = (workspace?.hifzAssignments ?? []).filter((item) =>
+    enrollments.some((enrollment) => enrollment.id === item.enrollmentId),
+  );
+  const todayIso = toLocalDateInputValue(new Date());
+  const completedAssignments = classHifzAssignments.filter((item) => item.completionStatus === "completed").length;
+  const overdueAssignments = classHifzAssignments.filter((item) => item.completionStatus !== "completed" && item.dueDate < todayIso).length;
+  const pendingAssignments = classHifzAssignments.length - completedAssignments;
+  const assignmentCompletionRate = classHifzAssignments.length
+    ? Math.round(completedAssignments / classHifzAssignments.length * 100)
+    : 0;
+  const assignmentStudentProgress = enrollments.map((enrollment) => {
+    const items = classHifzAssignments.filter((item) => item.enrollmentId === enrollment.id);
+    const completed = items.filter((item) => item.completionStatus === "completed").length;
+    return { ...enrollment, total: items.length, completed, rate: items.length ? Math.round(completed / items.length * 100) : 0 };
+  }).filter((item) => item.total > 0);
+
 
   const saveAttendance = async (enrollmentId: string, status: TeacherAttendance["status"]) => {
     const sb = getSupabase();
@@ -175,6 +191,24 @@ export function TeacherBackendPanel({ user }: { user: User }) {
 
       <section className="space-y-4 rounded-2xl border bg-card p-5">
         <div><h2 className="font-extrabold">برنامه هفتگی حفظ و مرور</h2><p className="mt-1 text-sm text-muted-foreground">برای هر دانش‌پژوه محدوده حفظ یا مرور و مهلت انجام تعیین کنید.</p></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{classHifzAssignments.length}</p><p className="text-xs text-muted-foreground">کل برنامه‌ها</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{completedAssignments}</p><p className="text-xs text-muted-foreground">انجام‌شده</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{overdueAssignments}</p><p className="text-xs text-muted-foreground">عقب‌افتاده</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{assignmentCompletionRate}٪</p><p className="text-xs text-muted-foreground">درصد انجام</p></div>
+        </div>
+        {classHifzAssignments.length > 0 && <div className="space-y-2">
+          <div className="flex justify-between text-xs"><span>پیشرفت کل کلاس</span><b>{assignmentCompletionRate}٪</b></div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: assignmentCompletionRate + "%" }}/></div>
+          <p className="text-xs text-muted-foreground">{pendingAssignments} برنامه هنوز تکمیل نشده است.</p>
+        </div>}
+        {assignmentStudentProgress.length > 0 && <div className="space-y-3">
+          <h3 className="text-sm font-bold">پیشرفت هر دانش‌پژوه</h3>
+          {assignmentStudentProgress.map((item) => <div key={item.id} className="space-y-1">
+            <div className="flex justify-between gap-2 text-xs"><span>{item.studentName}</span><b>{item.completed} از {item.total} · {item.rate}٪</b></div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: item.rate + "%" }}/></div>
+          </div>)}
+        </div>}
         <form onSubmit={async (event) => {
           event.preventDefault();
           const sb = getSupabase();
