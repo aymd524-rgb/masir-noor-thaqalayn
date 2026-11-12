@@ -9,13 +9,41 @@ export type StudentHifzRecord = { id: string; enrollmentId: string; surahNumber:
 
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
+async function readAllPages<T>(
+  makeQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  pageSize = 500,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery(from, from + pageSize - 1);
+    fail(error);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function readRowsForIds<T>(
+  makeQuery: (ids: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  ids: string[],
+  chunkSize = 200,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let start = 0; start < ids.length; start += chunkSize) {
+    const { data, error } = await makeQuery(ids.slice(start, start + chunkSize));
+    fail(error);
+    rows.push(...(data ?? []));
+  }
+  return rows;
+}
+
 /** Student reads are scoped by Supabase RLS to auth.uid(); no privileged key is used. */
 export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   const [courseResult, classResult, requestResult, enrollmentResult, availabilityResult] = await Promise.all([
-    sb.from("courses").select("id,title,description").eq("is_active", true).order("created_at", { ascending: false }),
-    sb.from("classes").select("id,title,course_id,description,capacity").eq("is_active", true).order("created_at", { ascending: false }),
-    sb.from("enrollment_requests").select("id,class_id,status,created_at").eq("student_id", userId).order("created_at", { ascending: false }),
-    sb.from("enrollments").select("id,class_id,created_at").eq("student_id", userId).order("created_at", { ascending: false }),
+    readAllPages((from, to) => sb.from("courses").select("id,title,description").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("enrollment_requests").select("id,class_id,status,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("enrollments").select("id,class_id,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     sb.rpc("get_active_class_availability"),
   ]);
   fail(courseResult.error); fail(classResult.error); fail(requestResult.error); fail(enrollmentResult.error); fail(availabilityResult.error);
@@ -39,10 +67,10 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   }));
   const enrollmentIds = enrollments.map((row) => row.id);
   const [attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
-    enrollmentIds.length ? sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", enrollmentIds) : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length ? sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", enrollmentIds) : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length ? sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", enrollmentIds).order("session_date", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-    enrollmentIds.length ? sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", enrollmentIds).order("due_date", { ascending: true }) : Promise.resolve({ data: [], error: null }),
+    readRowsForIds((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids), enrollmentIds),
+    readRowsForIds((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids), enrollmentIds),
+    readRowsForIds((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", ids).order("session_date", { ascending: false }), enrollmentIds),
+    readRowsForIds((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }), enrollmentIds),
   ]);
   fail(attendanceResult.error); fail(gradeResult.error); fail(hifzResult.error); fail(assignmentResult.error);
   const attendance: StudentAttendance[] = (attendanceResult.data ?? []).map((row) => ({
@@ -58,11 +86,8 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   }));
   const assignmentRows = assignmentResult.data ?? [];
   const assignmentIds = assignmentRows.map((row) => row.id);
-  const completionResult = assignmentIds.length
-    ? await sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", assignmentIds).eq("student_id", userId)
-    : { data: [], error: null };
-  fail(completionResult.error);
-  const completionMap = new Map((completionResult.data ?? []).map((row) => [row.assignment_id, row]));
+  const completionRows = await readRowsForIds((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).eq("student_id", userId), assignmentIds);
+  const completionMap = new Map(completionRows.map((row) => [row.assignment_id, row]));
   const enrollmentById = new Map(enrollments.map((row) => [row.id, row]));
   const hifzAssignments: StudentHifzAssignment[] = assignmentRows.map((row) => {
     const completion = completionMap.get(row.id);
