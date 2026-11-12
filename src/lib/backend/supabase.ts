@@ -30,14 +30,18 @@ type ProfileRow = {
  * cannot promote themselves by editing their own profile.
  */
 export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser): Promise<User> {
-  const [{ data: profile }, { data: isAdmin }] = await Promise.all([
-    sb.from("profiles").select("*").eq("id", authUser.id).maybeSingle<ProfileRow>(),
-    sb.rpc("is_admin"),
-  ]);
+  // The admin helper is intentionally stored in the private schema and is not
+  // callable through the public Data API. The user's own profile role is safe to
+  // read because RLS limits this row to auth.uid(), and a database trigger
+  // prevents non-admin users from changing the role.
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle<ProfileRow>();
 
-  let role: Role = "student";
-  if (isAdmin === true) role = "admin";
-  else if (profile?.role === "teacher") role = "teacher";
+  const role: Role =
+    profile?.role === "admin" || profile?.role === "teacher" ? profile.role : "student";
 
   return {
     id: authUser.id,
