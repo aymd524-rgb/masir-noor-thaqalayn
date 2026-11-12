@@ -96,7 +96,8 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   ]);
   fail(profileResult.error);
   fail(attendanceResult.error);
-  fail(gradeResult.error);\n  fail(hifzResult.error);
+  fail(gradeResult.error);
+  fail(hifzResult.error);
 
   const names = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
   const enrollments: TeacherEnrollment[] = enrollmentRows.map((row) => ({
