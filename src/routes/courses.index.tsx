@@ -55,7 +55,7 @@ function CoursesPage() {
                 <li key={c.id}>
                   <Link to="/courses/$courseId" params={{ courseId: c.id }} className="flex h-full flex-col overflow-hidden rounded-2xl border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elegant">
                     <div className="bg-hero pattern-stars p-4 text-hero-foreground">
-                      <div className="flex gap-2"><Badge variant="gold">{categoryLabel[c.category]}</Badge><Badge variant="hero" className="border-hero-foreground/30 bg-transparent text-hero-foreground">{levelLabel[c.level]}</Badge></div>
+                      <div className="flex gap-2"><Badge variant="gold">{categoryLabel[c.category]}</Badge><Badge variant="outline" className="border-hero-foreground/30 bg-transparent text-hero-foreground">{levelLabel[c.level]}</Badge></div>
                       <h2 className="mt-3 text-lg font-extrabold">{c.title}</h2>
                       <p className="text-sm text-hero-foreground/80">{teacher?.fullName}</p>
                     </div>
