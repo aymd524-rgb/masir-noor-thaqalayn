@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { commit, useDb } from "@/lib/store";
 import { faNum } from "@/lib/format";
 import { scoreQuizAnswers } from "@/lib/quizzes/scoring";
+import { buildCompetitionLeaderboard } from "@/lib/quizzes/leaderboard";
 
 export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 
@@ -20,6 +21,7 @@ function QuizzesPage() {
   const [result, setResult] = useState<{ quizId: string; correct: number; total: number; score: number } | null>(null);
   const activeQuiz = quizzes.find((quiz) => quiz.id === activeId);
   const attempts = user ? db.attempts.filter((attempt) => attempt.userId === user.id) : [];
+  const competitionBoards = quizzes.filter((quiz) => quiz.isCompetition).map((quiz) => ({ quiz, entries: buildCompetitionLeaderboard(quiz, db.attempts, db.users) }));
 
   const startQuiz = (quizId: string) => {
     setAnswers({});
@@ -35,7 +37,7 @@ function QuizzesPage() {
       ...current,
       attempts: [...current.attempts, {
         id: attemptId, quizId: activeQuiz.id, userId: user.id,
-        score: scored.score, total: scored.total, at: new Date().toISOString(),
+        score: scored.correct, total: scored.total, at: new Date().toISOString(),
       }],
     }));
     setResult({ quizId: activeQuiz.id, ...scored });
@@ -57,7 +59,7 @@ function QuizzesPage() {
             <div className="mt-6 rounded-xl bg-secondary/60 p-5 text-center">
               <CheckCircle2 className="mx-auto h-9 w-9 text-primary"/>
               <h3 className="mt-2 text-xl font-extrabold">آزمون به پایان رسید</h3>
-              <p className="mt-2 text-3xl font-black text-primary">{faNum(result.score)}٪</p>
+              <p className="mt-2 text-3xl font-black text-primary">{faNum(result.total ? Math.round((result.correct / result.total) * 100) : 0)}٪</p>
               <p className="mt-1 text-sm">پاسخ درست: {faNum(result.correct)} از {faNum(result.total)}</p>
               <Button className="mt-4" onClick={() => setActiveId(null)}>بازگشت به فهرست آزمون‌ها</Button>
             </div>
@@ -89,12 +91,13 @@ function QuizzesPage() {
             <p className="mt-2 text-sm text-muted-foreground">{quiz.description}</p>
             <p className="mt-3 text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {faNum(quiz.timeLimitMin)} دقیقه</p>
             <span className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{quiz.isCompetition ? "مسابقه" : "آزمون"}</span>
-            {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].score)}٪</p>}
+            {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].total ? Math.round((previous[previous.length - 1].score / previous[previous.length - 1].total) * 100) : 0)}٪</p>}
             <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || mode !== "demo"} onClick={() => startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
           </li>;
         })}</ul> : <EmptyState icon={Trophy} title="آزمون فعالی وجود ندارد" description="پس از انتشار آزمون توسط مدرس، اینجا نمایش داده می‌شود." />}
       </>}
-      {user?.role === "student" && mode === "demo" && attempts.length > 0 && !activeQuiz && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">سوابق آزمون من</h2><ul className="mt-3 divide-y">{attempts.slice().reverse().map((attempt) => <li key={attempt.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{quizzes.find((quiz) => quiz.id === attempt.quizId)?.title ?? "آزمون"}</span><b>{faNum(attempt.score)}٪</b></li>)}</ul></section>}
+      {mode === "demo" && !activeQuiz && competitionBoards.some((board) => board.entries.length > 0) && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">جدول رتبه‌بندی مسابقات</h2><div className="mt-4 space-y-5">{competitionBoards.filter((board) => board.entries.length > 0).map(({ quiz, entries }) => <div key={quiz.id}><h3 className="text-sm font-bold">{quiz.title}</h3><ol className="mt-2 divide-y">{entries.map((entry, index) => <li key={entry.userId} className="flex items-center justify-between gap-3 py-2 text-sm"><span>{faNum(index + 1)}. {entry.fullName}<span className="ms-2 text-xs text-muted-foreground">({faNum(entry.attempts)} شرکت)</span></span><b>{faNum(entry.score)}٪</b></li>)}</ol></div>)}</div></section>}
+      {user?.role === "student" && mode === "demo" && attempts.length > 0 && !activeQuiz && <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">سوابق آزمون من</h2><ul className="mt-3 divide-y">{attempts.slice().reverse().map((attempt) => <li key={attempt.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{quizzes.find((quiz) => quiz.id === attempt.quizId)?.title ?? "آزمون"}</span><b>{faNum(attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0)}٪</b></li>)}</ul></section>}
       <p className="text-xs text-muted-foreground">توجه: در حالت نمایشی، نتایج فقط روی همین دستگاه ذخیره می‌شوند و به حساب‌های دیگر منتقل نمی‌شوند.</p>
     </div>
   </>;
