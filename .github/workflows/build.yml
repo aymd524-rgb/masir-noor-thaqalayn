@@ -28,6 +28,7 @@ jobs:
           src/lib/backend/student.ts
           src/lib/backend/teacher.ts
           src/lib/backend/validation.ts
+          src/lib/backend/validation.test.ts
           src/lib/content/shared-content.ts
           src/lib/nav.ts
           src/routes/games.tsx
