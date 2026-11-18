@@ -34,11 +34,11 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
   // callable through the public Data API. The user's own profile role is safe to
   // read because RLS limits this row to auth.uid(), and a database trigger
   // prevents non-admin users from changing the role.
-  const { data: profile } = await sb
+  const [{ data: profile }, { data: contact }] = await Promise.all([sb
     .from("profiles")
-    .select("*")
+    .select("id,full_name,name,role,created_at")
     .eq("id", authUser.id)
-    .maybeSingle<ProfileRow>();
+    .maybeSingle<ProfileRow>(), sb.from("profile_contacts").select("phone").eq("user_id", authUser.id).maybeSingle<{ phone: string | null }>()]);
 
   const role: Role =
     profile?.role === "admin" || profile?.role === "teacher" ? profile.role : "student";
@@ -53,7 +53,7 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
       authUser.email ||
       "کاربر",
     role,
-    phone: profile?.phone ?? undefined,
+    phone: contact?.phone ?? undefined,
     active: true,
     joinedAt: profile?.created_at ?? authUser.created_at,
   };
