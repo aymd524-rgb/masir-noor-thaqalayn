@@ -32,12 +32,16 @@ describe("validateGradeInput", () => {
   it("accepts a non-negative finite score and title", () => {
     expect(() => validateGradeInput({ enrollmentId: "en-1", title: "آزمون حفظ", score: 18.5 })).not.toThrow();
   });
-  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])("rejects invalid score %s", (score) => {
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, 18.1])("rejects invalid score %s", (score) => {
     expect(() => validateGradeInput({ enrollmentId: "en-1", title: "آزمون", score })).toThrow();
+  });
+  it("accepts quarter-step scores", () => {
+    expect(() => validateGradeInput({ enrollmentId: "en-1", title: "آزمون", score: 18.25 })).not.toThrow();
   });
   it("rejects blank titles and enrollment ids", () => {
     expect(() => validateGradeInput({ enrollmentId: "", title: "آزمون", score: 10 })).toThrow();
     expect(() => validateGradeInput({ enrollmentId: "en-1", title: " ", score: 10 })).toThrow();
+    expect(() => validateGradeInput({ enrollmentId: "en-1", title: "x".repeat(121), score: 10 })).toThrow();
   });
 });
 
