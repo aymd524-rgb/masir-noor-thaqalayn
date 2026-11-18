@@ -18,16 +18,24 @@ export async function fetchPublishedGameQuestions(
   sb: SupabaseClient,
   ageGroup: GameAgeGroup,
 ): Promise<GameQuestion[]> {
-  const { data, error } = await sb
-    .from("game_questions")
-    .select("id,game_type,prompt,options,explanation,topic,difficulty,age_group")
-    .eq("is_published", true)
-    .eq("age_group", ageGroup)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+  const rows: GameQuestion[] = [];
+  const pageSize = 500;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb
+      .from("game_questions")
+      .select("id,game_type,prompt,options,explanation,topic,difficulty,age_group")
+      .eq("is_published", true)
+      .eq("age_group", ageGroup)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
 
-  if (error) throw new Error(`دریافت پرسش‌های بازی انجام نشد: ${error.message}`);
-  return (data ?? []) as GameQuestion[];
+    if (error) throw new Error(`دریافت پرسش‌های بازی انجام نشد: ${error.message}`);
+    const page = (data ?? []) as GameQuestion[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
 }
 
 /**
@@ -65,14 +73,21 @@ export type AdminGameQuestion = GameQuestion & {
 };
 
 export async function fetchAdminGameQuestions(sb: SupabaseClient): Promise<AdminGameQuestion[]> {
-  const { data, error } = await sb
-    .from("game_questions")
-    .select("id,game_type,prompt,options,explanation,topic,difficulty,age_group,is_published,created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const rows: AdminGameQuestion[] = [];
+  const pageSize = 500;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb
+      .from("game_questions")
+      .select("id,game_type,prompt,options,explanation,topic,difficulty,age_group,is_published,created_at")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
 
-  if (error) throw new Error(`دریافت فهرست پرسش‌ها انجام نشد: ${error.message}`);
-  return (data ?? []) as AdminGameQuestion[];
+    if (error) throw new Error(`دریافت فهرست پرسش‌ها انجام نشد: ${error.message}`);
+    const page = (data ?? []) as AdminGameQuestion[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
 }
 
 export async function createAdminGameQuestion(
