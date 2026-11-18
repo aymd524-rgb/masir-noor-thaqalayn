@@ -262,7 +262,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
             </select>
           </label>
           <label className="text-sm font-semibold">عنوان ارزشیابی
-            <input value={gradeTitle} onChange={(event) => setGradeTitle(event.target.value)} required placeholder="مثلاً آزمون حفظ سوره نبأ" className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
+            <input value={gradeTitle} onChange={(event) => setGradeTitle(event.target.value)} required maxLength={120} placeholder="مثلاً آزمون حفظ سوره نبأ" className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
           </label>
           <label className="text-sm font-semibold">نمره
             <input type="number" min="0" step="0.25" value={gradeScore} onChange={(event) => setGradeScore(event.target.value)} required className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal"/>
