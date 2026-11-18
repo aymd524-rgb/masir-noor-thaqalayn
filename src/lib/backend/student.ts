@@ -108,12 +108,23 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   return { classes, requests, enrollments, attendance, grades, hifzRecords, hifzAssignments };
 }
 
-/** RLS permits students to create only their own pending requests for active classes. */
+/** Translate unique-index conflicts into safe, understandable enrollment feedback. */
+export function enrollmentRequestErrorMessage(error: { code?: string; message?: string }): string {
+  if (error.code === "23505") {
+    return "برای این کلاس قبلاً درخواست ثبت شده یا ثبت‌نام قطعی دارید؛ وضعیت درخواست را بررسی کنید.";
+  }
+  return error.message || "ثبت درخواست عضویت ناموفق بود.";
+}
+
+/** RLS and unique indexes enforce ownership and prevent duplicate requests, including concurrent submissions. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
+  if (!userId.trim() || !classId.trim()) throw new Error("اطلاعات دانش‌پژوه یا کلاس معتبر نیست.");
   const { data: existing, error: lookupError } = await sb.from("enrollment_requests")
-    .select("id,status").eq("student_id", userId).eq("class_id", classId).eq("status", "pending").maybeSingle();
+    .select("id,status").eq("student_id", userId).eq("class_id", classId).maybeSingle();
   fail(lookupError);
-  if (existing) throw new Error("برای این کلاس درخواست در حال بررسی دارید.");
+  if (existing?.status === "pending") throw new Error("برای این کلاس درخواست در حال بررسی دارید.");
+  if (existing?.status === "approved") throw new Error("درخواست شما برای این کلاس تأیید شده است.");
+  if (existing?.status === "rejected") throw new Error("درخواست قبلی شما رد شده است؛ برای ثبت درخواست دوباره با استاد یا مدیر هماهنگ کنید.");
   const { data: enrolled, error: enrollmentError } = await sb.from("enrollments")
     .select("id").eq("student_id", userId).eq("class_id", classId).maybeSingle();
   fail(enrollmentError);
@@ -121,7 +132,7 @@ export async function requestStudentEnrollment(sb: SupabaseClient, userId: strin
   const { error } = await sb.from("enrollment_requests").insert({
     student_id: userId, class_id: classId, status: "pending", payment_status: "pending",
   });
-  fail(error);
+  if (error) throw new Error(enrollmentRequestErrorMessage(error));
 }
 
 
