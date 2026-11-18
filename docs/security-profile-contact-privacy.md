@@ -35,3 +35,23 @@ Status: findings and implementation plan only. No live database change is includ
 - Database schema and migration changes must be made by Lovable for this project; do not hand-edit `supabase/migrations/` or apply SQL directly.
 - At the time of this review, Lovable reports the workspace is out of credits. Until that is resolved, this document is a plan, not a deployed security fix.
 - Recheck policies, grants, RPC definitions, and the Supabase security advisor after implementation.
+
+## Verified application code touchpoints
+
+The feature branch was inspected after the database privilege check:
+
+- `src/lib/auth.tsx` updates both `full_name` and `phone` directly on `public.profiles` in `updateProfile`. This must be split so the name remains in `profiles` and the phone is written to the private contact store.
+- `src/components/admin/AdminBackendPanel.tsx` selects `phone` from `profiles` in its initial paginated profile load, its load-more path, and its fallback profile lookup for older enrollment rows. The admin user list also renders the phone field. These reads must be replaced with the restricted admin contact interface.
+- `src/lib/backend/teacher.ts` selects only `id,full_name` for student roster names; no phone field is needed in the teacher roster query.
+- The profile data type in `AdminBackendPanel.tsx` currently includes `phone`; remove it from the general profile shape after the admin contact interface is added.
+
+## Safe implementation sequence
+
+1. Create and secure the private contact table and the narrowly scoped admin-only contact listing/update interface.
+2. Backfill existing values from `profiles.phone` without writing phone values to logs.
+3. Update signup/profile editing and all three admin read paths to use the new contact interface.
+4. Verify the teacher roster continues to work and does not receive phone values.
+5. Run the authorization test matrix above using separate student, teacher, and admin accounts.
+6. Only then remove `phone` from `profiles`, and verify the final grants and RLS policies.
+
+The live check confirmed `authenticated` has table SELECT and column SELECT privileges for both `profiles.phone` and `profiles.full_name`. This is a privilege check, not proof that every user can see every row; row visibility remains subject to RLS.
