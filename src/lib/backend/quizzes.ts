@@ -158,7 +158,26 @@ export async function setBackendQuizPublished(sb: SupabaseClient, quizId: string
   if (error) throw error;
 }
 
+/** Validate the client payload shape; the database remains authoritative for scoring and authorization. */
+export function validateBackendQuizAttemptInput(quizId: unknown, answers: unknown): asserts answers is Record<string, number> {
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (typeof quizId !== "string" || !uuidPattern.test(quizId)) {
+    throw new Error("شناسه آزمون معتبر نیست.");
+  }
+  if (!answers || typeof answers !== "object" || Array.isArray(answers) ||
+    Object.getPrototypeOf(answers) !== Object.prototype) {
+    throw new Error("ساختار پاسخ‌ها معتبر نیست.");
+  }
+  const entries = Object.entries(answers as Record<string, unknown>);
+  if (entries.length < 1 || entries.length > 100 ||
+    entries.some(([questionId, answer]) => !uuidPattern.test(questionId) ||
+      !Number.isInteger(answer) || (answer as number) < 0)) {
+    throw new Error("پاسخ‌های آزمون کامل یا معتبر نیستند.");
+  }
+}
+
 export async function submitBackendQuizAttempt(sb: SupabaseClient, quizId: string, answers: Record<string, number>) {
+  validateBackendQuizAttemptInput(quizId, answers);
   const { data, error } = await sb.rpc("submit_quiz_attempt", { p_quiz_id: quizId, p_answers: answers }).single();
   if (error) throw error;
   return data as { attempt_id: string; correct_count: number; total_questions: number; percentage: number };
