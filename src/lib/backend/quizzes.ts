@@ -97,7 +97,10 @@ export function validateBackendQuizInput(input: {
   timeLimitMin: number;
   questions: QuizQuestion[];
 }): void {
-  if (!input.title.trim() || input.title.trim().length > 120 ||
+  // Runtime guards are intentional: values can arrive from untrusted UI or
+  // JavaScript callers even when the TypeScript interface says they are strings.
+  if (!input || typeof input.title !== "string" || typeof input.description !== "string" ||
+    !input.title.trim() || input.title.trim().length > 120 ||
     input.description.length > 2000 ||
     !Number.isInteger(input.timeLimitMin) || input.timeLimitMin < 1 || input.timeLimitMin > 240) {
     throw new Error("عنوان، توضیحات یا مدت آزمون معتبر نیست.");
@@ -107,15 +110,15 @@ export function validateBackendQuizInput(input: {
   }
   let totalTextLength = input.title.trim().length + input.description.length;
   for (const question of input.questions) {
-    if (!question.text.trim() || question.text.trim().length > 1000 ||
+    if (!question || typeof question.text !== "string" || !question.text.trim() || question.text.trim().length > 1000 ||
       !Array.isArray(question.options) || question.options.length < 2 || question.options.length > 8 ||
       question.options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 300) ||
-      new Set(question.options.map((option) => option.trim())).size !== question.options.length ||
+      new Set(question.options.map((option) => (option as string).trim())).size !== question.options.length ||
       !Number.isInteger(question.answerIndex) || question.answerIndex < 0 ||
       question.answerIndex >= question.options.length) {
       throw new Error("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
     }
-    totalTextLength += question.text.trim().length + question.options.reduce((sum, option) => sum + option.trim().length, 0);
+    totalTextLength += question.text.trim().length + question.options.reduce((sum, option) => sum + (option as string).trim().length, 0);
   }
   if (totalTextLength > 100_000) {
     throw new Error("حجم کلی متن آزمون بیش از حد مجاز است.");
