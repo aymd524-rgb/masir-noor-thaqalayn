@@ -367,6 +367,17 @@ export function TeacherBackendPanel({ user }: { user: User }) {
         <div>
           <h2 className="font-extrabold">کارنامه تفصیلی دانش‌پژوهان</h2>
           <p className="mt-1 text-sm text-muted-foreground">گزارش هر ثبت‌نام شامل محفوظات، ارزیابی استاد، حضور و غیاب، نمرات و برنامه‌های هفتگی است. برای مشاهده جزئیات، نام دانش‌پژوه را باز کنید.</p>
+          <div className="no-print mt-3">
+            <button type="button" onClick={() => {
+              const root = document.getElementById("student-report-print-root");
+              if (!root) return;
+              root.querySelectorAll("details").forEach((node) => node.classList.remove("print-selected"));
+              root.classList.add("print-all");
+              const cleanup = () => root.classList.remove("print-all");
+              window.addEventListener("afterprint", cleanup, { once: true });
+              window.print();
+            }} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground">چاپ گزارش کامل کلاس</button>
+          </div>
         </div>
         <div className="no-print grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
           <label className="text-sm font-semibold">از تاریخ
