@@ -90,21 +90,39 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
   return { quizzes, attempts: attemptRows.map(mapAttempt) };
 }
 
+/** Validate quiz content and payload sizes before any database writes. */
+export function validateBackendQuizInput(input: {
+  title: string;
+  description: string;
+  timeLimitMin: number;
+  questions: QuizQuestion[];
+}): void {
+  if (!input.title.trim() || input.title.trim().length > 120 ||
+    input.description.length > 2000 ||
+    !Number.isInteger(input.timeLimitMin) || input.timeLimitMin < 1 || input.timeLimitMin > 240) {
+    throw new Error("عنوان، توضیحات یا مدت آزمون معتبر نیست.");
+  }
+  if (!Array.isArray(input.questions) || input.questions.length < 1 || input.questions.length > 100) {
+    throw new Error("تعداد پرسش‌های آزمون باید بین ۱ تا ۱۰۰ باشد.");
+  }
+  for (const question of input.questions) {
+    if (!question.text.trim() || question.text.trim().length > 1000 ||
+      !Array.isArray(question.options) || question.options.length < 2 || question.options.length > 8 ||
+      question.options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 300) ||
+      !Number.isInteger(question.answerIndex) || question.answerIndex < 0 ||
+      question.answerIndex >= question.options.length) {
+      throw new Error("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
+    }
+  }
+}
+
 export async function createBackendQuiz(
   sb: SupabaseClient,
   user: User,
   input: { title: string; description: string; courseId?: string; timeLimitMin: number; isCompetition: boolean; questions: QuizQuestion[] },
 ) {
   if (user.role !== "teacher" && user.role !== "admin") throw new Error("فقط استاد یا مدیر می‌تواند آزمون بسازد.");
-  if (!input.title.trim() || !Number.isInteger(input.timeLimitMin) || input.timeLimitMin < 1 || input.timeLimitMin > 240) throw new Error("عنوان یا مدت آزمون معتبر نیست.");
-  if (!input.questions.length) throw new Error("حداقل یک پرسش لازم است.");
-  for (const question of input.questions) {
-    if (!question.text.trim() || question.options.length < 2 || question.options.length > 8 ||
-      question.options.some((option) => !option.trim()) || !Number.isInteger(question.answerIndex) ||
-      question.answerIndex < 0 || question.answerIndex >= question.options.length) {
-      throw new Error("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
-    }
-  }
+  validateBackendQuizInput(input);
   const { data: quiz, error: quizError } = await sb.from("quizzes").insert({
     title: input.title.trim(), description: input.description.trim(), course_id: input.courseId ?? null,
     created_by: user.id, time_limit_min: input.timeLimitMin, is_competition: input.isCompetition, is_published: false,
