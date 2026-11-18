@@ -24,15 +24,21 @@ async function readAllPages<T>(
 }
 
 async function readRowsForIds<T>(
-  makeQuery: (ids: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  makeQuery: (ids: string[], from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
   ids: string[],
   chunkSize = 200,
+  pageSize = 500,
 ): Promise<T[]> {
   const rows: T[] = [];
   for (let start = 0; start < ids.length; start += chunkSize) {
-    const { data, error } = await makeQuery(ids.slice(start, start + chunkSize));
-    fail(error);
-    rows.push(...(data ?? []));
+    const chunk = ids.slice(start, start + chunkSize);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await makeQuery(chunk, from, from + pageSize - 1);
+      fail(error);
+      const page = data ?? [];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
   }
   return rows;
 }
@@ -67,10 +73,10 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   }));
   const enrollmentIds = enrollments.map((row) => row.id);
   const [attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
-    readRowsForIds((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids), enrollmentIds),
-    readRowsForIds((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }), enrollmentIds),
-    readRowsForIds((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }), enrollmentIds),
-    readRowsForIds((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }), enrollmentIds),
+    readRowsForIds((ids, from, to) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids).order("session_date", { ascending: false }).order("id", { ascending: true }).range(from, to), enrollmentIds),
+    readRowsForIds((ids, from, to) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }).order("id", { ascending: true }).range(from, to), enrollmentIds),
+    readRowsForIds((ids, from, to) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: true }).range(from, to), enrollmentIds),
+    readRowsForIds((ids, from, to) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }).order("id", { ascending: true }).range(from, to), enrollmentIds),
   ]);
   fail(attendanceResult.error); fail(gradeResult.error); fail(hifzResult.error); fail(assignmentResult.error);
   const attendance: StudentAttendance[] = (attendanceResult.data ?? []).map((row) => ({
@@ -86,7 +92,7 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   }));
   const assignmentRows = assignmentResult.data ?? [];
   const assignmentIds = assignmentRows.map((row) => row.id);
-  const completionRows = await readRowsForIds((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).eq("student_id", userId), assignmentIds);
+  const completionRows = await readRowsForIds((ids, from, to) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).eq("student_id", userId).order("assignment_id", { ascending: true }).range(from, to), assignmentIds);
   const completionMap = new Map(completionRows.map((row) => [row.assignment_id, row]));
   const enrollmentById = new Map(enrollments.map((row) => [row.id, row]));
   const hifzAssignments: StudentHifzAssignment[] = assignmentRows.map((row) => {
