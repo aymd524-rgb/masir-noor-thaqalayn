@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { validateAttendanceInput, validateClassCapacityInput, validateGradeInput } from "./validation";
+import { isValidDateOnly, validateAttendanceInput, validateClassCapacityInput, validateGradeInput } from "./validation";
+
+describe("isValidDateOnly", () => {
+  it("accepts valid leap days and ordinary dates", () => {
+    expect(isValidDateOnly("2024-02-29")).toBe(true);
+    expect(isValidDateOnly("2026-11-18")).toBe(true);
+  });
+  it.each(["2026-02-29", "2026-04-31", "2026-13-01", "2026-1-01", "not-a-date", ""])(
+    "rejects invalid calendar date %s", (value) => {
+      expect(isValidDateOnly(value)).toBe(false);
+    },
+  );
+});
 
 describe("validateAttendanceInput", () => {
   it("accepts a valid attendance record", () => {
