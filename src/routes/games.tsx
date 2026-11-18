@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpenCheck, CheckCircle2, CircleHelp, RefreshCw, Trophy } from "lucide-react";
+import { BookOpenCheck, CircleHelp, RefreshCw, Trophy } from "lucide-react";
 import { PageHeader } from "@/components/common/ui-bits";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -59,7 +59,7 @@ function GamesPage() {
 
   const question = questions[index];
   const options = useMemo(
-    () => (question?.options ?? []).map(optionLabel).filter(Boolean),
+    () => (question?.options ?? []).map(optionLabel),
     [question],
   );
   const isWordOrder = question?.game_type === "word_order";
