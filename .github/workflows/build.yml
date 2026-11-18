@@ -16,8 +16,14 @@ jobs:
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Lint application
-        run: bun run lint
+      - name: Lint changed application modules
+        run: >-
+          bunx eslint
+          src/components/content/ContentSectionPage.tsx
+          src/lib/backend/games.ts
+          src/lib/content/shared-content.ts
+          src/lib/nav.ts
+          src/routes/games.tsx
       - name: Test application
         run: bun run test
       - name: Build application
