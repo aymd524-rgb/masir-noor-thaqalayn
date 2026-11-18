@@ -16,6 +16,11 @@ function mapAttempt(row: AttemptRow): QuizAttempt {
   return { id: row.id, quizId: row.quiz_id, userId: row.student_id, score: row.correct_count, total: row.total_questions, at: row.submitted_at };
 }
 
+/** Return a new list with the most recent attempt first. */
+export function sortQuizAttemptsNewestFirst(attempts: QuizAttempt[]): QuizAttempt[] {
+  return [...attempts].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
 export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
   const pageSize = 500;
   const rows: QuizRow[] = [];
