@@ -54,7 +54,35 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-async function readAllPages<T>(query: any, pageSize = 500): Promise<T[]> {
+type PagedQuery<T> = {
+  range(from: number, to: number): PromiseLike<{
+    data: T[] | null;
+    error: { message: string } | null;
+  }>;
+};
+
+type EnrollmentRow = { id: string; class_id: string; student_id: string; created_at: string };
+type RequestRow = {
+  id: string; class_id: string; student_id: string; status: TeacherRequest["status"];
+  payment_status: TeacherRequest["paymentStatus"]; created_at: string;
+};
+type ProfileNameRow = { id: string; full_name: string | null };
+type AttendanceRow = { id: string; enrollment_id: string; session_date: string; status: TeacherAttendance["status"] };
+type GradeRow = { id: string; enrollment_id: string; title: string; score: number; created_at: string };
+type HifzRow = {
+  id: string; enrollment_id: string; surah_number: number; ayah_start: number; ayah_end: number;
+  record_type: TeacherHifzRecord["recordType"]; assessment: TeacherHifzRecord["assessment"];
+  session_date: string; notes: string | null;
+};
+type AssignmentRow = {
+  id: string; enrollment_id: string; surah_number: number; ayah_start: number; ayah_end: number;
+  assignment_type: TeacherHifzAssignment["assignmentType"]; due_date: string; instructions: string | null;
+};
+type CompletionRow = {
+  assignment_id: string; status: NonNullable<TeacherHifzAssignment["completionStatus"]>; note: string | null;
+};
+
+async function readAllPages<T>(query: PagedQuery<T>, pageSize = 500): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await query.range(from, from + pageSize - 1);
@@ -66,7 +94,7 @@ async function readAllPages<T>(query: any, pageSize = 500): Promise<T[]> {
 }
 
 async function readRowsForIds<T>(
-  createQuery: (ids: string[]) => any,
+  createQuery: (ids: string[]) => PagedQuery<T>,
   ids: string[],
   chunkSize = 200,
 ): Promise<T[]> {
@@ -106,8 +134,8 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }
 
   const [enrollmentRows, requestRows] = await Promise.all([
-    readRowsForIds<any>((ids) => sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", ids).order("id", { ascending: true }), classIds),
-    readRowsForIds<any>((ids) => sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", ids).eq("status", "pending").order("id", { ascending: true }), classIds),
+    readRowsForIds<EnrollmentRow>((ids) => sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", ids).order("id", { ascending: true }), classIds),
+    readRowsForIds<RequestRow>((ids) => sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", ids).eq("status", "pending").order("id", { ascending: true }), classIds),
   ]);
   const studentIds = [...new Set([
     ...enrollmentRows.map((row) => row.student_id),
@@ -116,11 +144,11 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
   const [profileRows, attendanceRows, gradeRows, hifzRows, assignmentRows] = await Promise.all([
-    studentIds.length ? readRowsForIds<any>((ids) => sb.from("profiles").select("id,full_name").in("id", ids).order("id", { ascending: true }), studentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids).order("session_date", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    studentIds.length ? readRowsForIds<ProfileNameRow>((ids) => sb.from("profiles").select("id,full_name").in("id", ids).order("id", { ascending: true }), studentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<AttendanceRow>((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids).order("session_date", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<GradeRow>((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<HifzRow>((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<AssignmentRow>((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
   ]);
 
   const names = new Map(profileRows.map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
@@ -161,7 +189,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   
   const assignmentIds = assignmentRows.map((row) => row.id);
   const completionRows = assignmentIds.length
-    ? await readRowsForIds<any>((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).order("assignment_id", { ascending: true }), assignmentIds)
+    ? await readRowsForIds<CompletionRow>((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).order("assignment_id", { ascending: true }), assignmentIds)
     : [];
   const completionMap = new Map(completionRows.map((row) => [row.assignment_id, row]));
   const enrollmentMap = new Map(enrollments.map((row) => [row.id, row]));
