@@ -98,7 +98,8 @@ export function validateAdminGameQuestionInput(input: AdminGameQuestionInput): v
       new Set(input.answerPayload).size !== input.options.length) {
       throw new Error("ترتیب پاسخ باید همه گزینه‌ها را دقیقاً یک‌بار شامل شود.");
     }
-  } else if (!Number.isInteger(input.answerPayload) || input.answerPayload < 0 || input.answerPayload >= input.options.length) {
+  } else if (typeof input.answerPayload !== "number" || !Number.isInteger(input.answerPayload) ||
+    input.answerPayload < 0 || input.answerPayload >= input.options.length) {
     throw new Error("شماره پاسخ صحیح معتبر نیست.");
   }
 }
