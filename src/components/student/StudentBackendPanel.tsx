@@ -172,6 +172,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
                 <option value="completed">انجام شد</option>
                 <option value="needs_help">نیاز به کمک دارم</option>
               </select>
+              <button type="button" disabled={busyAssignment === item.id} onClick={() => void updateAssignment(item.id, item.status ?? "in_progress", assignmentNotes[item.id] ?? item.note ?? "")} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">ارسال گزارش به استاد</button>
             </div>
           </div>
         </div>
