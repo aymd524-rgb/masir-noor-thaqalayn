@@ -434,7 +434,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
                   <h4 className="text-xs font-bold">آخرین ارزیابی‌های استاد</h4>
                   {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id && inReportRange(record.sessionDate)).slice(0, 8).length ? (
                     <ul className="mt-2 space-y-2">
-                      {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id).slice(0, 8).map((record) => (
+                      {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id && inReportRange(record.sessionDate)).slice(0, 8).map((record) => (
                         <li key={record.id} className="rounded-lg bg-muted/40 p-2 text-xs">
                           <div className="flex flex-wrap justify-between gap-2">
                             <b>{record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · {getSurah(record.surahNumber)?.name ?? `سوره ${record.surahNumber}`}، آیات {record.ayahStart} تا {record.ayahEnd}</b>
