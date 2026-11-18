@@ -11,6 +11,18 @@ const attendanceLabel = { present: "حاضر", absent: "غایب", late: "با �
 const hifzTypeLabel = { memorization: "حفظ جدید", review: "مرور" } as const;
 const hifzAssessmentLabel = { excellent: "عالی", good: "خوب", fair: "قابل قبول", needs_practice: "نیازمند تمرین" } as const;
 
+function countUniqueAyahs(items: Array<{ surahNumber: number; ayahStart: number; ayahEnd: number }>) {
+  const ayahsBySurah = new Map<number, Set<number>>();
+  for (const item of items) {
+    if (!Number.isInteger(item.surahNumber) || !Number.isInteger(item.ayahStart) || !Number.isInteger(item.ayahEnd)) continue;
+    if (item.ayahStart < 1 || item.ayahEnd < item.ayahStart) continue;
+    const ayahs = ayahsBySurah.get(item.surahNumber) ?? new Set<number>();
+    for (let ayah = item.ayahStart; ayah <= item.ayahEnd; ayah += 1) ayahs.add(ayah);
+    ayahsBySurah.set(item.surahNumber, ayahs);
+  }
+  return [...ayahsBySurah.values()].reduce((total, ayahs) => total + ayahs.size, 0);
+}
+
 export function StudentBackendPanel({ user }: { user: User }) {
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadStudentWorkspace>> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +83,8 @@ export function StudentBackendPanel({ user }: { user: User }) {
   const reviewRecords = workspace.hifzRecords.filter((record) => record.recordType === "review");
   const memorizationAyahEntries = memorizationRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const reviewAyahEntries = reviewRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
+  const memorizationUniqueAyahs = countUniqueAyahs(memorizationRecords);
+  const reviewUniqueAyahs = countUniqueAyahs(reviewRecords);
   const excellentHifzAssessments = workspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
   const todayIso = toLocalDateInputValue(new Date());
   const completedHifzAssignments = workspace.hifzAssignments.filter((item) => item.status === "completed").length;
@@ -109,14 +123,17 @@ export function StudentBackendPanel({ user }: { user: User }) {
       </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
       <div className="mt-4 border-t pt-4">
         <h3 className="font-bold">گزارش حفظ و مرور قرآن</h3>
-        <p className="mt-1 text-xs text-muted-foreground">ارزیابی‌های ثبت‌شده توسط استاد برای هر کلاس؛ آمار زیر تعداد آیاتِ موجود در رکوردهاست و آیات تکراری را حذف نمی‌کند.</p>
+        <p className="mt-1 text-xs text-muted-foreground">آمار بر اساس ارزیابی‌های ثبت‌شده توسط استاد است؛ آیات یکتا هم‌پوشانی محدوده‌ها را در هر سوره حذف می‌کند.</p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationRecords.length}</p><p className="text-xs text-muted-foreground">جلسات ثبت حفظ جدید</p></div>
-          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationAyahEntries}</p><p className="text-xs text-muted-foreground">آیه در رکوردهای حفظ</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationAyahEntries}</p><p className="text-xs text-muted-foreground">مجموع آیات در رکوردهای حفظ</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{memorizationUniqueAyahs}</p><p className="text-xs text-muted-foreground">آیات یکتای ثبت‌شده در حفظ</p></div>
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewRecords.length}</p><p className="text-xs text-muted-foreground">جلسات ثبت مرور</p></div>
-          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewAyahEntries}</p><p className="text-xs text-muted-foreground">آیه در رکوردهای مرور</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewAyahEntries}</p><p className="text-xs text-muted-foreground">مجموع آیات در رکوردهای مرور</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{reviewUniqueAyahs}</p><p className="text-xs text-muted-foreground">آیات یکتای ثبت‌شده در مرور</p></div>
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{excellentHifzAssessments}</p><p className="text-xs text-muted-foreground">ارزیابی عالی</p></div>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">این آمار گستره آیات ارزیابی‌شده را نشان می‌دهد، نه تأیید قطعی تسلط یا حفظ نهایی.</p>
         {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((enrollment) => {
           const records = workspace.hifzRecords.filter((record) => record.enrollmentId === enrollment.id);
           return <li key={enrollment.id} className="py-3">
