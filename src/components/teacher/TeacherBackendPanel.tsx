@@ -101,6 +101,8 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const todayIso = toLocalDateInputValue(new Date());
   const completedAssignments = classHifzAssignments.filter((item) => item.completionStatus === "completed").length;
   const overdueAssignments = classHifzAssignments.filter((item) => item.completionStatus !== "completed" && item.dueDate < todayIso).length;
+  const needsHelpAssignments = classHifzAssignments.filter((item) => item.completionStatus === "needs_help");
+  const studentsNeedingHelp = new Set(needsHelpAssignments.map((item) => item.enrollmentId)).size;
   const pendingAssignments = classHifzAssignments.length - completedAssignments;
   const assignmentCompletionRate = classHifzAssignments.length
     ? Math.round(completedAssignments / classHifzAssignments.length * 100)
@@ -272,10 +274,11 @@ export function TeacherBackendPanel({ user }: { user: User }) {
 
       <section className="space-y-4 rounded-2xl border bg-card p-5">
         <div><h2 className="font-extrabold">برنامه هفتگی حفظ و مرور</h2><p className="mt-1 text-sm text-muted-foreground">برای هر دانش‌پژوه محدوده حفظ یا مرور و مهلت انجام تعیین کنید.</p></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{classHifzAssignments.length}</p><p className="text-xs text-muted-foreground">کل برنامه‌ها</p></div>
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{completedAssignments}</p><p className="text-xs text-muted-foreground">انجام‌شده</p></div>
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{overdueAssignments}</p><p className="text-xs text-muted-foreground">عقب‌افتاده</p></div>
+          <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{studentsNeedingHelp}</p><p className="text-xs text-muted-foreground">دانش‌پژوهان نیازمند کمک</p></div>
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{assignmentCompletionRate}٪</p><p className="text-xs text-muted-foreground">درصد انجام</p></div>
         </div>
         {classHifzAssignments.length > 0 && <div className="space-y-2">
