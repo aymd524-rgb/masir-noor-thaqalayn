@@ -80,6 +80,16 @@ const SECTION_LABELS: Record<ContentSection, string> = {
 const CONTENT_SELECT =
   "id,content_type,title,body,summary,topic,language,author_name,source_name,source_url,media_url,tags,metadata,is_published,sort_order,created_at";
 
+function safeExternalUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function toDraft(entry: ContentEntry): ContentDraft {
   const metadata = entry.metadata ?? {};
   const section = metadata.section;
@@ -115,6 +125,7 @@ export function AdminContentManager() {
   const [draft, setDraft] = useState<ContentDraft>(EMPTY_DRAFT);
   const [filter, setFilter] = useState<"all" | ContentType>("all");
   const [search, setSearch] = useState("");
+  const [previewEntry, setPreviewEntry] = useState<ContentEntry | null>(null);
 
   const loadEntries = useCallback(async () => {
     const sb = getSupabase();
@@ -374,6 +385,7 @@ export function AdminContentManager() {
                   <p className="mt-1 text-xs text-muted-foreground">{entry.is_published ? "منتشرشده" : "پیش‌نویس"} · {new Date(entry.created_at).toLocaleDateString("fa-IR")}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setPreviewEntry(entry)} className="rounded-lg border px-3 py-2 text-xs font-semibold">پیش‌نمایش</button>
                   <button type="button" onClick={() => startEdit(entry)} className="rounded-lg border px-3 py-2 text-xs font-semibold">ویرایش</button>
                   <button type="button" onClick={() => void togglePublished(entry)} disabled={busyId !== null} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60">
                     {busyId === entry.id ? "در حال ذخیره…" : entry.is_published ? "لغو انتشار" : "انتشار"}
@@ -385,6 +397,38 @@ export function AdminContentManager() {
           </ul>
         ) : <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">محتوایی با این فیلتر پیدا نشد.</p>}
       </div>
+
+      {previewEntry ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setPreviewEntry(null);
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="content-preview-title" className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">پیش‌نمایش محتوا · {previewEntry.is_published ? "منتشرشده" : "پیش‌نویس"}</p>
+                <h3 id="content-preview-title" className="mt-1 text-lg font-extrabold">{previewEntry.title}</h3>
+              </div>
+              <button type="button" onClick={() => setPreviewEntry(null)} className="rounded-lg border px-3 py-1.5 text-xs">بستن</button>
+            </div>
+            {previewEntry.summary ? <p className="mt-4 rounded-lg bg-muted/50 p-3 text-sm leading-7">{previewEntry.summary}</p> : null}
+            {typeof previewEntry.metadata?.arabic === "string" && previewEntry.metadata.arabic.trim() ? (
+              <p dir="rtl" className="mt-4 whitespace-pre-wrap text-right text-lg leading-10">{previewEntry.metadata.arabic}</p>
+            ) : null}
+            <div dir="auto" className="mt-4 whitespace-pre-wrap text-sm leading-8">{previewEntry.body}</div>
+            <dl className="mt-5 grid gap-2 border-t pt-4 text-xs sm:grid-cols-2">
+              <div><dt className="text-muted-foreground">نوع محتوا</dt><dd className="mt-1 font-semibold">{TYPE_LABELS[previewEntry.content_type]}</dd></div>
+              <div><dt className="text-muted-foreground">بخش</dt><dd className="mt-1 font-semibold">{SECTION_LABELS[(previewEntry.metadata?.section as ContentSection) in SECTION_LABELS ? previewEntry.metadata?.section as ContentSection : "library"]}</dd></div>
+              <div><dt className="text-muted-foreground">پدیدآورنده / راوی</dt><dd className="mt-1 font-semibold">{previewEntry.author_name || "ثبت نشده"}</dd></div>
+              <div><dt className="text-muted-foreground">منبع</dt><dd className="mt-1 font-semibold">{previewEntry.source_name || "ثبت نشده"}</dd></div>
+            </dl>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+              {safeExternalUrl(previewEntry.source_url) ? <a href={safeExternalUrl(previewEntry.source_url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">بازکردن منبع</a> : null}
+              {safeExternalUrl(previewEntry.media_url) ? <a href={safeExternalUrl(previewEntry.media_url) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">بازکردن رسانه</a> : null}
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">این پیش‌نمایش برای بازبینی مدیر است و جایگزین صفحهٔ نهایی برنامه نیست.</p>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }
