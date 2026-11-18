@@ -21,6 +21,7 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
     const { data, error } = await sb.from("quizzes")
       .select("id,title,description,course_id,created_by,time_limit_min,is_competition,is_published,created_at,quiz_questions(id,prompt,options,position)")
       .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw error;
     const page = (data ?? []) as unknown as QuizRow[];
@@ -54,6 +55,7 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
     const { data, error } = await sb.from("quiz_attempts")
       .select("id,quiz_id,student_id,correct_count,total_questions,submitted_at")
       .order("submitted_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw error;
     const page = (data ?? []) as AttemptRow[];
