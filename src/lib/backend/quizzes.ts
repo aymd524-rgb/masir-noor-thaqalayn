@@ -5,7 +5,9 @@ type QuizRow = {
   id: string; title: string; description: string; course_id: string | null;
   created_by: string; time_limit_min: number; is_competition: boolean;
   is_published: boolean; created_at: string;
-  quiz_questions: Array<{ id: string; prompt: string; options: string[]; position: number }>;
+};
+type QuizQuestionRow = {
+  id: string; quiz_id: string; prompt: string; options: string[]; position: number;
 };
 type AnswerKeyRow = { question_id: string; answer_index: number };
 type AttemptRow = { id: string; quiz_id: string; student_id: string; correct_count: number; total_questions: number; submitted_at: string };
@@ -19,7 +21,7 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
   const rows: QuizRow[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await sb.from("quizzes")
-      .select("id,title,description,course_id,created_by,time_limit_min,is_competition,is_published,created_at,quiz_questions(id,prompt,options,position)")
+      .select("id,title,description,course_id,created_by,time_limit_min,is_competition,is_published,created_at")
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
@@ -28,7 +30,30 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
     rows.push(...page);
     if (page.length < pageSize) break;
   }
-  const questionIds = rows.flatMap((row) => row.quiz_questions.map((question) => question.id));
+  // Fetch questions independently so a large quiz cannot be silently truncated
+  // by PostgREST's row limit on embedded relationships.
+  const questionsByQuiz = new Map<string, QuizQuestionRow[]>();
+  for (let offset = 0; offset < rows.length; offset += 200) {
+    const quizIds = rows.slice(offset, offset + 200).map((row) => row.id);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await sb.from("quiz_questions")
+        .select("id,quiz_id,prompt,options,position")
+        .in("quiz_id", quizIds)
+        .order("quiz_id", { ascending: true })
+        .order("position", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      const page = (data ?? []) as QuizQuestionRow[];
+      for (const question of page) {
+        const list = questionsByQuiz.get(question.quiz_id) ?? [];
+        list.push(question);
+        questionsByQuiz.set(question.quiz_id, list);
+      }
+      if (page.length < pageSize) break;
+    }
+  }
+  const questionIds = [...questionsByQuiz.values()].flatMap((questions) => questions.map((question) => question.id));
   let answerKeys: AnswerKeyRow[] = [];
   if ((user.role === "teacher" || user.role === "admin") && questionIds.length) {
     // Keep each IN filter small enough for PostgREST URL and query limits.
@@ -44,7 +69,7 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
     id: row.id, title: row.title, description: row.description, courseId: row.course_id ?? undefined,
     createdBy: row.created_by, timeLimitMin: row.time_limit_min, open: row.is_published,
     isCompetition: row.is_competition, createdAt: row.created_at,
-    questions: row.quiz_questions.sort((a, b) => a.position - b.position).map((question) => ({
+    questions: (questionsByQuiz.get(row.id) ?? []).map((question) => ({
       id: question.id, text: question.prompt, options: question.options,
       // Correct answers are never sent to student clients.
       answerIndex: keyByQuestion.get(question.id) ?? -1,
