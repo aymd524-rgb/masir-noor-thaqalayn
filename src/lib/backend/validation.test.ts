@@ -42,7 +42,13 @@ describe("validateClassCapacityInput", () => {
   it("rejects a capacity below confirmed enrollments", () => {
     expect(() => validateClassCapacityInput(9, 10)).toThrow("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
   });
-  it("rejects an invalid enrollment count", () => {
+  it.each([1.5, Number.NaN, Number.POSITIVE_INFINITY])("rejects a non-integer or non-finite enrollment count %s", (count) => {
+    expect(() => validateClassCapacityInput(20, count)).toThrow("تعداد ثبت‌نام‌های قطعی معتبر نیست.");
+  });
+  it("rejects a negative enrollment count", () => {
     expect(() => validateClassCapacityInput(20, -1)).toThrow("تعداد ثبت‌نام‌های قطعی معتبر نیست.");
+  });
+  it.each([Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])("rejects a non-finite capacity %s", (capacity) => {
+    expect(() => validateClassCapacityInput(capacity, 0)).toThrow("ظرفیت کلاس باید عددی صحیح بین ۱ تا ۵۰۰ باشد.");
   });
 });
