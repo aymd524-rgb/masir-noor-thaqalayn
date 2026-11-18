@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
 import { AdminCourseClassManager } from "./AdminCourseClassManager";
+import { AdminGameQuestionManager } from "./AdminGameQuestionManager";
 
 type AdminData = {
   profiles: { id: string; full_name: string | null; phone: string | null; role: string | null; created_at: string | null }[];
@@ -167,6 +168,7 @@ export function AdminBackendPanel() {
    <Metric label="کلاس‌های فعال" value={data.classes.filter(x=>x.is_active).length}/>
    <Metric label="درخواست‌های منتظر" value={pending.length}/>
   </div>
+  <AdminGameQuestionManager />
   <div className="grid gap-5 md:grid-cols-2">
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ترکیب کاربران</h2><ul className="mt-3 space-y-3 text-sm"><li className="flex justify-between"><span>دانش‌پژوه</span><b>{roleCount("student")}</b></li><li className="flex justify-between"><span>استاد</span><b>{roleCount("teacher")}</b></li><li className="flex justify-between"><span>مدیر</span><b>{roleCount("admin")}</b></li></ul></section>
    <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">ثبت‌نام‌های قطعی</h2><p className="mt-3 text-3xl font-extrabold">{data.enrollments.length}</p><p className="mt-1 text-xs text-muted-foreground">بر اساس جدول ثبت‌نام‌های تأییدشده</p></section>
