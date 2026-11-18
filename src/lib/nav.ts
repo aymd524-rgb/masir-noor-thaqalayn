@@ -7,6 +7,7 @@ import {
   ScrollText,
   Sparkles,
   Trophy,
+  Gamepad2,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./domain/types";
@@ -19,7 +20,8 @@ export type SectionPath =
   | "/library"
   | "/duas"
   | "/courses"
-  | "/quizzes";
+  | "/quizzes"
+  | "/games";
 
 export interface NavItem {
   to: SectionPath;
@@ -38,6 +40,7 @@ export const SECTIONS: NavItem[] = [
   { to: "/duas", label: "ادعیه و زیارات", short: "ادعیه", description: "دعاها و زیارت‌نامه‌ها", icon: HandHeart },
   { to: "/courses", label: "دوره‌ها و کلاس‌ها", short: "دوره‌ها", description: "ثبت‌نام در کلاس‌ها", icon: GraduationCap },
   { to: "/quizzes", label: "مسابقات و آزمون‌ها", short: "آزمون‌ها", description: "سنجش و رقابت علمی", icon: Trophy },
+  { to: "/games", label: "بازی‌های قرآنی", short: "بازی‌ها", description: "تمرین و یادگیری با بازی", icon: Gamepad2 },
 ];
 
 export const dashboardPath = (role: Role) =>
