@@ -25,6 +25,7 @@ jobs:
           src/components/admin/AdminGameQuestionManager.tsx
           src/lib/backend/games.ts
           src/lib/backend/quizzes.ts
+          src/lib/backend/quizzes.test.ts
           src/lib/backend/student.ts
           src/lib/backend/teacher.ts
           src/lib/backend/validation.ts
