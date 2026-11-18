@@ -4,7 +4,10 @@ const attendanceStatuses = new Set(["present", "absent", "late", "excused"]);
 export function isValidDateOnly(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
+  // setUTCFullYear avoids Date.UTC's special handling of years 0–99.
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
@@ -38,12 +41,14 @@ export function validateClassCapacityInput(capacity: number, confirmedEnrollment
 
 /** Validate optional class start/end values before converting them to ISO timestamps. */
 export function validateClassScheduleInput(startsAt: string, endsAt: string): void {
+  const startDate = startsAt ? startsAt.slice(0, 10) : "";
+  const endDate = endsAt ? endsAt.slice(0, 10) : "";
   const start = startsAt ? new Date(startsAt).getTime() : null;
   const end = endsAt ? new Date(endsAt).getTime() : null;
-  if (startsAt && (start === null || !Number.isFinite(start))) {
+  if (startsAt && (!isValidDateOnly(startDate) || start === null || !Number.isFinite(start))) {
     throw new Error("زمان شروع کلاس معتبر نیست.");
   }
-  if (endsAt && (end === null || !Number.isFinite(end))) {
+  if (endsAt && (!isValidDateOnly(endDate) || end === null || !Number.isFinite(end))) {
     throw new Error("زمان پایان کلاس معتبر نیست.");
   }
   if (start !== null && end !== null && end <= start) {
