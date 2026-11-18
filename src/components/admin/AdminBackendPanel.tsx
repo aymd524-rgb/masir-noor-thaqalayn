@@ -53,7 +53,7 @@ export function AdminBackendPanel() {
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
   const [{data:userResult,error:userError},p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
    sb.auth.getUser(),
-   readAllPages((from,to)=>sb.from("profiles").select("id,full_name,phone,role,created_at").order("created_at",{ascending:false}).order("id",{ascending:true}).range(from,to)),
+   readAllPages((from,to)=>sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).order("id",{ascending:true}).range(from,to)),
    readAllPages((from,to)=>sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).order("id",{ascending:true}).range(from,to)),
    readAllPages((from,to)=>sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).order("id",{ascending:true}).range(from,to)),
    readAllPages((from,to)=>sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).order("id",{ascending:true}).range(from,to)),
@@ -66,10 +66,14 @@ export function AdminBackendPanel() {
   ]);
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
+  const {data:contactRows,error:contactError}=await sb.rpc("admin_list_profile_contacts",{p_offset:0,p_limit:5000});
+  if(contactError) throw new Error(contactError.message);
+  const contactMap=new Map((contactRows??[]).map((row:{user_id:string;phone:string|null})=>[row.user_id,row.phone]));
+  const profilesWithContacts=p.map((profile)=>({...profile,phone:contactMap.get(profile.id)??null}));
   setProfilesTotal(p.length);
   setEnrollmentsTotal(e.length);
   for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
-  setData({profiles:p,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
+  setData({profiles:profilesWithContacts,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
  },[]);
 
  useEffect(()=>{
@@ -84,9 +88,12 @@ export function AdminBackendPanel() {
   if(!sb||loadingMoreUsers||data===null||data.profiles.length>=profilesTotal)return;
   setLoadingMoreUsers(true);
   try{
-   const {data:rows,error}=await sb.from("profiles").select("id,full_name,phone,role,created_at").order("created_at",{ascending:false}).range(data.profiles.length,data.profiles.length+199);
+   const {data:rows,error}=await sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).range(data.profiles.length,data.profiles.length+199);
    if(error)throw new Error(error.message);
-   setData(current=>current?{...current,profiles:[...current.profiles,...(rows??[])]}:current);
+   const {data:contacts,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:(rows??[]).map(row=>row.id)});
+   if(contactError)throw new Error(contactError.message);
+   const contactMap=new Map((contacts??[]).map((row:{user_id:string;phone:string|null})=>[row.user_id,row.phone]));
+   setData(current=>current?{...current,profiles:[...current.profiles,...(rows??[]).map(row=>({...row,phone:contactMap.get(row.id)??null}))]}:current);
   }catch(error){toast.error(error instanceof Error?error.message:"دریافت کاربران بیشتر انجام نشد.");}
   finally{setLoadingMoreUsers(false);}
  };
