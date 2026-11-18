@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateBackendQuizAttemptInput, validateBackendQuizInput } from "./quizzes";
+import { sortQuizAttemptsNewestFirst, validateBackendQuizAttemptInput, validateBackendQuizInput } from "./quizzes";
 import type { QuizQuestion } from "@/lib/domain/types";
 
 const question = (overrides: Partial<QuizQuestion> = {}): QuizQuestion => ({
@@ -108,5 +108,17 @@ describe("validateBackendQuizAttemptInput", () => {
       `123e4567-e89b-42d3-a456-${String(index).padStart(12, "0")}`, 0,
     ]));
     expect(() => validateBackendQuizAttemptInput(quizId, answers)).toThrow();
+  });
+});
+
+describe("sortQuizAttemptsNewestFirst", () => {
+  it("places the latest result first without mutating the original list", () => {
+    const attempts = [
+      { id: "older", quizId: "quiz", userId: "student", score: 1, total: 2, at: "2026-01-01T10:00:00.000Z" },
+      { id: "newer", quizId: "quiz", userId: "student", score: 2, total: 2, at: "2026-01-02T10:00:00.000Z" },
+    ];
+    const sorted = sortQuizAttemptsNewestFirst(attempts);
+    expect(sorted.map((attempt) => attempt.id)).toEqual(["newer", "older"]);
+    expect(attempts.map((attempt) => attempt.id)).toEqual(["older", "newer"]);
   });
 });
