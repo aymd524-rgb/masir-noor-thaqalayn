@@ -16,6 +16,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [busyClass, setBusyClass] = useState("");
   const [busyAssignment, setBusyAssignment] = useState("");
+  const [assignmentNotes, setAssignmentNotes] = useState<Record<string, string>>({});
   const reload = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
@@ -38,12 +39,12 @@ export function StudentBackendPanel({ user }: { user: User }) {
 
   const pendingIds = useMemo(() => new Set((workspace?.requests ?? []).filter((r) => r.status === "pending").map((r) => r.classId)), [workspace]);
   const enrolledIds = useMemo(() => new Set((workspace?.enrollments ?? []).map((r) => r.classId)), [workspace]);
-  const updateAssignment = async (assignmentId: string, status: "in_progress" | "completed" | "needs_help") => {
+  const updateAssignment = async (assignmentId: string, status: "in_progress" | "completed" | "needs_help", note: string) => {
     const sb = getSupabase();
     if (!sb) return;
     setBusyAssignment(assignmentId);
     try {
-      await saveStudentHifzAssignmentStatus(sb, { assignmentId, studentId: user.id, status, note: "" });
+      await saveStudentHifzAssignmentStatus(sb, { assignmentId, studentId: user.id, status, note });
       await reload();
       toast.success("وضعیت برنامه حفظ به‌روزرسانی شد.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "به‌روزرسانی وضعیت انجام نشد."); }
@@ -154,11 +155,25 @@ export function StudentBackendPanel({ user }: { user: User }) {
             <p className="mt-1 text-xs text-muted-foreground">{item.classTitle} · مهلت: {new Date(item.dueDate + "T00:00:00").toLocaleDateString("fa-IR")}</p>
             {item.instructions && <p className="mt-1 text-sm">{item.instructions}</p>}
           </div>
-          <select aria-label="وضعیت برنامه حفظ" disabled={busyAssignment === item.id} value={item.status ?? "in_progress"} onChange={(event) => void updateAssignment(item.id, event.target.value as "in_progress" | "completed" | "needs_help")} className="rounded-lg border bg-background px-3 py-2 text-sm">
-            <option value="in_progress">در حال انجام</option>
-            <option value="completed">انجام شد</option>
-            <option value="needs_help">نیاز به کمک دارم</option>
-          </select>
+          <div className="w-full space-y-2 sm:max-w-xs">
+            <label className="block text-xs font-semibold" htmlFor={`hifz-note-${item.id}`}>گزارش یا پیام برای استاد</label>
+            <textarea
+              id={`hifz-note-${item.id}`}
+              maxLength={1000}
+              value={assignmentNotes[item.id] ?? item.note ?? ""}
+              onChange={(event) => setAssignmentNotes((current) => ({ ...current, [item.id]: event.target.value }))}
+              placeholder="مثلاً این آیات را حفظ کردم؛ در آیهٔ آخر به راهنمایی نیاز دارم."
+              className="min-h-20 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">{(assignmentNotes[item.id] ?? item.note ?? "").length} از ۱۰۰۰ نویسه</span>
+              <select aria-label="وضعیت برنامه حفظ" disabled={busyAssignment === item.id} value={item.status ?? "in_progress"} onChange={(event) => void updateAssignment(item.id, event.target.value as "in_progress" | "completed" | "needs_help", assignmentNotes[item.id] ?? item.note ?? "")} className="rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="in_progress">در حال انجام</option>
+                <option value="completed">انجام شد</option>
+                <option value="needs_help">نیاز به کمک دارم</option>
+              </select>
+            </div>
+          </div>
         </div>
       </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز برنامه‌ای از طرف استاد تعیین نشده است.</p>}
     </section>
