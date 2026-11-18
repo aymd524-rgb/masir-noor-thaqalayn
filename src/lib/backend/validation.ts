@@ -2,7 +2,7 @@ const attendanceStatuses = new Set(["present", "absent", "late", "excused"]);
 
 /** Validate a real calendar date in YYYY-MM-DD format (not just its shape). */
 export function isValidDateOnly(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
@@ -31,5 +31,20 @@ export function validateClassCapacityInput(capacity: number, confirmedEnrollment
   }
   if (capacity < confirmedEnrollmentCount) {
     throw new Error("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
+  }
+}
+
+/** Validate optional class start/end values before converting them to ISO timestamps. */
+export function validateClassScheduleInput(startsAt: string, endsAt: string): void {
+  const start = startsAt ? new Date(startsAt).getTime() : null;
+  const end = endsAt ? new Date(endsAt).getTime() : null;
+  if (startsAt && (start === null || !Number.isFinite(start))) {
+    throw new Error("زمان شروع کلاس معتبر نیست.");
+  }
+  if (endsAt && (end === null || !Number.isFinite(end))) {
+    throw new Error("زمان پایان کلاس معتبر نیست.");
+  }
+  if (start !== null && end !== null && end <= start) {
+    throw new Error("زمان پایان باید بعد از زمان شروع باشد.");
   }
 }
