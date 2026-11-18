@@ -129,9 +129,12 @@ export function AdminBackendPanel() {
    const missingIds=[...new Set((rows??[]).map(item=>item.student_id).filter(id=>!knownProfiles.has(id)))];
    let extraProfiles:AdminData["profiles"]=[];
    if(missingIds.length){
-    const {data:profileRows,error:profileError}=await sb.from("profiles").select("id,full_name,phone,role,created_at").in("id",missingIds);
+    const {data:profileRows,error:profileError}=await sb.from("profiles").select("id,full_name,role,created_at").in("id",missingIds);
     if(profileError)throw new Error(profileError.message);
-    extraProfiles=profileRows??[];
+    const {data:contacts,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:missingIds});
+    if(contactError)throw new Error(contactError.message);
+    const contactMap=new Map((contacts??[]).map((row:{user_id:string;phone:string|null})=>[row.user_id,row.phone]));
+    extraProfiles=(profileRows??[]).map(row=>({...row,phone:contactMap.get(row.id)??null}));
    }
    setData(current=>current?{...current,enrollments:[...current.enrollments,...(rows??[])],profiles:[...current.profiles,...extraProfiles.filter(item=>!current.profiles.some(existing=>existing.id===item.id))]}:current);
   }catch(error){toast.error(error instanceof Error?error.message:"دریافت ثبت‌نام‌های بیشتر انجام نشد.");}
