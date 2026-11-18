@@ -237,7 +237,7 @@ export function AdminBackendPanel() {
      {courseClasses.length?<ul className="mt-3 divide-y border-t">{courseClasses.map(cls=>{
       const rows=courseEnrollments.filter(item=>item.class_id===cls.id);
       const used=rows.length;
-      const capacityLabel=cls.capacity===null?"ظرفیت نامحدود":used+" از "+cls.capacity+" نفر";
+      const remaining=cls.capacity===null?null:cls.capacity-used;const capacityLabel=remaining===null?"ظرفیت نامحدود":remaining<0?used+" از "+cls.capacity+" نفر · "+Math.abs(remaining)+" نفر بیش از ظرفیت":remaining===0?used+" از "+cls.capacity+" نفر · ظرفیت تکمیل":used+" از "+cls.capacity+" نفر · "+remaining+" جای خالی";
       const teacher=data.profiles.find(item=>item.id===cls.teacher_id);
       return <li key={cls.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{cls.title} <span className="text-xs text-muted-foreground">· {teacher?.full_name||"بدون استاد"}</span></span><span className="text-xs text-muted-foreground">{capacityLabel} · {cls.is_active?"فعال":"غیرفعال"}</span></li>
      })}</ul>:<p className="mt-2 text-xs text-muted-foreground">هنوز کلاسی برای این دوره ساخته نشده است.</p>}
