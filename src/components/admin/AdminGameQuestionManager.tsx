@@ -60,8 +60,20 @@ export function AdminGameQuestionManager() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
+    if (!prompt.trim() || !topic.trim()) {
+      toast.error("متن پرسش و موضوع را کامل وارد کنید.");
+      return;
+    }
     if (options.length < 2 || options.length > 8) {
       toast.error("بین ۲ تا ۸ گزینه وارد کنید؛ هر گزینه در یک خط.");
+      return;
+    }
+    if (gameType === "true_false" && options.length !== 2) {
+      toast.error("بازی درست یا نادرست باید دقیقاً دو گزینه داشته باشد.");
+      return;
+    }
+    if (new Set(options).size !== options.length) {
+      toast.error("گزینه‌های تکراری مجاز نیستند.");
       return;
     }
     let answerPayload: number | string[];
