@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateBackendQuizInput } from "./quizzes";
+import { validateBackendQuizAttemptInput, validateBackendQuizInput } from "./quizzes";
 import type { QuizQuestion } from "@/lib/domain/types";
 
 const question = (overrides: Partial<QuizQuestion> = {}): QuizQuestion => ({
@@ -78,4 +78,35 @@ describe("validateBackendQuizInput", () => {
     expect(() => validateBackendQuizInput(malformedOption)).toThrow("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
   });
 
+});
+
+describe("validateBackendQuizAttemptInput", () => {
+  const quizId = "123e4567-e89b-42d3-a456-426614174000";
+  const questionId = "123e4567-e89b-42d3-a456-426614174001";
+
+  it("accepts a well-formed answer map", () => {
+    expect(() => validateBackendQuizAttemptInput(quizId, { [questionId]: 1 })).not.toThrow();
+  });
+
+  it("rejects invalid quiz IDs and malformed answer maps", () => {
+    for (const [id, answers] of [
+      ["not-a-uuid", { [questionId]: 0 }],
+      [quizId, null],
+      [quizId, []],
+      [quizId, {}],
+      [quizId, { "bad-id": 0 }],
+      [quizId, { [questionId]: -1 }],
+      [quizId, { [questionId]: 1.5 }],
+      [quizId, { [questionId]: "1" }],
+    ] as const) {
+      expect(() => validateBackendQuizAttemptInput(id, answers)).toThrow();
+    }
+  });
+
+  it("rejects answer maps with more than one hundred entries", () => {
+    const answers = Object.fromEntries(Array.from({ length: 101 }, (_, index) => [
+      `123e4567-e89b-42d3-a456-${String(index).padStart(4, "0")}-426614174000`, 0,
+    ]));
+    expect(() => validateBackendQuizAttemptInput(quizId, answers)).toThrow();
+  });
 });
