@@ -105,14 +105,20 @@ export function validateBackendQuizInput(input: {
   if (!Array.isArray(input.questions) || input.questions.length < 1 || input.questions.length > 100) {
     throw new Error("تعداد پرسش‌های آزمون باید بین ۱ تا ۱۰۰ باشد.");
   }
+  let totalTextLength = input.title.trim().length + input.description.length;
   for (const question of input.questions) {
     if (!question.text.trim() || question.text.trim().length > 1000 ||
       !Array.isArray(question.options) || question.options.length < 2 || question.options.length > 8 ||
       question.options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 300) ||
+      new Set(question.options.map((option) => option.trim())).size !== question.options.length ||
       !Number.isInteger(question.answerIndex) || question.answerIndex < 0 ||
       question.answerIndex >= question.options.length) {
       throw new Error("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
     }
+    totalTextLength += question.text.trim().length + question.options.reduce((sum, option) => sum + option.trim().length, 0);
+  }
+  if (totalTextLength > 100_000) {
+    throw new Error("حجم کلی متن آزمون بیش از حد مجاز است.");
   }
 }
 
