@@ -91,7 +91,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   const classRows = await readAllPages<{
     id: string; title: string; course_id: string | null; teacher_id: string | null;
     description: string | null; capacity: number | null;
-  }>(classQuery.order("created_at", { ascending: false }));
+  }>(classQuery.order("created_at", { ascending: false }).order("id", { ascending: true }));
   const classes: TeacherClass[] = (classRows ?? []).map((row) => ({
     id: row.id,
     title: row.title,
@@ -106,8 +106,8 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }
 
   const [enrollmentRows, requestRows] = await Promise.all([
-    readRowsForIds<any>((ids) => sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", ids), classIds),
-    readRowsForIds<any>((ids) => sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", ids).eq("status", "pending"), classIds),
+    readRowsForIds<any>((ids) => sb.from("enrollments").select("id,class_id,student_id,created_at").in("class_id", ids).order("id", { ascending: true }), classIds),
+    readRowsForIds<any>((ids) => sb.from("enrollment_requests").select("id,class_id,student_id,status,payment_status,created_at").in("class_id", ids).eq("status", "pending").order("id", { ascending: true }), classIds),
   ]);
   const studentIds = [...new Set([
     ...enrollmentRows.map((row) => row.student_id),
@@ -116,11 +116,11 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
   const [profileRows, attendanceRows, gradeRows, hifzRows, assignmentRows] = await Promise.all([
-    studentIds.length ? readRowsForIds<any>((ids) => sb.from("profiles").select("id,full_name").in("id", ids), studentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }), enrollmentIds) : Promise.resolve([]),
-    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    studentIds.length ? readRowsForIds<any>((ids) => sb.from("profiles").select("id,full_name").in("id", ids).order("id", { ascending: true }), studentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids).order("session_date", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
+    enrollmentIds.length ? readRowsForIds<any>((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }).order("id", { ascending: true }), enrollmentIds) : Promise.resolve([]),
   ]);
 
   const names = new Map(profileRows.map((profile) => [profile.id, profile.full_name || "دانش‌پژوه"]));
@@ -161,7 +161,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   
   const assignmentIds = assignmentRows.map((row) => row.id);
   const completionRows = assignmentIds.length
-    ? await readRowsForIds<any>((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids), assignmentIds)
+    ? await readRowsForIds<any>((ids) => sb.from("hifz_assignment_completions").select("assignment_id,status,note").in("assignment_id", ids).order("assignment_id", { ascending: true }), assignmentIds)
     : [];
   const completionMap = new Map(completionRows.map((row) => [row.assignment_id, row]));
   const enrollmentMap = new Map(enrollments.map((row) => [row.id, row]));
