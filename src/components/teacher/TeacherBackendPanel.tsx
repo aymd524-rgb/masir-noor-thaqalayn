@@ -20,6 +20,18 @@ const statusLabels: Record<TeacherAttendance["status"], string> = {
   excused: "غیبت موجه",
 };
 
+function countUniqueAyahs(items: Array<{ surahNumber: number; ayahStart: number; ayahEnd: number }>) {
+  const ayahsBySurah = new Map<number, Set<number>>();
+  for (const item of items) {
+    if (!Number.isInteger(item.surahNumber) || !Number.isInteger(item.ayahStart) || !Number.isInteger(item.ayahEnd)) continue;
+    if (item.ayahStart < 1 || item.ayahEnd < item.ayahStart) continue;
+    const ayahs = ayahsBySurah.get(item.surahNumber) ?? new Set<number>();
+    for (let ayah = item.ayahStart; ayah <= item.ayahEnd; ayah += 1) ayahs.add(ayah);
+    ayahsBySurah.set(item.surahNumber, ayahs);
+  }
+  return [...ayahsBySurah.values()].reduce((total, ayahs) => total + ayahs.size, 0);
+}
+
 export function TeacherBackendPanel({ user }: { user: User }) {
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadTeacherWorkspace>> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,8 +128,10 @@ export function TeacherBackendPanel({ user }: { user: User }) {
       ...enrollment,
       memorizationCount: memorization.length,
       memorizationAyahs: countAyahEntries(memorization),
+      memorizationUniqueAyahs: countUniqueAyahs(memorization),
       reviewCount: reviews.length,
       reviewAyahs: countAyahEntries(reviews),
+      reviewUniqueAyahs: countUniqueAyahs(reviews),
       assessmentCount: hifzRecords.length,
       excellent: hifzRecords.filter((item) => item.assessment === "excellent").length,
       good: hifzRecords.filter((item) => item.assessment === "good").length,
@@ -344,13 +358,15 @@ export function TeacherBackendPanel({ user }: { user: User }) {
             <div className="mt-4 space-y-4 border-t pt-3">
               <div>
                 <h3 className="mb-2 text-sm font-bold">حفظ و مرور قرآن</h3>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationCount}</b><p className="text-xs text-muted-foreground">جلسات حفظ جدید</p></div>
-                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationAyahs}</b><p className="text-xs text-muted-foreground">آیه در رکوردهای حفظ</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationAyahs}</b><p className="text-xs text-muted-foreground">مجموع آیات در رکوردهای حفظ</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.memorizationUniqueAyahs}</b><p className="text-xs text-muted-foreground">آیات یکتای ثبت‌شده در حفظ</p></div>
                   <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewCount}</b><p className="text-xs text-muted-foreground">جلسات مرور</p></div>
-                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewAyahs}</b><p className="text-xs text-muted-foreground">آیه در رکوردهای مرور</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewAyahs}</b><p className="text-xs text-muted-foreground">مجموع آیات در رکوردهای مرور</p></div>
+                  <div className="rounded-lg bg-muted/50 p-3"><b>{item.reviewUniqueAyahs}</b><p className="text-xs text-muted-foreground">آیات یکتای ثبت‌شده در مرور</p></div>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">تعداد آیات، مجموع محدوده‌های ثبت‌شده است؛ آیات تکراری حذف نشده‌اند و این عدد به‌تنهایی نشان‌دهنده تعداد آیات یکتای حفظ‌شده نیست.</p>
+                <p className="mt-2 text-xs text-muted-foreground">آیات یکتا، هم‌پوشانی محدوده‌های ثبت‌شده در هر سوره را حذف می‌کند؛ این آمار نشان‌دهنده گستره آیات ارزیابی‌شده است، نه تأیید قطعی تسلط یا حفظ نهایی.</p>
                 <p className="mt-2 text-sm">ارزیابی‌ها: عالی {item.excellent} · خوب {item.good} · قابل قبول {item.fair} · نیازمند تمرین {item.needsPractice}</p>
                 <div className="mt-3">
                   <h4 className="text-xs font-bold">آخرین ارزیابی‌های استاد</h4>
