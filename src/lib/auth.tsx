@@ -140,9 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sb && activeUser) {
         const { error } = await sb
           .from("profiles")
-          .update({ full_name: patch.fullName, phone: patch.phone ?? null })
+          .update({ full_name: patch.fullName })
           .eq("id", activeUser.id);
-        if (error) throw new AppError("ذخیره پروفایل در سرور انجام نشد.");
+        if (error) throw new AppError("ذخیره نام در سرور انجام نشد.");
+        const { error: contactError } = await sb.from("profile_contacts").upsert({ user_id: activeUser.id, phone: patch.phone?.trim() || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+        if (contactError) throw new AppError("ذخیره شماره تماس انجام نشد.");
       }
       commit((d) => updateOwnProfile(d, activeUser, patch));
     },
