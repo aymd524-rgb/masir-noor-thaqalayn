@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateAttendanceInput, validateGradeInput } from "./validation";
+import { validateAttendanceInput, validateClassCapacityInput, validateGradeInput } from "./validation";
 
 describe("validateAttendanceInput", () => {
   it("accepts a valid attendance record", () => {
