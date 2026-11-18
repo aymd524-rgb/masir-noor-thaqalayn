@@ -16,6 +16,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { fullName: string; email: string; password: string }) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   updateProfile: (patch: { fullName: string; phone?: string; bio?: string; city?: string }) => Promise<void>;
 }
 
@@ -50,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     void sync();
     const { data: sub } = sb.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") void sync();
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "PASSWORD_RECOVERY") void sync();
     });
     return () => {
       cancelled = true;
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (input: { fullName: string; email: string; password: string }) => {
+    if (input.password.length < 8) throw new AppError("رمز عبور باید حداقل ۸ نویسه باشد.");
     const sb = getSupabase();
     if (sb) {
       const { data, error } = await sb.auth.signUp({
@@ -112,6 +115,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserId(null);
   }, []);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const sb = getSupabase();
+    if (!sb) throw new AppError("بازیابی رمز عبور در حالت نمایشی فعال نیست.");
+    const normalized = email.trim().toLowerCase();
+    if (!normalized.includes("@")) throw new AppError("ایمیل معتبر وارد کنید.");
+    const { error } = await sb.auth.resetPasswordForEmail(normalized, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw new AppError("ارسال پیوند بازیابی انجام نشد. تنظیمات ایمیل و نشانی بازگشت را بررسی کنید.");
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    const sb = getSupabase();
+    if (!sb) throw new AppError("تغییر رمز عبور در حالت نمایشی فعال نیست.");
+    if (password.length < 8) throw new AppError("رمز عبور باید حداقل ۸ نویسه باشد.");
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) throw new AppError("تغییر رمز عبور انجام نشد. ممکن است پیوند بازیابی منقضی شده باشد.");
+  }, []);
+
   const updateProfile = useCallback<AuthContextValue["updateProfile"]>(
     async (patch) => {
       const sb = getSupabase();
@@ -128,8 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user: activeUser, mode, signIn, signUp, signOut, updateProfile }),
-    [status, activeUser, mode, signIn, signUp, signOut, updateProfile],
+    () => ({ status, user: activeUser, mode, signIn, signUp, signOut, requestPasswordReset, updatePassword, updateProfile }),
+    [status, activeUser, mode, signIn, signUp, signOut, requestPasswordReset, updatePassword, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
