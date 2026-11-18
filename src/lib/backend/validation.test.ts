@@ -80,7 +80,12 @@ describe("validateClassScheduleInput", () => {
     expect(() => validateClassScheduleInput("not-a-date", "")).toThrow("زمان شروع کلاس معتبر نیست.");
     expect(() => validateClassScheduleInput("", "not-a-date")).toThrow("زمان پایان کلاس معتبر نیست.");
   });
-  it("rejects an end that is equal to or earlier than the start", () => {
+  it("rejects impossible calendar dates that JavaScript would otherwise normalize", () => {
+    expect(() => validateClassScheduleInput("2026-02-30T09:00", "")).toThrow("زمان شروع کلاس معتبر نیست.");
+    expect(() => validateClassScheduleInput("", "2026-04-31T10:00")).toThrow("زمان پایان کلاس معتبر نیست.");
+  });
+  it("accepts valid dates and rejects an end that is equal to or earlier than the start", () => {
+    expect(() => validateClassScheduleInput("2026-11-18T10:00", "2026-11-18T11:00")).not.toThrow();
     expect(() => validateClassScheduleInput("2026-11-18T10:00", "2026-11-18T10:00")).toThrow("زمان پایان باید بعد از زمان شروع باشد.");
     expect(() => validateClassScheduleInput("2026-11-18T11:00", "2026-11-18T10:00")).toThrow("زمان پایان باید بعد از زمان شروع باشد.");
   });
