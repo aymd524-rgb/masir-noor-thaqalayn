@@ -156,14 +156,16 @@ export function AdminCourseClassManager() {
       const { count, error: countError } = await sb.from("enrollments")
         .select("id", { count: "exact", head: true }).eq("class_id", editingClass);
       if (countError) throw countError;
-      if (count !== null && seats < count) throw new Error("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
-      const { error } = await sb.from("classes").update({
+      if (count === null) throw new Error("تعداد ثبت‌نام‌های قطعی مشخص نشد؛ برای جلوگیری از کاهش ناامن ظرفیت، تغییر انجام نشد.");
+      if (seats < count) throw new Error("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
+      const { data: updatedClass, error } = await sb.from("classes").update({
         title: editClassTitle.trim(), description: editClassDescription.trim(),
         course_id: editCourseId, teacher_id: editTeacherId || null, capacity: seats,
         starts_at: editStartsAt ? new Date(editStartsAt).toISOString() : null,
         ends_at: editEndsAt ? new Date(editEndsAt).toISOString() : null,
-      }).eq("id", editingClass);
+      }).eq("id", editingClass).select("id").single();
       if (error) throw error;
+      if (!updatedClass) throw new Error("کلاس به‌روزرسانی نشد؛ دسترسی یا وجود کلاس را بررسی کنید.");
       setEditingClass(null);
       await reload();
       toast.success("اطلاعات کلاس ویرایش شد.");
