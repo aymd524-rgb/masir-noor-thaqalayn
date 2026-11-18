@@ -1,6 +1,6 @@
 import { getSurah } from "@/lib/quran/surahs";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { validateAttendanceInput, validateGradeInput } from "./validation";
+import { isValidDateOnly, validateAttendanceInput, validateGradeInput } from "./validation";
 
 export type TeacherClass = {
   id: string;
@@ -234,7 +234,8 @@ export async function saveTeacherHifzRecord(
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart
     || !getSurah(input.surahNumber)
     || input.ayahEnd > (getSurah(input.surahNumber)?.ayahCount ?? 0)
-    || !input.sessionDate || input.notes.length > 1000) {
+    || !isValidDateOnly(input.sessionDate) || !["memorization", "review"].includes(input.recordType)
+    || !["excellent", "good", "fair", "needs_practice"].includes(input.assessment) || input.notes.length > 1000) {
     throw new Error("اطلاعات محفوظات معتبر نیست.");
   }
   const { error } = await sb.from("hifz_records").insert({
@@ -258,7 +259,8 @@ export async function saveTeacherHifzAssignment(
   const surah = getSurah(input.surahNumber);
   if (!input.enrollmentId || !surah || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > surah.ayahCount
-    || !/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) || input.instructions.length > 1000 || !input.assignedBy) {
+    || !isValidDateOnly(input.dueDate) || !["memorization", "review"].includes(input.assignmentType)
+    || input.instructions.length > 1000 || !input.assignedBy) {
     throw new Error("اطلاعات برنامه حفظ معتبر نیست.");
   }
   const { error } = await sb.from("hifz_assignments").insert({
