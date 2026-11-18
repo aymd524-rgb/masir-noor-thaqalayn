@@ -352,6 +352,23 @@ export function TeacherBackendPanel({ user }: { user: User }) {
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">تعداد آیات، مجموع محدوده‌های ثبت‌شده است؛ آیات تکراری حذف نشده‌اند و این عدد به‌تنهایی نشان‌دهنده تعداد آیات یکتای حفظ‌شده نیست.</p>
                 <p className="mt-2 text-sm">ارزیابی‌ها: عالی {item.excellent} · خوب {item.good} · قابل قبول {item.fair} · نیازمند تمرین {item.needsPractice}</p>
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold">آخرین ارزیابی‌های استاد</h4>
+                  {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id).slice(0, 8).length ? (
+                    <ul className="mt-2 space-y-2">
+                      {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id).slice(0, 8).map((record) => (
+                        <li key={record.id} className="rounded-lg bg-muted/40 p-2 text-xs">
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <b>{record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · {getSurah(record.surahNumber)?.name ?? `سوره ${record.surahNumber}`}، آیات {record.ayahStart} تا {record.ayahEnd}</b>
+                            <span>{new Date(record.sessionDate + "T00:00:00").toLocaleDateString("fa-IR")}</span>
+                          </div>
+                          <p className="mt-1">نتیجه: {{ excellent: "عالی", good: "خوب", fair: "قابل قبول", needs_practice: "نیازمند تمرین" }[record.assessment]}</p>
+                          {record.notes ? <p className="mt-1 whitespace-pre-wrap">{record.notes}</p> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="mt-1 text-xs text-muted-foreground">هنوز ارزیابی حفظی ثبت نشده است.</p>}
+                </div>
               </div>
               <div>
                 <h3 className="mb-2 text-sm font-bold">حضور و غیاب</h3>
