@@ -59,7 +59,7 @@ export async function loadBackendQuizWorkspace(sb: SupabaseClient, user: User) {
     }
   }
   const questionIds = [...questionsByQuiz.values()].flatMap((questions) => questions.map((question) => question.id));
-  let answerKeys: AnswerKeyRow[] = [];
+  const answerKeys: AnswerKeyRow[] = [];
   if ((user.role === "teacher" || user.role === "admin") && questionIds.length) {
     // Keep each IN filter small enough for PostgREST URL and query limits.
     for (let offset = 0; offset < questionIds.length; offset += 200) {
