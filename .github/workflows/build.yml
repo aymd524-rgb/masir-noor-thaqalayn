@@ -20,6 +20,8 @@ jobs:
         run: >-
           bunx eslint
           src/components/content/ContentSectionPage.tsx
+          src/components/admin/AdminBackendPanel.tsx
+          src/components/admin/AdminGameQuestionManager.tsx
           src/lib/backend/games.ts
           src/lib/content/shared-content.ts
           src/lib/nav.ts
