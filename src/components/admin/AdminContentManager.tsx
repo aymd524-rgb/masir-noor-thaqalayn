@@ -60,7 +60,7 @@ const EMPTY_DRAFT: ContentDraft = {
 };
 
 const TYPE_LABELS: Record<ContentType, string> = {
-  library: "مطلب قرآنی / کتابخانه",
+  library: "مطلب عمومی / کتابخانه",
   hadith: "حدیث و روایت",
   dua: "دعا",
   ziyarat: "زیارت",
@@ -164,6 +164,14 @@ export function AdminContentManager() {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
+  const changeContentType = (contentType: ContentType) => {
+    const defaultSection: ContentSection =
+      contentType === "hadith" ? "ahlulbayt"
+        : contentType === "dua" || contentType === "ziyarat" ? "duas"
+          : contentType === "munajat" ? "sahifa" : "library";
+    setDraft((current) => ({ ...current, content_type: contentType, section: defaultSection }));
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setDraft(EMPTY_DRAFT);
@@ -181,6 +189,19 @@ export function AdminContentManager() {
     const sortOrder = Number(draft.sort_order);
     if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000) {
       toast.error("ترتیب نمایش باید عدد صحیح بین صفر تا ۱۰۰۰۰۰ باشد.");
+      return;
+    }
+    const safeUrl = (value: string) => {
+      if (!value.trim()) return true;
+      try {
+        const parsed = new URL(value.trim());
+        return parsed.protocol === "https:" || parsed.protocol === "http:";
+      } catch {
+        return false;
+      }
+    };
+    if (!safeUrl(draft.source_url) || !safeUrl(draft.media_url)) {
+      toast.error("پیوند منبع و رسانه باید با http:// یا https:// آغاز شود.");
       return;
     }
     const sb = getSupabase();
@@ -301,7 +322,7 @@ export function AdminContentManager() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-semibold">نوع محتوا
-            <select value={draft.content_type} onChange={(event) => change("content_type", event.target.value as ContentType)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal">
+            <select value={draft.content_type} onChange={(event) => changeContentType(event.target.value as ContentType)} className="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-normal">
               {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
