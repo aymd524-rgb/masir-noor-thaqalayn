@@ -17,3 +17,16 @@ export function validateGradeInput(input: { enrollmentId: string; title: string;
   if (!input.title.trim()) throw new Error("عنوان ارزشیابی الزامی است.");
   if (!Number.isFinite(input.score) || input.score < 0) throw new Error("نمره باید عددی و نامنفی باشد.");
 }
+
+/** Validate class capacity against the number of already confirmed enrollments. */
+export function validateClassCapacityInput(capacity: number, confirmedEnrollmentCount: number): void {
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) {
+    throw new Error("ظرفیت کلاس باید عددی صحیح بین ۱ تا ۵۰۰ باشد.");
+  }
+  if (!Number.isInteger(confirmedEnrollmentCount) || confirmedEnrollmentCount < 0) {
+    throw new Error("تعداد ثبت‌نام‌های قطعی معتبر نیست.");
+  }
+  if (capacity < confirmedEnrollmentCount) {
+    throw new Error("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
+  }
+}
