@@ -72,6 +72,39 @@ export type AdminGameQuestion = GameQuestion & {
   created_at: string;
 };
 
+/** Validate administrator game-question input before invoking the database RPC. */
+export function validateAdminGameQuestionInput(input: AdminGameQuestionInput): void {
+  if (!["multiple_choice", "true_false", "word_order", "concept_guess"].includes(input.gameType) ||
+    !["kids", "teens"].includes(input.ageGroup) ||
+    !["easy", "medium", "hard"].includes(input.difficulty)) {
+    throw new Error("نوع بازی، گروه سنی یا سطح دشواری معتبر نیست.");
+  }
+  if (typeof input.prompt !== "string" || !input.prompt.trim() || input.prompt.trim().length > 1200 ||
+    typeof input.topic !== "string" || !input.topic.trim() || input.topic.trim().length > 120 ||
+    typeof input.explanation !== "string" || input.explanation.length > 2000) {
+    throw new Error("متن پرسش، موضوع یا توضیح پاسخ معتبر نیست.");
+  }
+  if (!Array.isArray(input.options) || input.options.length < 2 || input.options.length > 8 ||
+    input.options.some((option) => typeof option !== "string" || !option.trim() || option.trim().length > 300) ||
+    new Set(input.options.map((option) => option.trim())).size !== input.options.length) {
+    throw new Error("گزینه‌ها باید ۲ تا ۸ متن غیرتکراری و حداکثر ۳۰۰ نویسه‌ای باشند.");
+  }
+  if (input.gameType === "true_false" && input.options.length !== 2) {
+    throw new Error("بازی درست یا نادرست باید دقیقاً دو گزینه داشته باشد.");
+  }
+  if (input.gameType === "word_order") {
+    if (!Array.isArray(input.answerPayload) || input.answerPayload.length !== input.options.length ||
+      input.answerPayload.some((part) => typeof part !== "string" || !input.options.includes(part)) ||
+      new Set(input.answerPayload).size !== input.options.length) {
+      throw new Error("ترتیب پاسخ باید همه گزینه‌ها را دقیقاً یک‌بار شامل شود.");
+    }
+  } else if (!Number.isInteger(input.answerPayload) || input.answerPayload < 0 || input.answerPayload >= input.options.length) {
+    throw new Error("شماره پاسخ صحیح معتبر نیست.");
+  }
+}
+
+
+
 export async function fetchAdminGameQuestions(sb: SupabaseClient): Promise<AdminGameQuestion[]> {
   const rows: AdminGameQuestion[] = [];
   const pageSize = 500;
@@ -94,6 +127,7 @@ export async function createAdminGameQuestion(
   sb: SupabaseClient,
   input: AdminGameQuestionInput,
 ): Promise<string> {
+  validateAdminGameQuestionInput(input);
   const { data, error } = await sb.rpc("admin_create_game_question", {
     p_game_type: input.gameType,
     p_prompt: input.prompt.trim(),
