@@ -270,7 +270,7 @@ export function AdminBackendPanel() {
      <button type="button" disabled={savingId===req.id} onClick={()=>void reviewRequest(req.id,"rejected")} className="rounded-lg border px-3 py-2 font-semibold disabled:opacity-50">رد درخواست</button>
     </div>
    </li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواست منتظر بررسی وجود ندارد.</p>}
-   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. پیش از تأیید، ظرفیت کلاس با دریافت تازه از پایگاه داده کنترل می‌شود؛ برای جلوگیری قطعی از رقابت هم‌زمان چند مدیر، باید این کنترل در تراکنش سمت پایگاه داده نیز اعمال شود.</p>
+   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. پیش از تأیید، ظرفیت کلاس دوباره از پایگاه داده دریافت می‌شود؛ علاوه بر این بررسی، پایگاه داده هنگام ثبت‌نام ردیف کلاس را قفل می‌کند و ظرفیت را در همان تراکنش کنترل می‌کند تا تأییدهای هم‌زمان باعث عبور از ظرفیت نشوند.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین درخواست‌ها</h2>
    {data.requests.length?<ul className="mt-3 divide-y">{data.requests.slice(0,12).map(req=><li key={req.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><b>{req.status==="pending"?"در انتظار":req.status==="approved"?"تأیید شده":req.status==="rejected"?"رد شده":req.status}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواستی ثبت نشده است.</p>}
