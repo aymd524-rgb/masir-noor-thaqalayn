@@ -220,6 +220,12 @@ export function AdminContentManager() {
   };
 
   const togglePublished = async (entry: ContentEntry) => {
+    const section = entry.metadata?.section;
+    const needsSource = entry.content_type === "hadith" || section === "quran";
+    if (!entry.is_published && needsSource && !entry.source_name.trim()) {
+      toast.error("برای انتشار آیه یا حدیث، نام منبع معتبر را ثبت کنید.");
+      return;
+    }
     const sb = getSupabase();
     if (!sb || busyId) return;
     setBusyId(entry.id);
@@ -269,6 +275,9 @@ export function AdminContentManager() {
     <section className="space-y-5 rounded-2xl border bg-card p-5">
       <div>
         <h2 className="font-extrabold">مدیریت محتوای دینی و قرآنی</h2>
+        <p className="mt-1 text-xs leading-6 text-muted-foreground">
+          برای انتشار آیات و احادیث، ثبت نام منبع معتبر الزامی است؛ متن بدون منبع می‌تواند به‌صورت پیش‌نویس برای تکمیل باقی بماند.
+        </p>
         <p className="mt-1 text-xs leading-6 text-muted-foreground">
           ثبت و ویرایش قرآن، حدیث، دعا، زیارت، مناجات و مداحی همراه با منبع و پدیدآورنده. محتوای تازه تا زمان انتشار، فقط پیش‌نویس است.
         </p>
