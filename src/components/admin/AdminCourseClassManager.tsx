@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
+import { validateClassCapacityInput } from "@/lib/backend/validation";
 
 type Course = { id: string; title: string; description: string | null; is_active: boolean };
 type Teacher = { id: string; full_name: string | null };
@@ -157,7 +158,7 @@ export function AdminCourseClassManager() {
         .select("id", { count: "exact", head: true }).eq("class_id", editingClass);
       if (countError) throw countError;
       if (count === null) throw new Error("تعداد ثبت‌نام‌های قطعی مشخص نشد؛ برای جلوگیری از کاهش ناامن ظرفیت، تغییر انجام نشد.");
-      if (seats < count) throw new Error("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
+      validateClassCapacityInput(seats, count);
       const { data: updatedClass, error } = await sb.from("classes").update({
         title: editClassTitle.trim(), description: editClassDescription.trim(),
         course_id: editCourseId, teacher_id: editTeacherId || null, capacity: seats,
