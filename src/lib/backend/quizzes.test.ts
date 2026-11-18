@@ -42,6 +42,20 @@ describe("validateBackendQuizInput", () => {
     expect(() => validateBackendQuizInput({ ...validInput(), questions: [question({ options: ["x", "y".repeat(301)] })] })).toThrow();
   });
 
+  it("rejects duplicate choices after trimming whitespace", () => {
+    expect(() => validateBackendQuizInput({
+      ...validInput(),
+      questions: [question({ options: ["فاتحه", " فاتحه ", "ناس"] })],
+    })).toThrow();
+  });
+
+  it("caps the aggregate quiz text size", () => {
+    const questions = Array.from({ length: 100 }, (_, i) =>
+      question({ id: String(i), text: "پرسش".repeat(200), options: ["الف".repeat(300), "ب".repeat(300)] }),
+    );
+    expect(() => validateBackendQuizInput({ ...validInput(), questions })).toThrow();
+  });
+
   it("rejects invalid option counts and answer indexes", () => {
     for (const options of [[], ["تنها یک گزینه"], Array.from({ length: 9 }, (_, i) => String(i))]) {
       expect(() => validateBackendQuizInput({ ...validInput(), questions: [question({ options })] })).toThrow();
