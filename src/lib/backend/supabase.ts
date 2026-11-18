@@ -20,7 +20,6 @@ type ProfileRow = {
   full_name?: string | null;
   name?: string | null;
   role?: string | null;
-  phone?: string | null;
   created_at?: string | null;
 };
 
