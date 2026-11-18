@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import type { ContentItem, ContentSection } from "@/lib/domain/types";
 import { useDb } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { isBackendConfigured } from "@/lib/backend/config";
+import { fetchSharedContent } from "@/lib/content/shared-content";
 
 export function ContentSectionPage({
   section,
@@ -31,8 +33,38 @@ export function ContentSectionPage({
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [selected, setSelected] = useState<ContentItem | null>(null);
+  const [sharedContent, setSharedContent] = useState<ContentItem[] | null>(null);
+  const [sharedLoading, setSharedLoading] = useState(isBackendConfigured);
+  const [sharedError, setSharedError] = useState<string | null>(null);
 
-  const items = useMemo(() => db.content.filter((c) => c.section === section && c.published), [db, section]);
+  useEffect(() => {
+    if (!isBackendConfigured) return;
+    let active = true;
+    fetchSharedContent()
+      .then((items) => {
+        if (active) setSharedContent(items ?? []);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setSharedError(error instanceof Error ? error.message : "خطا در دریافت محتوای مشترک");
+          setSharedContent([]);
+        }
+      })
+      .finally(() => {
+        if (active) setSharedLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const items = useMemo(
+    () =>
+      (isBackendConfigured ? sharedContent ?? [] : db.content).filter(
+        (c) => c.section === section && c.published,
+      ),
+    [db, section, sharedContent],
+  );
   const tags = useMemo(() => Array.from(new Set(items.map((i) => i.tag).filter(Boolean))) as string[], [items]);
   const filtered = items.filter((i) => {
     const q = query.trim();
@@ -80,7 +112,15 @@ export function ContentSectionPage({
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {sharedLoading ? (
+            <p role="status" className="rounded-xl border bg-card p-5 text-center text-sm text-muted-foreground">
+              در حال دریافت محتوای مشترک…
+            </p>
+          ) : sharedError ? (
+            <p role="alert" className="rounded-xl border border-destructive/30 bg-card p-5 text-center text-sm text-destructive">
+              {sharedError}
+            </p>
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={BookOpenText}
               title="موردی یافت نشد"
