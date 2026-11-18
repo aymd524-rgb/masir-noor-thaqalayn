@@ -50,6 +50,8 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   const [hifzNotes, setHifzNotes] = useState("");
   const [assignmentDueDate, setAssignmentDueDate] = useState(toLocalDateInputValue(new Date()));
   const [assignmentInstructions, setAssignmentInstructions] = useState("");
+  const [reportStartDate, setReportStartDate] = useState("");
+  const [reportEndDate, setReportEndDate] = useState("");
 
   const reload = async () => {
     const sb = getSupabase();
@@ -109,13 +111,18 @@ export function TeacherBackendPanel({ user }: { user: User }) {
     return { ...enrollment, total: items.length, completed, rate: items.length ? Math.round(completed / items.length * 100) : 0 };
   }).filter((item) => item.total > 0);
 
+  const validReportRange = !reportStartDate || !reportEndDate || reportStartDate <= reportEndDate;
+  const inReportRange = (date: string) => validReportRange
+    && (!reportStartDate || date >= reportStartDate)
+    && (!reportEndDate || date <= reportEndDate);
+
   const studentReportCards = enrollments.map((enrollment) => {
-    const hifzRecords = (workspace?.hifzRecords ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const hifzRecords = (workspace?.hifzRecords ?? []).filter((item) => item.enrollmentId === enrollment.id && inReportRange(item.sessionDate));
     const memorization = hifzRecords.filter((item) => item.recordType === "memorization");
     const reviews = hifzRecords.filter((item) => item.recordType === "review");
-    const attendance = (workspace?.attendance ?? []).filter((item) => item.enrollmentId === enrollment.id);
-    const grades = (workspace?.grades ?? []).filter((item) => item.enrollmentId === enrollment.id);
-    const assignments = (workspace?.hifzAssignments ?? []).filter((item) => item.enrollmentId === enrollment.id);
+    const attendance = (workspace?.attendance ?? []).filter((item) => item.enrollmentId === enrollment.id && inReportRange(item.sessionDate));
+    const grades = (workspace?.grades ?? []).filter((item) => item.enrollmentId === enrollment.id && inReportRange(item.createdAt.slice(0, 10)));
+    const assignments = (workspace?.hifzAssignments ?? []).filter((item) => item.enrollmentId === enrollment.id && inReportRange(item.dueDate));
     const present = attendance.filter((item) => item.status === "present").length;
     const late = attendance.filter((item) => item.status === "late").length;
     const absent = attendance.filter((item) => item.status === "absent").length;
@@ -338,6 +345,19 @@ export function TeacherBackendPanel({ user }: { user: User }) {
           <h2 className="font-extrabold">کارنامه تفصیلی دانش‌پژوهان</h2>
           <p className="mt-1 text-sm text-muted-foreground">گزارش هر ثبت‌نام شامل محفوظات، ارزیابی استاد، حضور و غیاب، نمرات و برنامه‌های هفتگی است. برای مشاهده جزئیات، نام دانش‌پژوه را باز کنید.</p>
         </div>
+        <div className="no-print grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
+          <label className="text-sm font-semibold">از تاریخ
+            <input type="date" value={reportStartDate} max={reportEndDate || undefined} onChange={(event) => setReportStartDate(event.target.value)} className="mt-2 w-full rounded-lg border bg-background px-3 py-2 font-normal"/>
+          </label>
+          <label className="text-sm font-semibold">تا تاریخ
+            <input type="date" value={reportEndDate} min={reportStartDate || undefined} onChange={(event) => setReportEndDate(event.target.value)} className="mt-2 w-full rounded-lg border bg-background px-3 py-2 font-normal"/>
+          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
+            <p className="text-xs text-muted-foreground">بازه اختیاری؛ در صورت خالی‌بودن تاریخ‌ها، تمام سوابق نمایش داده می‌شود. برنامه‌های حفظ بر اساس تاریخ سررسید فیلتر می‌شوند.</p>
+            <button type="button" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-background">نمایش همه سوابق</button>
+          </div>
+          {!validReportRange ? <p role="alert" className="text-sm text-destructive sm:col-span-2">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</p> : null}
+        </div>
         {studentReportCards.length ? <div className="space-y-3">
           {studentReportCards.map((item) => <details key={item.id} className="rounded-xl border p-3">
             <summary className="cursor-pointer list-none">
@@ -370,7 +390,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
                 <p className="mt-2 text-sm">ارزیابی‌ها: عالی {item.excellent} · خوب {item.good} · قابل قبول {item.fair} · نیازمند تمرین {item.needsPractice}</p>
                 <div className="mt-3">
                   <h4 className="text-xs font-bold">آخرین ارزیابی‌های استاد</h4>
-                  {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id).slice(0, 8).length ? (
+                  {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id && inReportRange(record.sessionDate)).slice(0, 8).length ? (
                     <ul className="mt-2 space-y-2">
                       {(workspace?.hifzRecords ?? []).filter((record) => record.enrollmentId === item.id).slice(0, 8).map((record) => (
                         <li key={record.id} className="rounded-lg bg-muted/40 p-2 text-xs">
@@ -400,12 +420,12 @@ export function TeacherBackendPanel({ user }: { user: User }) {
               <div>
                 <h3 className="mb-2 text-sm font-bold">نمرات</h3>
                 <p className="text-sm">{item.gradeCount} نمره ثبت‌شده · میانگین: <b>{item.average === null ? "بدون نمره" : Number(item.average.toFixed(2))}</b></p>
-                {(workspace?.grades ?? []).filter((grade) => grade.enrollmentId === item.id).slice(0, 8).map((grade) => <p key={grade.id} className="mt-1 text-xs text-muted-foreground">{grade.title}: {grade.score}</p>)}
+                {(workspace?.grades ?? []).filter((grade) => grade.enrollmentId === item.id && inReportRange(grade.createdAt.slice(0, 10))).slice(0, 8).map((grade) => <p key={grade.id} className="mt-1 text-xs text-muted-foreground">{grade.title}: {grade.score}</p>)}
               </div>
               <div>
                 <h3 className="mb-2 text-sm font-bold">برنامه‌های هفتگی</h3>
                 <p className="text-sm">{item.completedAssignments} از {item.assignmentCount} انجام‌شده · {item.assignmentRate === null ? "بدون برنامه" : item.assignmentRate + "٪ تکمیل"} · {item.overdueAssignments} عقب‌افتاده</p>
-                {(workspace?.hifzAssignments ?? []).filter((assignment) => assignment.enrollmentId === item.id).slice(0, 8).map((assignment) => <p key={assignment.id} className="mt-1 text-xs text-muted-foreground">{getSurah(assignment.surahNumber)?.name}، آیات {assignment.ayahStart} تا {assignment.ayahEnd} · {assignment.completionStatus === "completed" ? "انجام‌شده" : assignment.completionStatus === "needs_help" ? "نیازمند کمک" : assignment.completionStatus === "in_progress" ? "در حال انجام" : "اعلام‌نشده"}</p>)}
+                {(workspace?.hifzAssignments ?? []).filter((assignment) => assignment.enrollmentId === item.id && inReportRange(assignment.dueDate)).slice(0, 8).map((assignment) => <p key={assignment.id} className="mt-1 text-xs text-muted-foreground">{getSurah(assignment.surahNumber)?.name}، آیات {assignment.ayahStart} تا {assignment.ayahEnd} · {assignment.completionStatus === "completed" ? "انجام‌شده" : assignment.completionStatus === "needs_help" ? "نیازمند کمک" : assignment.completionStatus === "in_progress" ? "در حال انجام" : "اعلام‌نشده"}</p>)}
               </div>
             </div>
           </details>)}
