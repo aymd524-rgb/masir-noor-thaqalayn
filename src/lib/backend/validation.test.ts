@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidDateOnly, validateAttendanceInput, validateClassCapacityInput, validateGradeInput } from "./validation";
+import { isValidDateOnly, validateAttendanceInput, validateClassCapacityInput, validateClassScheduleInput, validateGradeInput } from "./validation";
 
 describe("isValidDateOnly", () => {
   it("accepts valid leap days and ordinary dates", () => {
@@ -62,5 +62,22 @@ describe("validateClassCapacityInput", () => {
   });
   it.each([Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])("rejects a non-finite capacity %s", (capacity) => {
     expect(() => validateClassCapacityInput(capacity, 0)).toThrow("ظرفیت کلاس باید عددی صحیح بین ۱ تا ۵۰۰ باشد.");
+  });
+});
+
+describe("validateClassScheduleInput", () => {
+  it("accepts optional or ordered class schedule values", () => {
+    expect(() => validateClassScheduleInput("", "")).not.toThrow();
+    expect(() => validateClassScheduleInput("2026-11-18T09:00", "")).not.toThrow();
+    expect(() => validateClassScheduleInput("", "2026-11-18T10:00")).not.toThrow();
+    expect(() => validateClassScheduleInput("2026-11-18T09:00", "2026-11-18T10:00")).not.toThrow();
+  });
+  it("rejects invalid start or end values", () => {
+    expect(() => validateClassScheduleInput("not-a-date", "")).toThrow("زمان شروع کلاس معتبر نیست.");
+    expect(() => validateClassScheduleInput("", "not-a-date")).toThrow("زمان پایان کلاس معتبر نیست.");
+  });
+  it("rejects an end that is equal to or earlier than the start", () => {
+    expect(() => validateClassScheduleInput("2026-11-18T10:00", "2026-11-18T10:00")).toThrow("زمان پایان باید بعد از زمان شروع باشد.");
+    expect(() => validateClassScheduleInput("2026-11-18T11:00", "2026-11-18T10:00")).toThrow("زمان پایان باید بعد از زمان شروع باشد.");
   });
 });
