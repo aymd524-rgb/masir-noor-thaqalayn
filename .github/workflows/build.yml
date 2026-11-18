@@ -28,6 +28,7 @@ jobs:
           src/lib/backend/quizzes.ts
           src/lib/backend/quizzes.test.ts
           src/lib/backend/student.ts
+          src/lib/backend/student.test.ts
           src/lib/backend/teacher.ts
           src/lib/backend/validation.ts
           src/lib/backend/validation.test.ts
