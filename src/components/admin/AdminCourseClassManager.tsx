@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
-import { validateClassCapacityInput } from "@/lib/backend/validation";
+import { validateClassCapacityInput, validateClassScheduleInput } from "@/lib/backend/validation";
 
 type Course = { id: string; title: string; description: string | null; is_active: boolean };
 type Teacher = { id: string; full_name: string | null };
@@ -69,7 +69,8 @@ export function AdminCourseClassManager() {
     const sb = getSupabase();
     const seats = Number(capacity);
     if (!sb || !classTitle.trim() || !courseId || !Number.isInteger(seats) || seats < 1 || seats > 500) return;
-    if (classStartsAt && classEndsAt && new Date(classEndsAt) <= new Date(classStartsAt)) { toast.error("زمان پایان باید بعد از زمان شروع باشد."); return; }
+    try { validateClassScheduleInput(classStartsAt, classEndsAt); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "زمان‌بندی کلاس معتبر نیست."); return; }
     setBusy(true);
     try {
       const { error } = await sb.from("classes").insert({
@@ -151,7 +152,8 @@ export function AdminCourseClassManager() {
     const sb = getSupabase();
     const seats = Number(editCapacity);
     if (!sb || !editingClass || !editClassTitle.trim() || !editCourseId || !Number.isInteger(seats) || seats < 1 || seats > 500) return;
-    if (editStartsAt && editEndsAt && new Date(editEndsAt) <= new Date(editStartsAt)) { toast.error("زمان پایان باید بعد از زمان شروع باشد."); return; }
+    try { validateClassScheduleInput(editStartsAt, editEndsAt); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "زمان‌بندی کلاس معتبر نیست."); return; }
     setBusy(true);
     try {
       const { count, error: countError } = await sb.from("enrollments")
