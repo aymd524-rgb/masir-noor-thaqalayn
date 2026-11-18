@@ -105,7 +105,7 @@ describe("validateBackendQuizAttemptInput", () => {
 
   it("rejects answer maps with more than one hundred entries", () => {
     const answers = Object.fromEntries(Array.from({ length: 101 }, (_, index) => [
-      `123e4567-e89b-42d3-a456-${String(index).padStart(4, "0")}-426614174000`, 0,
+      `123e4567-e89b-42d3-a456-${String(index).padStart(12, "0")}`, 0,
     ]));
     expect(() => validateBackendQuizAttemptInput(quizId, answers)).toThrow();
   });
