@@ -112,6 +112,29 @@ export function TeacherBackendPanel({ user }: { user: User }) {
   }).filter((item) => item.total > 0);
 
   const validReportRange = !reportStartDate || !reportEndDate || reportStartDate <= reportEndDate;
+  const reportEnrollmentIds = new Set(enrollments.map((item) => item.id));
+  const monthKeys = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setDate(1);
+    date.setMonth(date.getMonth() - index);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }).reverse();
+  const monthlyComparison = monthKeys.map((month) => {
+    const attendance = (workspace?.attendance ?? []).filter((item) => reportEnrollmentIds.has(item.enrollmentId) && item.sessionDate.slice(0, 7) === month);
+    const hifzRecords = (workspace?.hifzRecords ?? []).filter((item) => reportEnrollmentIds.has(item.enrollmentId) && item.sessionDate.slice(0, 7) === month);
+    const grades = (workspace?.grades ?? []).filter((item) => reportEnrollmentIds.has(item.enrollmentId) && item.createdAt.slice(0, 7) === month);
+    const effectiveAttendance = attendance.filter((item) => item.status === "present" || item.status === "late").length;
+    return {
+      month,
+      label: new Date(`${month}-01T00:00:00`).toLocaleDateString("fa-IR", { year: "numeric", month: "long" }),
+      attendanceCount: attendance.length,
+      attendanceRate: attendance.length ? Math.round(effectiveAttendance / attendance.length * 100) : null,
+      memorizationCount: hifzRecords.filter((item) => item.recordType === "memorization").length,
+      reviewCount: hifzRecords.filter((item) => item.recordType === "review").length,
+      gradeCount: grades.length,
+      gradeAverage: grades.length ? grades.reduce((sum, item) => sum + item.score, 0) / grades.length : null,
+    };
+  });
   const inReportRange = (date: string) => validReportRange
     && (!reportStartDate || date >= reportStartDate)
     && (!reportEndDate || date <= reportEndDate);
@@ -357,6 +380,25 @@ export function TeacherBackendPanel({ user }: { user: User }) {
             <button type="button" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-background">نمایش همه سوابق</button>
           </div>
           {!validReportRange ? <p role="alert" className="text-sm text-destructive sm:col-span-2">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</p> : null}
+        </div>
+
+        <div className="rounded-xl border p-3">
+          <h3 className="font-bold">مقایسه عملکرد شش ماه اخیر کلاس</h3>
+          <p className="mt-1 text-xs text-muted-foreground">این جدول کل کلاس انتخاب‌شده را در شش ماه تقویمی اخیر مقایسه می‌کند و مستقل از فیلتر بازه کارنامه است. ماه‌های بدون ثبت نیز نمایش داده می‌شوند.</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[650px] text-right text-xs">
+              <thead><tr className="border-b text-muted-foreground"><th className="p-2">ماه</th><th className="p-2">جلسات حضور</th><th className="p-2">حضور مؤثر</th><th className="p-2">حفظ جدید</th><th className="p-2">مرور</th><th className="p-2">تعداد نمره</th><th className="p-2">میانگین</th></tr></thead>
+              <tbody>{monthlyComparison.map((item) => <tr key={item.month} className="border-b last:border-0">
+                <td className="p-2 font-semibold">{item.label}</td>
+                <td className="p-2">{item.attendanceCount}</td>
+                <td className="p-2">{item.attendanceRate === null ? "—" : `${item.attendanceRate}٪`}</td>
+                <td className="p-2">{item.memorizationCount}</td>
+                <td className="p-2">{item.reviewCount}</td>
+                <td className="p-2">{item.gradeCount}</td>
+                <td className="p-2">{item.gradeAverage === null ? "—" : Number(item.gradeAverage.toFixed(2))}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
         </div>
         {studentReportCards.length ? <div className="space-y-3">
           {studentReportCards.map((item) => <details key={item.id} className="rounded-xl border p-3">
