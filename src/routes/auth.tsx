@@ -105,6 +105,7 @@ function AuthPage() {
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? "لطفاً صبر کنید…" : mode === "signin" ? "ورود" : "ثبت‌نام"}
           </Button>
+          {mode === "signin" && backendMode === "backend" && <a href="/forgot-password" className="block text-center text-sm font-semibold text-muted-foreground underline-offset-4 hover:underline">رمز عبور را فراموش کرده‌اید؟</a>}
           <button type="button" className="w-full text-sm font-semibold text-primary" onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(undefined); }}>
             {mode === "signin" ? "حساب ندارید؟ ثبت‌نام کنید" : "حساب دارید؟ وارد شوید"}
           </button>
