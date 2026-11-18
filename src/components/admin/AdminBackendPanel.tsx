@@ -153,7 +153,8 @@ export function AdminBackendPanel() {
     if(classError) throw new Error(classError.message);
     if(countError) throw new Error(countError.message);
     if(!classRow) throw new Error("کلاس این درخواست پیدا نشد.");
-    if(classRow.capacity!==null&&count!==null&&count>=classRow.capacity){
+    if(count===null) throw new Error("تعداد ثبت‌نام‌های قطعی مشخص نشد؛ برای جلوگیری از تأیید ناامن، درخواست تأیید نشد.");
+    if(classRow.capacity!==null&&count>=classRow.capacity){
      throw new Error("ظرفیت کلاس تکمیل شده است؛ درخواست تأیید نشد. ابتدا ظرفیت یا ثبت‌نام‌های کلاس را بررسی کنید.");
     }
    }
