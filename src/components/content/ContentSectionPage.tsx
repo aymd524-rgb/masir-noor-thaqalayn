@@ -1,5 +1,5 @@
 import { BookOpenText, Search } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/common/states";
 import { PageHeader, SectionTitle } from "@/components/common/ui-bits";
