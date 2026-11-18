@@ -55,3 +55,13 @@ The feature branch was inspected after the database privilege check:
 6. Only then remove `phone` from `profiles`, and verify the final grants and RLS policies.
 
 The live check confirmed `authenticated` has table SELECT and column SELECT privileges for both `profiles.phone` and `profiles.full_name`. This is a privilege check, not proof that every user can see every row; row visibility remains subject to RLS.
+
+## Latest live policy and Auth advisor recheck
+
+- The live `profiles` SELECT policies are `profiles_admin`, `profiles_select`, and `profiles_select_related_class_members`. The related-class policy is the reason teacher-readable profile rows include class students and the teacher's own profile. This is row-level access, not phone-column isolation.
+- `profiles_self_update` uses both `USING (id = auth.uid())` and `WITH CHECK (id = auth.uid())`. Separate role-protection triggers remain present.
+- Supabase Security Advisor currently reports one Auth warning: `auth_leaked_password_protection` (Leaked Password Protection Disabled). No new database warning was returned in this check.
+- Current Supabase documentation says leaked-password protection checks passwords against HaveIBeenPwned and is available on Pro plan and above. The current dashboard location is Authentication → Sign In / Providers → Email. If the project is on the Free plan, the toggle may be unavailable; do not keep searching for a hidden setting or attempt to work around plan restrictions.
+- The app already enforces an eight-character minimum in its signup and password-reset UI, but that is not a replacement for the server-side leaked-password check. Stronger password requirements can be configured in the Email provider settings if available.
+
+Reference: https://supabase.com/docs/guides/auth/password-security
