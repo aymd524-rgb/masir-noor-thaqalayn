@@ -17,8 +17,10 @@ export function validateAttendanceInput(input: { enrollmentId: string; sessionDa
 
 export function validateGradeInput(input: { enrollmentId: string; title: string; score: number }): void {
   if (!input.enrollmentId.trim()) throw new Error("شناسه ثبت‌نام معتبر نیست.");
-  if (!input.title.trim()) throw new Error("عنوان ارزشیابی الزامی است.");
-  if (!Number.isFinite(input.score) || input.score < 0) throw new Error("نمره باید عددی و نامنفی باشد.");
+  if (!input.title.trim() || input.title.trim().length > 120) throw new Error("عنوان ارزشیابی باید بین ۱ تا ۱۲۰ نویسه باشد.");
+  if (!Number.isFinite(input.score) || input.score < 0 || Math.abs(input.score * 4 - Math.round(input.score * 4)) > 1e-8) {
+    throw new Error("نمره باید عددی نامنفی و با گام‌های ۰٫۲۵ باشد.");
+  }
 }
 
 /** Validate class capacity against the number of already confirmed enrollments. */
