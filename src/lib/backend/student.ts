@@ -69,7 +69,7 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   const [attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
     readRowsForIds((ids) => sb.from("attendance").select("id,enrollment_id,session_date,status").in("enrollment_id", ids), enrollmentIds),
     readRowsForIds((ids) => sb.from("grades").select("id,enrollment_id,title,score,created_at").in("enrollment_id", ids).order("created_at", { ascending: false }), enrollmentIds),
-    readRowsForIds((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes").in("enrollment_id", ids).order("session_date", { ascending: false }), enrollmentIds),
+    readRowsForIds((ids) => sb.from("hifz_records").select("id,enrollment_id,surah_number,ayah_start,ayah_end,record_type,assessment,session_date,notes,created_at").in("enrollment_id", ids).order("session_date", { ascending: false }).order("created_at", { ascending: false }), enrollmentIds),
     readRowsForIds((ids) => sb.from("hifz_assignments").select("id,enrollment_id,surah_number,ayah_start,ayah_end,assignment_type,due_date,instructions").in("enrollment_id", ids).order("due_date", { ascending: true }), enrollmentIds),
   ]);
   fail(attendanceResult.error); fail(gradeResult.error); fail(hifzResult.error); fail(assignmentResult.error);
