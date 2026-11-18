@@ -66,9 +66,14 @@ export function AdminBackendPanel() {
   ]);
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
-  const {data:contactRows,error:contactError}=await sb.rpc("admin_list_profile_contacts",{p_offset:0,p_limit:5000});
-  if(contactError) throw new Error(contactError.message);
-  const contactMap=new Map((contactRows??[]).map((row:{user_id:string;phone:string|null})=>[row.user_id,row.phone]));
+  const contactMap=new Map<string,string|null>();
+  for(let offset=0;;offset+=5000){
+   const {data:contactRows,error:contactError}=await sb.rpc("admin_list_profile_contacts",{p_offset:offset,p_limit:5000});
+   if(contactError) throw new Error(contactError.message);
+   const page=(contactRows??[]) as {user_id:string;phone:string|null}[];
+   for(const row of page) contactMap.set(row.user_id,row.phone);
+   if(page.length<5000) break;
+  }
   const profilesWithContacts=p.map((profile)=>({...profile,phone:contactMap.get(profile.id)??null}));
   setProfilesTotal(p.length);
   setEnrollmentsTotal(e.length);
