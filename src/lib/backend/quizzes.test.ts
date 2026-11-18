@@ -64,4 +64,16 @@ describe("validateBackendQuizInput", () => {
       expect(() => validateBackendQuizInput({ ...validInput(), questions: [question({ answerIndex })] })).toThrow();
     }
   });
+  it("returns validation errors instead of runtime TypeErrors for malformed JavaScript input", () => {
+    const malformedTitle = { ...validInput(), title: null } as unknown as Parameters<typeof validateBackendQuizInput>[0];
+    const malformedDescription = { ...validInput(), description: null } as unknown as Parameters<typeof validateBackendQuizInput>[0];
+    const malformedQuestion = { ...validInput(), questions: [{ text: null, options: ["الف", "ب"], answerIndex: 0 }] } as unknown as Parameters<typeof validateBackendQuizInput>[0];
+    const malformedOption = { ...validInput(), questions: [{ text: "پرسش", options: ["الف", null], answerIndex: 0 }] } as unknown as Parameters<typeof validateBackendQuizInput>[0];
+
+    expect(() => validateBackendQuizInput(malformedTitle)).toThrow("عنوان، توضیحات یا مدت آزمون معتبر نیست.");
+    expect(() => validateBackendQuizInput(malformedDescription)).toThrow("عنوان، توضیحات یا مدت آزمون معتبر نیست.");
+    expect(() => validateBackendQuizInput(malformedQuestion)).toThrow("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
+    expect(() => validateBackendQuizInput(malformedOption)).toThrow("متن پرسش، گزینه‌ها یا پاسخ صحیح کامل و معتبر نیست.");
+  });
+
 });
