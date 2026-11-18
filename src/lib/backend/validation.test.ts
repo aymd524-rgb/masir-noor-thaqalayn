@@ -28,3 +28,21 @@ describe("validateGradeInput", () => {
     expect(() => validateGradeInput({ enrollmentId: "en-1", title: " ", score: 10 })).toThrow();
   });
 });
+
+describe("validateClassCapacityInput", () => {
+  it("accepts a capacity that covers confirmed enrollments", () => {
+    expect(() => validateClassCapacityInput(20, 12)).not.toThrow();
+  });
+  it("accepts capacity equal to confirmed enrollments", () => {
+    expect(() => validateClassCapacityInput(12, 12)).not.toThrow();
+  });
+  it.each([0, -1, 501, 2.5, Number.NaN])("rejects invalid capacity %s", (capacity) => {
+    expect(() => validateClassCapacityInput(capacity, 0)).toThrow();
+  });
+  it("rejects a capacity below confirmed enrollments", () => {
+    expect(() => validateClassCapacityInput(9, 10)).toThrow("ظرفیت جدید نمی‌تواند کمتر از تعداد ثبت‌نام‌های قطعی باشد.");
+  });
+  it("rejects an invalid enrollment count", () => {
+    expect(() => validateClassCapacityInput(20, -1)).toThrow("تعداد ثبت‌نام‌های قطعی معتبر نیست.");
+  });
+});
