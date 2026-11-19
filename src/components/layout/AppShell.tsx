@@ -13,6 +13,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { Logo, LogoMark } from "@/components/brand/Logo";
 import { Avatar } from "@/components/common/ui-bits";
+import { UpdateNotice } from "@/components/common/UpdateNotice";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
@@ -154,6 +155,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </SheetContent>
       </Sheet>
+
+      <UpdateNotice />
 
       <main id="main" className="flex-1 pb-24 xl:pb-10">
         {children}
