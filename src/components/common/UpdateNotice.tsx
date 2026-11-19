@@ -60,11 +60,11 @@ export function UpdateNotice() {
     };
   }, [checkForUpdate]);
 
-  if (!release || dismissed) return null;
-
   const mandatory =
-    Boolean(release.minimumVersion) &&
+    Boolean(release?.minimumVersion) &&
     compareVersions(release.minimumVersion ?? "0", CURRENT_APP_VERSION) > 0;
+
+  if (!release || (dismissed && !mandatory)) return null;
 
   const dismiss = () => {
     try {
