@@ -74,7 +74,7 @@ function AccountPage() {
                 {busy ? "در حال ذخیره…" : "ذخیره تغییرات"}
               </Button>
             </form>
-            <p className="text-xs leading-6 text-muted-foreground">در حالت اتصال به پایگاه داده، نام و شماره تماس در پروفایل حساب شما ذخیره می‌شود. در حالت نمایشی، اطلاعات فقط در همین محیط آزمایشی نگهداری می‌شود.</p>
+            <p className="text-xs leading-6 text-muted-foreground">در حالت اتصال به پایگاه داده، نام در پروفایل و شماره تماس در بخش خصوصی اطلاعات تماس شما ذخیره می‌شود. در حالت نمایشی، اطلاعات فقط در همین محیط آزمایشی نگهداری می‌شود.</p>
           </>
         ) : (
           <section className="rounded-2xl border bg-card p-5 text-center">
