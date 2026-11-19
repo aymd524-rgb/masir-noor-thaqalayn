@@ -1,6 +1,8 @@
 -- The admin helper must be present in repository migrations so fresh projects
 -- can apply this migration without relying on objects created manually in production.
 create schema if not exists private;
+-- RLS policies for authenticated users invoke this helper directly.
+grant usage on schema private to authenticated;
 
 create or replace function private.is_admin()
 returns boolean
