@@ -17,7 +17,9 @@ as $function$
   );
 $function$;
 
-revoke all on function private.is_admin() from public, anon, authenticated;
+revoke all on function private.is_admin() from public, anon;
+-- Existing RLS policies call this helper as authenticated users.
+grant execute on function private.is_admin() to authenticated;
 
 -- Keep private contact data out of the broadly readable profiles row.
 create table if not exists public.profile_contacts (
