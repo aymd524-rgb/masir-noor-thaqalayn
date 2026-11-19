@@ -20,7 +20,6 @@ type ProfileRow = {
   full_name?: string | null;
   name?: string | null;
   role?: string | null;
-  phone?: string | null;
   created_at?: string | null;
 };
 
@@ -36,9 +35,15 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
   // prevents non-admin users from changing the role.
   const { data: profile } = await sb
     .from("profiles")
-    .select("*")
+    .select("id,full_name,name,role,created_at")
     .eq("id", authUser.id)
     .maybeSingle<ProfileRow>();
+
+  const { data: contact } = await sb
+    .from("profile_contacts")
+    .select("phone")
+    .eq("user_id", authUser.id)
+    .maybeSingle<{ phone: string | null }>();
 
   const role: Role =
     profile?.role === "admin" || profile?.role === "teacher" ? profile.role : "student";
@@ -53,7 +58,7 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
       authUser.email ||
       "کاربر",
     role,
-    phone: profile?.phone ?? undefined,
+    phone: contact?.phone ?? undefined,
     active: true,
     joinedAt: profile?.created_at ?? authUser.created_at,
   };

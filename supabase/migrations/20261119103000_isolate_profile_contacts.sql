@@ -1,0 +1,104 @@
+-- The admin helper must be present in repository migrations so fresh projects
+-- can apply this migration without relying on objects created manually in production.
+create schema if not exists private;
+-- RLS policies for authenticated users invoke this helper directly.
+grant usage on schema private to authenticated;
+
+create or replace function private.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select exists (
+    select 1
+    from public.profiles
+    where id = (select auth.uid())
+      and role = 'admin'
+  );
+$function$;
+
+revoke all on function private.is_admin() from public, anon;
+-- Existing RLS policies call this helper as authenticated users.
+grant execute on function private.is_admin() to authenticated;
+
+-- Keep private contact data out of the broadly readable profiles row.
+create table if not exists public.profile_contacts (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  phone text,
+  updated_at timestamptz not null default now()
+);
+
+-- Preserve existing phone numbers before the application stops reading
+-- profiles.phone. to_jsonb keeps this migration compatible with fresh schemas
+-- where the legacy column may already be absent. Never overwrite a contact
+-- that has already been entered in the new private table.
+insert into public.profile_contacts (user_id, phone)
+select p.id, nullif(btrim(to_jsonb(p) ->> 'phone'), '')
+from public.profiles as p
+where nullif(btrim(to_jsonb(p) ->> 'phone'), '') is not null
+on conflict (user_id) do nothing;
+
+alter table public.profile_contacts enable row level security;
+grant select, insert, update on table public.profile_contacts to authenticated;
+
+drop policy if exists profile_contacts_select_own on public.profile_contacts;
+create policy profile_contacts_select_own
+  on public.profile_contacts for select to authenticated
+  using (user_id = (select auth.uid()));
+
+drop policy if exists profile_contacts_insert_own on public.profile_contacts;
+create policy profile_contacts_insert_own
+  on public.profile_contacts for insert to authenticated
+  with check (user_id = (select auth.uid()));
+
+drop policy if exists profile_contacts_update_own on public.profile_contacts;
+create policy profile_contacts_update_own
+  on public.profile_contacts for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+create or replace function public.admin_get_profile_contacts(p_user_ids uuid[])
+returns table(user_id uuid, phone text)
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if not private.is_admin() then
+    raise exception 'admin access required' using errcode = '42501';
+  end if;
+  return query
+  select pc.user_id, pc.phone
+  from public.profile_contacts as pc
+  where pc.user_id = any(coalesce(p_user_ids, array[]::uuid[]));
+end;
+$function$;
+
+create or replace function public.admin_list_profile_contacts(
+  p_offset integer default 0,
+  p_limit integer default 500
+)
+returns table(user_id uuid, phone text)
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if not private.is_admin() then
+    raise exception 'admin access required' using errcode = '42501';
+  end if;
+  return query
+  select pc.user_id, pc.phone
+  from public.profile_contacts as pc
+  order by pc.user_id
+  offset greatest(coalesce(p_offset, 0), 0)
+  limit least(greatest(coalesce(p_limit, 500), 1), 5000);
+end;
+$function$;
+
+revoke all on function public.admin_get_profile_contacts(uuid[]) from public, anon;
+revoke all on function public.admin_list_profile_contacts(integer, integer) from public, anon;
+grant execute on function public.admin_get_profile_contacts(uuid[]) to authenticated;
+grant execute on function public.admin_list_profile_contacts(integer, integer) to authenticated;

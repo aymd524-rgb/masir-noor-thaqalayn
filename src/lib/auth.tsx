@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { isBackendConfigured } from "./backend/config";
+import { isBackendConfigured, isDemoMode } from "./backend/config";
 import { getSupabase, resolveBackendUser } from "./backend/supabase";
 import { AppError, registerStudent, updateOwnProfile, upsertVerifiedUser } from "./domain/actions";
 import type { User } from "./domain/types";
@@ -12,7 +12,7 @@ type Status = "loading" | "signed-out" | "signed-in";
 interface AuthContextValue {
   status: Status;
   user: User | null;
-  mode: "demo" | "backend";
+  mode: "demo" | "backend" | "unavailable";
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { fullName: string; email: string; password: string }) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
@@ -25,13 +25,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const db = useDb();
   const [userId, setUserId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const mode = isBackendConfigured ? "backend" : "demo";
+  const mode: AuthContextValue["mode"] = isBackendConfigured ? "backend" : isDemoMode ? "demo" : "unavailable";
 
-  // Restore session after hydration (sessions live in browser storage).
+  // Restore a local session only in development demo mode; production requires Supabase.
   useEffect(() => {
     const sb = getSupabase();
     if (!sb) {
-      setUserId(window.localStorage.getItem(SESSION_KEY));
+      setUserId(isDemoMode ? window.localStorage.getItem(SESSION_KEY) : null);
       setReady(true);
       return;
     }
@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(u.id);
       return;
     }
+    if (!isDemoMode) throw new AppError("ورود فعلاً فعال نیست؛ اتصال امن سامانه به Supabase هنوز پیکربندی نشده است.");
     const current = readDb();
     const account = current.users.find((u) => u.email.toLowerCase() === normalized);
     if (!account || current.demoCredentials[normalized] !== password)
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (input: { fullName: string; email: string; password: string }) => {
+    if (input.password.length < 8) throw new AppError("رمز عبور باید حداقل ۸ نویسه باشد.");
     const sb = getSupabase();
     if (sb) {
       const { data, error } = await sb.auth.signUp({
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new AppError(error.message.includes("registered") ? "این ایمیل قبلاً ثبت شده است." : "ثبت‌نام انجام نشد. دوباره تلاش کنید.");
       return { needsConfirmation: !data.session };
     }
+    if (!isDemoMode) throw new AppError("ثبت‌نام فعلاً فعال نیست؛ اتصال امن سامانه به Supabase هنوز پیکربندی نشده است.");
     const holder: { user?: User } = {};
     commit((d) => {
       const r = registerStudent(d, input);
@@ -118,9 +121,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sb && activeUser) {
         const { error } = await sb
           .from("profiles")
-          .update({ full_name: patch.fullName, phone: patch.phone ?? null })
+          .update({ full_name: patch.fullName })
           .eq("id", activeUser.id);
         if (error) throw new AppError("ذخیره پروفایل در سرور انجام نشد.");
+        const { error: contactError } = await sb
+          .from("profile_contacts")
+          .upsert(
+            { user_id: activeUser.id, phone: patch.phone?.trim() || null },
+            { onConflict: "user_id" },
+          );
+        if (contactError) throw new AppError("ذخیره اطلاعات تماس در سرور انجام نشد.");
+        // The profile and contact records are intentionally stored separately.
+        
+      } else if (!isDemoMode) {
+        throw new AppError("ویرایش حساب تا زمان اتصال Supabase فعال نیست.");
       }
       commit((d) => updateOwnProfile(d, activeUser, patch));
     },
