@@ -51,7 +51,7 @@ export function AdminBackendPanel() {
   if(!sb) throw new Error("اتصال Supabase هنوز در تنظیمات محیط اجرا فعال نشده است.");
   const [{data:userResult,error:userError},p,c,cl,r,e,a,g,h,ha,hc]=await Promise.all([
    sb.auth.getUser(),
-   readAllPages((from,to)=>sb.from("profiles").select("id,full_name,phone,role,created_at").order("created_at",{ascending:false}).range(from,to)),
+   readAllPages((from,to)=>sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).range(from,to)),
    readAllPages((from,to)=>sb.from("courses").select("id,title,is_active").order("created_at",{ascending:false}).range(from,to)),
    readAllPages((from,to)=>sb.from("classes").select("id,title,is_active,teacher_id,course_id,capacity").order("created_at",{ascending:false}).range(from,to)),
    readAllPages((from,to)=>sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").order("created_at",{ascending:false}).range(from,to)),
@@ -64,10 +64,14 @@ export function AdminBackendPanel() {
   ]);
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
+  const {data:contactRows,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:p.map(item=>item.id)});
+  if(contactError) throw new Error(contactError.message);
+  const contactByUser=new Map((contactRows??[]).map((item:{user_id:string;phone:string|null})=>[item.user_id,item.phone]));
+  const profiles=p.map(item=>({...item,phone:contactByUser.get(item.id)??null}));
   setProfilesTotal(p.length);
   setEnrollmentsTotal(e.length);
   for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
-  setData({profiles:p,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
+  setData({profiles,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
  },[]);
 
  useEffect(()=>{
@@ -82,9 +86,14 @@ export function AdminBackendPanel() {
   if(!sb||loadingMoreUsers||data===null||data.profiles.length>=profilesTotal)return;
   setLoadingMoreUsers(true);
   try{
-   const {data:rows,error}=await sb.from("profiles").select("id,full_name,phone,role,created_at").order("created_at",{ascending:false}).range(data.profiles.length,data.profiles.length+199);
+   const {data:rows,error}=await sb.from("profiles").select("id,full_name,role,created_at").order("created_at",{ascending:false}).range(data.profiles.length,data.profiles.length+199);
    if(error)throw new Error(error.message);
-   setData(current=>current?{...current,profiles:[...current.profiles,...(rows??[])]}:current);
+   const ids=(rows??[]).map(item=>item.id);
+   const {data:contacts,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:ids});
+   if(contactError)throw new Error(contactError.message);
+   const byUser=new Map((contacts??[]).map((item:{user_id:string;phone:string|null})=>[item.user_id,item.phone]));
+   const profiles=(rows??[]).map(item=>({...item,phone:byUser.get(item.id)??null}));
+   setData(current=>current?{...current,profiles:[...current.profiles,...profiles]}:current);
   }catch(error){toast.error(error instanceof Error?error.message:"دریافت کاربران بیشتر انجام نشد.");}
   finally{setLoadingMoreUsers(false);}
  };
@@ -120,9 +129,12 @@ export function AdminBackendPanel() {
    const missingIds=[...new Set((rows??[]).map(item=>item.student_id).filter(id=>!knownProfiles.has(id)))];
    let extraProfiles:AdminData["profiles"]=[];
    if(missingIds.length){
-    const {data:profileRows,error:profileError}=await sb.from("profiles").select("id,full_name,phone,role,created_at").in("id",missingIds);
+    const {data:profileRows,error:profileError}=await sb.from("profiles").select("id,full_name,role,created_at").in("id",missingIds);
     if(profileError)throw new Error(profileError.message);
-    extraProfiles=profileRows??[];
+    const {data:contacts,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:missingIds});
+    if(contactError)throw new Error(contactError.message);
+    const byUser=new Map((contacts??[]).map((item:{user_id:string;phone:string|null})=>[item.user_id,item.phone]));
+    extraProfiles=(profileRows??[]).map(item=>({...item,phone:byUser.get(item.id)??null}));
    }
    setData(current=>current?{...current,enrollments:[...current.enrollments,...(rows??[])],profiles:[...current.profiles,...extraProfiles.filter(item=>!current.profiles.some(existing=>existing.id===item.id))]}:current);
   }catch(error){toast.error(error instanceof Error?error.message:"دریافت ثبت‌نام‌های بیشتر انجام نشد.");}
