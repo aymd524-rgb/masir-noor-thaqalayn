@@ -12,6 +12,16 @@ type ReleaseInfo = {
   androidApkUrl?: string | null;
 };
 
+function getSafeAndroidApkUrl(value?: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function compareVersions(left: string, right: string) {
   const a = left.split(".").map((part) => Number.parseInt(part, 10) || 0);
   const b = right.split(".").map((part) => Number.parseInt(part, 10) || 0);
@@ -66,6 +76,8 @@ export function UpdateNotice() {
 
   if (!release || (dismissed && !mandatory)) return null;
 
+  const androidApkUrl = getSafeAndroidApkUrl(release.androidApkUrl);
+
   const dismiss = () => {
     try {
       window.localStorage.setItem(DISMISSED_VERSION_KEY, release.version);
@@ -114,9 +126,9 @@ export function UpdateNotice() {
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {release.androidApkUrl ? (
+            {androidApkUrl ? (
               <Button asChild size="sm">
-                <a href={release.androidApkUrl} target="_blank" rel="noopener noreferrer">
+                <a href={androidApkUrl} target="_blank" rel="noopener noreferrer">
                   <Download className="ms-1 h-4 w-4" />
                   دریافت نسخه اندروید
                 </a>
