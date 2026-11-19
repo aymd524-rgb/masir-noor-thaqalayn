@@ -35,7 +35,7 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
   // prevents non-admin users from changing the role.
   const { data: profile } = await sb
     .from("profiles")
-    .select("*")
+    .select("id,full_name,name,role,created_at")
     .eq("id", authUser.id)
     .maybeSingle<ProfileRow>();
 
