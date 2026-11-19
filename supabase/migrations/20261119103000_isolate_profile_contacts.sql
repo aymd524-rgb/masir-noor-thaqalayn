@@ -6,6 +6,7 @@ create table if not exists public.profile_contacts (
 );
 
 alter table public.profile_contacts enable row level security;
+grant select, insert, update on table public.profile_contacts to authenticated;
 
 drop policy if exists profile_contacts_select_own on public.profile_contacts;
 create policy profile_contacts_select_own
