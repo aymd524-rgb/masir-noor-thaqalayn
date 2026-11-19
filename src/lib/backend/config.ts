@@ -1,7 +1,6 @@
 /**
  * Backend connection settings. Values come only from environment variables —
- * nothing is hard-coded. When both are present the app signs users in against
- * the real backend; otherwise it runs in demo mode with local sample data.
+ * nothing is hard-coded. Demo authentication is available only in development.
  */
 const env = import.meta.env as Record<string, string | undefined>;
 
@@ -11,6 +10,9 @@ export const backendConfig = {
 };
 
 export const isBackendConfigured = Boolean(backendConfig.url && backendConfig.publishableKey);
+
+/** Local demo accounts must never be enabled in a production build. */
+export const isDemoMode = import.meta.env.DEV && !isBackendConfigured;
 
 /** Exact connection details the app expects (shown on the account page). */
 export const REQUIRED_CONNECTION = [
