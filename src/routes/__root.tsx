@@ -79,6 +79,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "مسیر نور ثقلین — آموزش معارف قرآن و عترت" },
       { name: "description", content: "سامانه آموزشی مسیر نور ثقلین: آموزش قرآن، نهج‌البلاغه، صحیفه سجادیه و مدیریت کلاس‌ها." },
       { name: "author", content: "مسیر نور ثقلین" },
+      { name: "google-site-verification", content: "vPcMFzOBLXyPCM2sFlwTtOlCO1HWrDUcLq0_GFJGlg0" },
       { property: "og:title", content: "مسیر نور ثقلین" },
       { property: "og:description", content: "سامانه آموزش معارف قرآن و اهل‌بیت علیهم‌السلام" },
       { property: "og:type", content: "website" },
