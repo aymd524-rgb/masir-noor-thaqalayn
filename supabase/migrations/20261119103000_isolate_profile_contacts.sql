@@ -1,3 +1,24 @@
+-- The admin helper must be present in repository migrations so fresh projects
+-- can apply this migration without relying on objects created manually in production.
+create schema if not exists private;
+
+create or replace function private.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select exists (
+    select 1
+    from public.profiles
+    where id = (select auth.uid())
+      and role = 'admin'
+  );
+$function$;
+
+revoke all on function private.is_admin() from public, anon, authenticated;
+
 -- Keep private contact data out of the broadly readable profiles row.
 create table if not exists public.profile_contacts (
   user_id uuid primary key references public.profiles(id) on delete cascade,
