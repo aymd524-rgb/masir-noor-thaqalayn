@@ -30,6 +30,16 @@ create table if not exists public.profile_contacts (
   updated_at timestamptz not null default now()
 );
 
+-- Preserve existing phone numbers before the application stops reading
+-- profiles.phone. to_jsonb keeps this migration compatible with fresh schemas
+-- where the legacy column may already be absent. Never overwrite a contact
+-- that has already been entered in the new private table.
+insert into public.profile_contacts (user_id, phone)
+select p.id, nullif(btrim(to_jsonb(p) ->> 'phone'), '')
+from public.profiles as p
+where nullif(btrim(to_jsonb(p) ->> 'phone'), '') is not null
+on conflict (user_id) do nothing;
+
 alter table public.profile_contacts enable row level security;
 grant select, insert, update on table public.profile_contacts to authenticated;
 
