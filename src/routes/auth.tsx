@@ -89,6 +89,11 @@ function AuthPage() {
     <>
       <PageHeader title={mode === "signin" ? "ورود به حساب" : "ساخت حساب جدید"} subtitle="به مسیر نور ثقلین خوش آمدید" icon={mode === "signin" ? LogIn : UserPlus} />
       <div className="mx-auto max-w-md space-y-5 px-4 py-6">
+        {backendMode === "unavailable" && (
+          <p role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            ورود و ثبت‌نام تا زمان پیکربندی اتصال امن Supabase غیرفعال است. برای حفاظت از حساب‌ها، ورود نمایشی در نسخه عمومی فعال نمی‌شود.
+          </p>
+        )}
         <form onSubmit={submit} noValidate className="space-y-4 rounded-2xl border bg-card p-5 shadow-soft">
           {mode === "signup" && (
             <Field id="fullName" label="نام و نام خانوادگی" required>
@@ -102,7 +107,7 @@ function AuthPage() {
             <Input id="password" type="password" dir="ltr" autoComplete={mode === "signin" ? "current-password" : "new-password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </Field>
           {error && <p role="alert" className="rounded-xl bg-destructive-soft p-3 text-sm font-medium text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={busy}>
+          <Button type="submit" className="w-full" disabled={busy || backendMode === "unavailable"}>
             {busy ? "لطفاً صبر کنید…" : mode === "signin" ? "ورود" : "ثبت‌نام"}
           </Button>
           {mode === "signin" && backendMode === "backend" && <a href="/forgot-password" className="block text-center text-sm font-semibold text-muted-foreground underline-offset-4 hover:underline">رمز عبور را فراموش کرده‌اید؟</a>}
@@ -114,8 +119,8 @@ function AuthPage() {
 
         {backendMode === "demo" && (
           <section className="rounded-2xl border border-dashed bg-gold-soft/50 p-4">
-            <h2 className="font-bold text-primary-deep">ورود سریع به حساب‌های نمایشی</h2>
-            <p className="mt-1 text-xs text-muted-foreground">رمز همه حساب‌ها: <span dir="ltr">{DEMO_PASSWORD}</span></p>
+            <h2 className="font-bold text-primary-deep">ورود سریع به حساب‌های نمایشی (فقط محیط توسعه)</h2>
+            <p className="mt-1 text-xs text-muted-foreground">این حساب‌ها فقط برای آزمایش محلی هستند و در نسخه عمومی نمایش داده نمی‌شوند.</p>
             <div className="mt-3 grid gap-2">
               {DEMO_ACCOUNTS.map((a) => (
                 <Button key={a.email} variant="outline" disabled={busy} onClick={() => quick(a.email)} className="justify-between">
