@@ -64,13 +64,13 @@ export function AdminBackendPanel() {
   ]);
   if(userError) throw new Error(userError.message);
   setCurrentUserId(userResult.user?.id??null);
+  for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
   const {data:contactRows,error:contactError}=await sb.rpc("admin_get_profile_contacts",{p_user_ids:p.map(item=>item.id)});
   if(contactError) throw new Error(contactError.message);
   const contactByUser=new Map((contactRows??[]).map((item:{user_id:string;phone:string|null})=>[item.user_id,item.phone]));
   const profiles=p.map(item=>({...item,phone:contactByUser.get(item.id)??null}));
   setProfilesTotal(p.length);
   setEnrollmentsTotal(e.length);
-  for(const result of [p,c,cl,r,e,a,g,h,ha,hc]) if(result.error) throw new Error(result.error.message);
   setData({profiles,courses:c,classes:cl,requests:r,enrollments:e,attendance:a,grades:g,hifzRecords:h,hifzAssignments:ha,hifzCompletions:hc});
  },[]);
 
