@@ -71,6 +71,83 @@ The integer overload of `check_game_answer` may be a client integration mismatch
 5. Consolidate the duplicate profile-role trigger only in a later migration after verifying the exact migration chain.
 6. Re-run RLS, grants, advisor, and role-based integration checks in a disposable database before any production change.
 
+
+## Follow-up verification (2026-11-23)
+
+### Exact profile grants and safe migration shape
+
+A direct privilege check confirmed:
+
+- `anon` cannot SELECT `profiles` or `profiles.phone`.
+- `authenticated` can SELECT `profiles` and `profiles.phone`.
+- The current admin UI reads profile identity fields from `profiles`, then fetches contact numbers through `admin_get_profile_contacts`.
+- The admin UI does not select `phone` from `profiles`; its contact mapping is sourced from the RPC result.
+- `profile_contacts` policies permit a user to SELECT/INSERT/UPDATE only their own row. Admin contact access is handled separately by the checked RPC.
+
+**Important PostgreSQL detail:** a column-level REVOKE of `SELECT(phone)` alone will not neutralize a table-level SELECT grant. A safe staged test must instead remove table-level SELECT from `authenticated`, then grant SELECT only on the identity columns actually used:
+
+```sql
+-- Proposed only; NOT executed against production.
+REVOKE SELECT ON TABLE public.profiles FROM authenticated;
+GRANT SELECT (id, full_name, role, created_at)
+ON TABLE public.profiles TO authenticated;
+```
+
+This must first be tested against every frontend query, relationship embed, view, and integration test. RLS policies remain in force for row visibility. The existing admin UI uses these four fields in its profile list; the signed-in user resolver also needs identity/role/created_at and reads phone from `profile_contacts`. Do not apply this until the complete query inventory and role-based tests pass.
+
+### Table ACL and future-object defaults
+
+The six affected base tables are owned by `postgres`. Their exact ACLs differ by table; authenticated has broad DML privileges on several, while anon has SELECT on `content_entries` and `game_questions`. All six show TRUNCATE/TRIGGER/REFERENCES for both public client roles.
+
+The database also has creator-specific default privileges in `public`:
+
+- Default privileges for objects created by `postgres` include TRUNCATE, REFERENCES, TRIGGER, and MAINTAIN for `anon` and `authenticated`.
+- Default privileges for objects created by `supabase_admin` include broad table privileges for those roles.
+
+The first default ACL should be reviewed and narrowed so future application tables do not inherit unnecessary non-RLS privileges. Do not alter `supabase_admin` defaults as part of this task; that role may be used by Supabase-managed operations and needs separate platform-specific review.
+
+### Security Advisor and privileged RPCs
+
+The live Security Advisor reports two warnings for the authenticated-executable SECURITY DEFINER contact RPCs, plus one warning that leaked-password protection is disabled.
+
+The two RPCs deliberately serve the current admin UI and both check `private.is_admin()` before returning contact records. The helper checks the caller's role in `public.profiles` using `auth.uid()`; it does not trust user-editable metadata. The advisor warning is therefore a review item, not proof that non-admins can retrieve contacts. Preserve the server-side admin check and add explicit non-admin denial tests. Do not revoke EXECUTE without first replacing the current admin UI path.
+
+The leaked-password protection warning is an Auth dashboard setting, not a SQL grant. It requires a separate owner/admin decision and should be enabled through Supabase Auth settings after confirming the project's login requirements.
+
+### Proposed least-privilege SQL for later reviewed migration
+
+```sql
+-- Proposed only; NOT executed.
+REVOKE TRUNCATE, TRIGGER, REFERENCES
+ON TABLE
+  public.content_entries,
+  public.enrollment_requests,
+  public.game_questions,
+  public.hifz_assignment_completions,
+  public.hifz_assignments,
+  public.hifz_records
+FROM anon, authenticated;
+
+-- Proposed only; NOT executed.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
+ON TABLES FROM anon, authenticated;
+```
+
+Do not revoke INSERT/SELECT/UPDATE/DELETE as a blanket operation: the app's intended RLS-controlled workflows need those privileges selectively. Confirm each table's required operations and test anon/authenticated roles before finalizing grants. Revisit default privileges for any other role that creates exposed application tables.
+
+## Required tests before production remediation
+
+1. Signed-in student can read only their own profile identity fields and their own contact row.
+2. Teacher can read identity fields for only the class-related profiles allowed by the existing RLS policy; cannot read any phone number through `profiles`.
+3. Admin can read identity fields and retrieve contact numbers through the checked RPC.
+4. Non-admin cannot retrieve contacts by calling either admin RPC directly.
+5. All current profile update, role-management, class dashboard, enrollment, attendance, grade, hifz, quiz, and game flows still work.
+6. Anonymous requests cannot read protected application records or call privileged RPCs.
+7. No client role has TRUNCATE/TRIGGER/REFERENCES/MAINTAIN on application tables unless a documented requirement exists.
+8. Re-run Supabase Security Advisor and role-based integration tests after changes.
+
+
 ## Explicit non-actions
 
 - No DDL or DML was executed.
