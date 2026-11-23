@@ -245,3 +245,41 @@ Before any production migration, export the exact current table ACLs and default
 ### Explicit limitations
 
 Only the connected production project is available; no separate staging project was created. No authenticated test accounts were impersonated, no user rows/contact values were read, and no real student/teacher/admin UI session was exercised. No SQL migration, grant/revoke, RLS policy, function, trigger, or production data was changed.
+
+
+## Stage 128 — role test plan and ACL snapshot preparation (2026-11-23)
+
+Added two review artifacts to this documentation branch:
+
+- `docs/role-based-access-test-plan-2026-11-23.md`: synthetic student A/student B/teacher/admin/anonymous test matrix, positive and negative checks, staged execution outline, and release gates.
+- `scripts/audit/acl-snapshot-readonly.sql`: SELECT-only JSON snapshot of table ACLs, column ACL entries, table default ACLs, owners, and effective anon/authenticated table privileges.
+
+### Verification of the snapshot script
+
+The new SQL file was executed against the connected project as a catalog-only read. It returned successfully and did not read application rows or contact values. The snapshot confirmed:
+
+- The six previously identified tables are owned by `postgres`; their raw ACL arrays differ in some ordinary DML privileges, which is why generic blanket GRANT statements are not a safe rollback.
+- `profiles` has table-level SELECT for `authenticated`; `anon` has no SELECT. `profile_contacts` has authenticated SELECT/INSERT/UPDATE and no anon access.
+- The six flagged tables still show TRUNCATE, REFERENCES, and TRIGGER privileges for both anon and authenticated.
+- The `postgres` table default ACL for `public` includes broad client-role privileges. The snapshot also records other schemas' defaults so future rollback review has the complete captured scope.
+- `supabase_admin` has separate default ACL entries in several schemas, including `public`; these remain explicitly out of scope and must not be modified as part of this application remediation.
+- No column-level ACL entries were present for the inspected public base tables at capture time.
+
+The snapshot output is an audit artifact from the current time, not a permanent backup. Re-run it immediately before any separately approved migration and securely retain the complete JSON output. Exact restoration must be generated and reviewed from that fresh snapshot, preserving table owners, grantors, PUBLIC entries, grant options, column ACLs, and default ACLs. Do not use blanket GRANTs or infer rollback from effective privilege booleans alone. If exact grantor-preserving restoration cannot be guaranteed, do not proceed with production ACL changes.
+
+### Role-test and profile-column caveat
+
+The role test plan is prepared but has NOT been executed. No staging project is connected, and no synthetic users or fixtures were created. Do not impersonate roles or fabricate JWT claims against production.
+
+The proposed `profiles` column grant still requires an explicit decision: it includes `role`, which would expose role values for every profile row visible to an authenticated caller under existing RLS. Teacher-facing profile queries need only `id,full_name`; session bootstrap and admin role management need `role`. Before any grant change, either document that teacher-visible role disclosure is acceptable or redesign role retrieval as self/admin-only. This remains a blocking design decision, not an approved SQL change.
+
+### Repository search limitation
+
+Additional GitHub code-search queries for profile/contact and legacy-table references returned no indexed matches. This does not prove those references are absent from the full repository. The earlier inspected backend modules remain a partial static dependency map; a complete local repository-wide search is still required before changing ordinary DML/SELECT privileges on legacy tables.
+
+### Explicit non-actions
+
+- No GRANT/REVOKE, DDL, DML, RLS, function, trigger, view, migration ledger, or deployment change was made.
+- No staging users or production role impersonation tests were run.
+- PR #7 and PR #9 remain review items; neither was merged by this work.
+- The new snapshot and role-test files are documentation/audit assets only.
