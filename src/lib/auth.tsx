@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Shared by bootstrap, auth events, sign-in and sign-out to prevent stale
   // asynchronous requests from restoring an identity after a newer action.
   const authRequestRef = useRef(0);
+  const manualSignInRef = useRef(false);
   const mode: AuthContextValue["mode"] = isBackendConfigured ? "backend" : isDemoMode ? "demo" : "unavailable";
 
   useEffect(() => {
@@ -82,11 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserId(null);
         setAuthError(null);
         setReady(true);
-      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+      } else if ((event === "SIGNED_IN" && !manualSignInRef.current) || event === "USER_UPDATED") {
         // Do not await Supabase work inside its auth callback (avoids lock
         // contention); the next microtask performs a guarded verification.
+        const eventVersion = authRequestRef.current;
         void Promise.resolve().then(() => {
-          if (!cancelled) void sync();
+          if (!cancelled && eventVersion === authRequestRef.current) void sync();
         });
       }
     });
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalized = email.trim().toLowerCase();
     if (sb) {
       const requestId = ++authRequestRef.current;
+      manualSignInRef.current = true;
       setAuthError(null);
       try {
         const { data, error } = await sb.auth.signInWithPassword({ email: normalized, password });
@@ -122,9 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (requestId === authRequestRef.current) {
           setUserId(null);
           setAuthError(SESSION_VERIFY_ERROR);
+          setReady(true);
         }
         if (error instanceof AppError) throw error;
         throw new AppError(SESSION_VERIFY_ERROR);
+      } finally {
+        manualSignInRef.current = false;
       }
     }
     if (!isDemoMode) throw new AppError("ورود فعلاً فعال نیست؛ اتصال امن سامانه به Supabase هنوز پیکربندی نشده است.");
@@ -167,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authRequestRef.current += 1;
     setUserId(null);
     setAuthError(null);
+    setReady(true);
     if (sb) await sb.auth.signOut();
     window.localStorage.removeItem(SESSION_KEY);
   }, []);
