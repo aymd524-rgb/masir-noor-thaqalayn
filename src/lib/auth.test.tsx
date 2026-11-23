@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import type { User } from "./domain/types";
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
@@ -105,12 +106,12 @@ describe("AuthProvider session bootstrap", () => {
       authListener = callback;
       return { data: { subscription: { unsubscribe: mocks.unsubscribe } } };
     });
-    let finishResolution: ((value: { id: string; active: boolean }) => void) | undefined;
+    let finishResolution: ((value: User) => void) | undefined;
     mocks.getUser.mockResolvedValue({
       data: { user: { id: "auth-user-1", email: "person@example.test" } },
       error: null,
     });
-    mocks.resolveBackendUser.mockReturnValue(new Promise((resolve) => {
+    mocks.resolveBackendUser.mockReturnValue(new Promise<User>((resolve) => {
       finishResolution = resolve;
     }));
 
