@@ -148,6 +148,29 @@ Do not revoke INSERT/SELECT/UPDATE/DELETE as a blanket operation: the app's inte
 8. Re-run Supabase Security Advisor and role-based integration tests after changes.
 
 
+
+## Read-only baseline test run (2026-11-23)
+
+A reusable SELECT-only check script was added at `scripts/audit/security-baseline-readonly.sql`. It reports pass/fail for RLS coverage, legacy phone access, broad TRUNCATE/TRIGGER privileges, dashboard view security mode, and anonymous access to contact RPCs. It does not read user rows or contact values.
+
+The script was executed against the currently connected project as a baseline (not as a staging test):
+
+| Check | Result |
+|---|---|
+| All 18 public base tables have RLS | PASS |
+| anon cannot SELECT `profiles.phone` | PASS |
+| authenticated cannot SELECT `profiles.phone` | FAIL — expected remediation |
+| Both dashboard views use `security_invoker` | PASS |
+| anon cannot execute the two contact RPCs | PASS |
+| No anon TRUNCATE/TRIGGER on public base tables | FAIL — remediation needed |
+| No authenticated TRUNCATE/TRIGGER on public base tables | FAIL — remediation needed |
+
+Only one Supabase project is currently connected to this account, so a separate staging project was not available. No staging database was created, because a new project/branch may incur cost and the user has a strict no-paid-tools constraint. The SQL file is a baseline checker, not a migration and must not be mistaken for role-based application integration tests.
+
+## Stage 126 limitations and next safe step
+
+The current account/project inventory exposes only the production project. Full student/teacher/admin behavior tests require a disposable staging database with representative test users and rows. Until a no-cost staging environment is available, do not simulate these tests against real user data or make production ACL changes. The next safe step is to complete a static query/permission dependency inventory, then present the exact migration and rollback plan for explicit review before any production execution.
+
 ## Explicit non-actions
 
 - No DDL or DML was executed.
