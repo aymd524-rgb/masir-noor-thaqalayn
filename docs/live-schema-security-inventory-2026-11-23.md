@@ -81,7 +81,7 @@ A direct privilege check confirmed:
 - `anon` cannot SELECT `profiles` or `profiles.phone`.
 - `authenticated` can SELECT `profiles` and `profiles.phone`.
 - The current admin UI reads profile identity fields from `profiles`, then fetches contact numbers through `admin_get_profile_contacts`.
-- The admin UI does not select `phone` from `profiles`; its contact mapping is sourced from the RPC result.
+- The admin UI does not select `phone` from `profiles`; its contact mapping is sourced from the RPC result. The signed-in user resolver will use only the four identity columns after the separate profile-query fix in PR #7 is merged; current `main` still contains the invalid `name` selection, so this grant change depends on that fix being accepted first.
 - `profile_contacts` policies permit a user to SELECT/INSERT/UPDATE only their own row. Admin contact access is handled separately by the checked RPC.
 
 **Important PostgreSQL detail:** a column-level REVOKE of `SELECT(phone)` alone will not neutralize a table-level SELECT grant. A safe staged test must instead remove table-level SELECT from `authenticated`, then grant SELECT only on the identity columns actually used:
