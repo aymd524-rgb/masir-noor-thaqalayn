@@ -34,7 +34,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { signIn, signUp, mode: backendMode } = useAuth();
+  const { signIn, signUp, mode: backendMode, authError } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -81,6 +81,7 @@ function AuthPage() {
             ورود و ثبت‌نام تا زمان پیکربندی اتصال امن Supabase غیرفعال است. برای حفاظت از حساب‌ها، ورود نمایشی در نسخه عمومی فعال نمی‌شود.
           </p>
         )}
+        {authError && <p role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">{authError}</p>}
         <form onSubmit={submit} noValidate className="space-y-4 rounded-2xl border bg-card p-5 shadow-soft">
           {mode === "signup" && (
             <Field id="fullName" label="نام و نام خانوادگی" required>
