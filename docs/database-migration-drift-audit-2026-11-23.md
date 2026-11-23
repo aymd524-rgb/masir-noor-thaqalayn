@@ -163,3 +163,34 @@ Because the PR/branch recovery path did not locate the missing definitions, buil
 ### Explicit non-actions
 
 No migration SQL was applied or replayed. No database objects, grants, RLS policies, data, settings, branches, or deployments were changed. No PR was merged or closed.
+
+
+## Stage 133 — current-schema baseline captured (2026-11-23)
+
+A point-in-time, read-only catalog baseline was captured and committed separately as:
+
+- `docs/current-schema-baseline-readonly-2026-11-23.md`
+
+### Snapshot totals
+
+- 18 public base tables and 1 private base table.
+- All 19 base tables have RLS enabled.
+- 2 public views; both report `security_invoker=true`.
+- 51 policies total: 50 in `public`, 1 in `private`.
+- 51 indexes.
+- 88 constraints.
+- 3 non-internal table triggers in the inspected schemas (event triggers are not included in this table-trigger count).
+- 24 routines across `public` and `private`.
+
+The baseline records table columns/types/nullability/defaults, primary keys, foreign-key names, policy definitions, index count, function signatures and SECURITY DEFINER flags, view security-invoker options, trigger names, and default ACL records. It deliberately omits application row contents, phone values, auth credentials, and secrets.
+
+### Interpretation and limits
+
+- The new 51-policy count includes 50 public policies plus one private policy; the earlier Stage 124 count of 50 was scoped to public policies. This is a scope clarification, not evidence of a policy change.
+- The baseline is a point-in-time catalog snapshot, not a reconstruction of the original 19 migration files and not a replayable migration.
+- It does not certify role behavior or application flows and does not replace a complete grant-by-grant backup before any future security remediation.
+- Existing observations remain: legacy `profiles.phone` still requires a separately reviewed privacy remediation, and selected broad table/default privileges remain outstanding. No changes were made in this stage.
+
+### Explicit non-actions
+
+Only read-only catalog metadata and the table-list metadata endpoint were used. No application rows were selected. No DDL, DML, GRANT/REVOKE, RLS/policy changes, triggers, functions, views, migration ledger edits, project settings, deployments, or branch merges were performed.
