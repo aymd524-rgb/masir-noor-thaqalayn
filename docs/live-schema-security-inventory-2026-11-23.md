@@ -304,3 +304,53 @@ Prepared `docs/profile-role-isolation-proposal-2026-11-23.md`, a docs-only desig
 4. Updating the session resolver and the two admin UI call sites, plus role-based integration tests and fail-closed auth bootstrap.
 
 No proposed function was created. No policy, grant, revoke, trigger, view, data, migration, production setting, or deployment was changed. The proposal requires full repository search, reconciled migration history, disposable staging tests, and separate approval before any production rollout.
+
+
+## Stage 130 — expanded repository profile-access audit (2026-11-23)
+
+### Scope and method
+
+Enumerated the Git tree and reviewed 75 TypeScript/TSX source files under `src` (excluding generated UI primitives and the large Mushaf data snapshot), plus all six SQL migration files present on `main`. This is a repository-tree scan and targeted source inspection; GitHub's code-search index returned no matches and is not treated as proof of absence.
+
+### Complete direct profile/contact access map found in application source
+
+| File | Direct access | Required migration |
+|---|---|---|
+| `src/lib/backend/supabase.ts` | Session resolver selects `profiles.id,full_name,name,role,created_at`; then reads own `profile_contacts.phone` | After RPC exists, read identity columns only and call self-role RPC; PR #7 currently removes invalid `name` but still selects `role` |
+| `src/components/admin/AdminBackendPanel.tsx` | Reads all profiles with `id,full_name,role,created_at` (initial load, pagination, and missing enrollment profiles); separately calls `admin_get_profile_contacts`; updates `profiles.role` | Replace three directory reads with admin-only directory RPC; retain separate contact RPC; role UPDATE may remain direct only after testing its RLS/trigger and SELECT-return behavior |
+| `src/components/admin/AdminCourseClassManager.tsx` | Reads `profiles.id,full_name` filtered by `role='teacher'` | Replace with admin-only directory RPC filtered to teachers |
+| `src/lib/backend/teacher.ts` | Reads related profiles using only `id,full_name` | Keep as direct table SELECT; current teacher RLS limits visible related rows |
+| `src/lib/auth.tsx` | Calls `resolveBackendUser` on restore/sign-in; profile edits update own `full_name`; contact edits use `profile_contacts` | Session behavior follows resolver change; no other direct role query found |
+
+No other direct `.from("profiles")` or `.from("profile_contacts")` access was found in the 75 scanned application TypeScript/TSX files. Other uses of `user.role` consume the role already resolved into the app's authenticated user model; they are not direct database role reads.
+
+### Legacy tables and unrelated role consumers
+
+- No direct application TypeScript/TSX references to `content_entries` or `game_questions` were found in the scanned files. This supports treating them as potentially legacy, but does not prove that no external integration, SQL function, or unscanned asset uses them. Do not revoke their ordinary SELECT/DML until dependencies are checked.
+- Quiz flows use `quizzes`, `quiz_questions`, `quiz_answer_keys`, `quiz_attempts`, and `submit_quiz_attempt`; these should be included in role regression tests.
+- Route guards, navigation, quiz visibility, and teacher/student panels use the app's `User.role` value. They rely on correct session role resolution and must be regression-tested after changing the resolver.
+- `src/lib/backend/config.ts` confirms demo authentication is enabled only for development builds when backend configuration is absent. Do not enable demo mode in production.
+
+### Migration and rollout blockers
+
+- The six SQL files on `main` are not a complete representation of the 19-row production migration ledger previously observed. The existing `20261119103000_isolate_profile_contacts.sql` contains the private admin helper and public SECURITY DEFINER contact RPCs with explicit `PUBLIC`/anon revokes and authenticated grants. The live database contains further policies and functions not safely reconstructable from the current incomplete migration history.
+- Do not add or replay a new migration until the applied migration chain is reconciled. The Supabase CLI v3 changelog states that CLI v3 is local-by-default and confirms hosted changes; no CLI command or hosted migration was run as part of this audit.
+- Supabase's October 30, 2026 Data API change means newly created public tables are no longer automatically exposed. Before introducing any public RPC, verify the project's current exposed-schema configuration and ensure the function is reachable only as intended. Do not assume that placing a function in `public` or granting EXECUTE alone makes the API exposure safe.
+- Supabase's current database-function security guidance prefers SECURITY INVOKER; if SECURITY DEFINER is genuinely required, it must use an empty search_path, fully qualified objects, a strict in-function authorization check, and explicit revocation from PUBLIC and anon before granting only to authenticated. A SECURITY DEFINER function in `public` is an API boundary and requires dedicated review and advisor checks.
+
+### Why no TypeScript code was changed in Stage 130
+
+The app-side changes depend on new database RPC contracts, and the live schema/migration history is not yet reproducible in a disposable staging database. Changing the resolver or admin components before those RPCs exist would break sign-in or admin screens; adding a migration without reconciling the ledger risks a duplicate or conflicting production change. Therefore Stage 130 records the exact call sites and a safe implementation order, but intentionally makes no app-code or database change.
+
+### Ordered implementation plan
+
+1. Reconcile all 19 applied migration records with source SQL and recover missing migration definitions from authoritative history.
+2. Create a disposable staging database from that reconciled baseline.
+3. Implement and test a self-only role endpoint and an admin-only paginated profile directory endpoint, with explicit function exposure and EXECUTE review.
+4. Update the five source touchpoints above (resolver, admin backend panel, admin course/class manager, auth regression tests; teacher query should remain identity-only).
+5. Add integration tests for student, teacher, admin, and anonymous; verify all existing role-sensitive routes and enrollment/attendance/grade/hifz/quiz flows.
+6. Only after staging passes, generate a properly named migration using the supported Supabase CLI workflow, review the diff and advisors, and prepare a separate production rollout for explicit approval.
+
+### Explicit non-actions
+
+No TypeScript application code, SQL migration, database function, policy, grant/revoke, RLS setting, trigger, view, data, deployment, or project setting was changed. PR #7 and PR #9 remain open, draft, and unmerged. No CI pass is claimed for the latest PR #9 commit.
