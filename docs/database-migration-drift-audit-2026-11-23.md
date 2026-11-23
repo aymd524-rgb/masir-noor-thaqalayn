@@ -66,3 +66,69 @@
 6. Do not modify production until a backup/restore path and an explicit deployment approval are available.
 
 This document records the observed drift only. It is not an executable migration.
+
+
+## Stage 131 — historical branch recovery and live-object cross-check (2026-11-23)
+
+### Verified migration ledger
+
+A fresh read of the Supabase migration ledger confirmed 19 rows, with the exact versions and names listed above. The read-only catalog query also confirmed the same count and ledger contents.
+
+### Additional historical SQL found
+
+The repository branch `feature/shared-content-supabase` contains five SQL files absent from `main`:
+
+| Historical branch file | Ledger relationship | Live catalog cross-check |
+|---|---|---|
+| `20261118152457_add_secure_game_question_authoring.sql` | Exact version/name match for ledger row 17 | Public/admin game-question function family exists |
+| `20261118152531_harden_game_authoring_rpcs.sql` | Exact version/name match for ledger row 18 | Private game-answer implementation and public wrappers exist |
+| `20261118161000_move_legacy_definer_rpcs_private.sql` | No matching ledger version/name | Private class-availability and quiz-submit implementations exist; public wrapper functions were observed in prior audit |
+| `20261118162500_validate_unique_game_options.sql` | No matching ledger version/name | Current private game-authoring function body contains the duplicate-option rejection check |
+| `20261118190000_create_private_profile_contacts.sql` | No matching ledger version/name; concept overlaps later `isolate_profile_contacts` ledger row | `public.profile_contacts` and admin contact RPCs exist |
+
+The first two files provide verified historical source candidates for two previously missing ledger entries. They are present on the old branch, not on `main`. The three other files are useful forensic evidence but must not be treated as applied migrations merely because related live objects or logic exist.
+
+### Updated reconciliation count
+
+- **19** migration ledger rows confirmed.
+- **7** ledger entries now have a same-name/version SQL file recoverable from repository refs: five source files on `main` (four with timestamp/name matches among the earlier files plus the contact-isolation file; their timestamp versions still differ from the ledger) and two exact historical files from `feature/shared-content-supabase`. More precisely, the five `main` files with ledger-name correspondence are `add_profile_phone`, `secure_class_capacity_summary`, `create_secure_hifz_records`, `create_secure_hifz_weekly_assignments`, and `isolate_profile_contacts`; the two recovered exact-version files are the game-authoring migrations.
+- **12** ledger entries still have no corresponding SQL migration file in any of the 11 currently listed repository branches inspected.
+- `20261112143000_add_secure_quizzes.sql` remains an unmatched repository migration file: the live quiz objects exist, but no ledger row has the same migration name/version.
+- Three further SQL files exist only on the old feature branch without a matching ledger row. Their related live objects/logic do not establish that those exact files were applied.
+
+The 12 ledger entries still missing source are:
+1. `secure_internal_rls_helpers`
+2. `add_foreign_key_indexes`
+3. `add_enrollment_requests`
+4. `expand_class_catalog`
+5. `restrict_requests_to_active_classes`
+6. `refine_active_class_visibility`
+7. `allow_safe_profile_name_updates`
+8. `add_missing_foreign_key_indexes`
+9. `add_authenticated_admin_status_rpc`
+10. `protect_profile_role_changes`
+11. `shared_learning_content_and_games`
+12. `secure_game_answer_payloads`
+
+### Branch safety assessment
+
+The historical branch `feature/shared-content-supabase` is **diverged** from `main`: 115 commits ahead and 28 behind at the comparison time. Its diff contains numerous unrelated frontend, auth, content, quiz, and game changes in addition to SQL files. It is not a safe candidate for wholesale merge, cherry-pick, or reset. Only individual migration files may be used as historical evidence after exact content and live definitions are compared.
+
+### Read-only live catalog checks
+
+The following were confirmed without reading application rows or contact values:
+- 19 migration ledger records.
+- The quiz tables, game-question table, and profile-contact table exist.
+- The private implementation functions for class availability, quiz submission, game-question authoring, and game-answer checking exist.
+- The current private game-question authoring function contains the duplicate-option rejection logic found in the historical candidate file.
+- The Data API runtime settings `pgrst.db_schemas` and `pgrst.db_extra_search_path` were not exposed by the catalog query (returned NULL). This is **not** evidence that no schemas are exposed; the setting must be verified in the Supabase Dashboard before designing new public RPCs.
+
+These checks confirm object presence and selected behavior markers only. They do not prove byte-for-byte equivalence between the live database and any historical SQL file.
+
+### Stage 131 decision
+
+Do not merge or cherry-pick the old feature branch. Do not run, replay, rename, or manually ledger any recovered candidate SQL. The next safe step is to recover the 12 missing migration definitions from authoritative Git history/backup/export sources, then compare all candidate definitions with the live catalog. If original SQL cannot be recovered, prepare a separately labelled **current-schema baseline snapshot**, not a fabricated historical migration chain.
+
+### Explicit non-actions
+
+No migration was applied. No database schema, function, policy, grant, RLS setting, data, deployment, or Data API setting was changed. No branch was merged or cherry-picked. PR #8 and PR #9 remain open and unmerged.
