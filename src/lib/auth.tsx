@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isBackendConfigured, isDemoMode } from "./backend/config";
 import { getSupabase, resolveBackendUser } from "./backend/supabase";
 import { AppError, registerStudent, updateOwnProfile, upsertVerifiedUser } from "./domain/actions";
@@ -13,6 +13,8 @@ interface AuthContextValue {
   status: Status;
   user: User | null;
   mode: "demo" | "backend" | "unavailable";
+  /** A safe, user-facing explanation when the backend identity could not be verified. */
+  authError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { fullName: string; email: string; password: string }) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
@@ -21,39 +23,77 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const SESSION_VERIFY_ERROR = "امکان تأیید امن حساب وجود ندارد. اتصال اینترنت را بررسی و دوباره تلاش کنید.";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const db = useDb();
   const [userId, setUserId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  // Shared by bootstrap, auth events, sign-in and sign-out to prevent stale
+  // asynchronous requests from restoring an identity after a newer action.
+  const authRequestRef = useRef(0);
   const mode: AuthContextValue["mode"] = isBackendConfigured ? "backend" : isDemoMode ? "demo" : "unavailable";
 
-  // Restore a local session only in development demo mode; production requires Supabase.
   useEffect(() => {
     const sb = getSupabase();
     if (!sb) {
       setUserId(isDemoMode ? window.localStorage.getItem(SESSION_KEY) : null);
+      setAuthError(null);
       setReady(true);
       return;
     }
+
     let cancelled = false;
     const sync = async () => {
-      const { data } = await sb.auth.getUser();
-      if (cancelled) return;
-      if (data.user) {
-        const u = await resolveBackendUser(sb, data.user);
-        commit((d) => upsertVerifiedUser(d, u));
-        setUserId(u.id);
-      } else {
-        setUserId(null);
+      const requestId = ++authRequestRef.current;
+      try {
+        const { data, error } = await sb.auth.getUser();
+        if (error) throw error;
+        if (!data.user) {
+          if (!cancelled && requestId === authRequestRef.current) {
+            setUserId(null);
+            setAuthError(null);
+          }
+          return;
+        }
+
+        const verifiedUser = await resolveBackendUser(sb, data.user);
+        if (cancelled || requestId !== authRequestRef.current) return;
+        commit((d) => upsertVerifiedUser(d, verifiedUser));
+        setUserId(verifiedUser.id);
+        setAuthError(null);
+      } catch {
+        if (!cancelled && requestId === authRequestRef.current) {
+          // Never turn a failed profile lookup into a student identity.
+          setUserId(null);
+          setAuthError(SESSION_VERIFY_ERROR);
+        }
+      } finally {
+        if (!cancelled && requestId === authRequestRef.current) setReady(true);
       }
-      setReady(true);
     };
+
     void sync();
     const { data: sub } = sb.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") void sync();
+      if (event === "SIGNED_OUT") {
+        // Invalidate any in-flight getUser/profile request immediately.
+        authRequestRef.current += 1;
+        setUserId(null);
+        setAuthError(null);
+        setReady(true);
+      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        // Do not await Supabase work inside its auth callback (avoids lock
+        // contention); the next microtask performs a guarded verification.
+        void Promise.resolve().then(() => {
+          if (!cancelled) void sync();
+        });
+      }
     });
+
     return () => {
       cancelled = true;
+      authRequestRef.current += 1;
       sub.subscription.unsubscribe();
     };
   }, []);
@@ -66,12 +106,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sb = getSupabase();
     const normalized = email.trim().toLowerCase();
     if (sb) {
-      const { data, error } = await sb.auth.signInWithPassword({ email: normalized, password });
-      if (error || !data.user) throw new AppError("ایمیل یا رمز عبور نادرست است.");
-      const u = await resolveBackendUser(sb, data.user);
-      commit((d) => upsertVerifiedUser(d, u));
-      setUserId(u.id);
-      return;
+      const requestId = ++authRequestRef.current;
+      setAuthError(null);
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({ email: normalized, password });
+        if (error || !data.user) throw new AppError("ایمیل یا رمز عبور نادرست است.");
+        const verifiedUser = await resolveBackendUser(sb, data.user);
+        if (requestId !== authRequestRef.current) return;
+        commit((d) => upsertVerifiedUser(d, verifiedUser));
+        setUserId(verifiedUser.id);
+        setAuthError(null);
+        setReady(true);
+        return;
+      } catch (error) {
+        if (requestId === authRequestRef.current) {
+          setUserId(null);
+          setAuthError(SESSION_VERIFY_ERROR);
+        }
+        if (error instanceof AppError) throw error;
+        throw new AppError(SESSION_VERIFY_ERROR);
+      }
     }
     if (!isDemoMode) throw new AppError("ورود فعلاً فعال نیست؛ اتصال امن سامانه به Supabase هنوز پیکربندی نشده است.");
     const current = readDb();
@@ -110,9 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const sb = getSupabase();
+    authRequestRef.current += 1;
+    setUserId(null);
+    setAuthError(null);
     if (sb) await sb.auth.signOut();
     window.localStorage.removeItem(SESSION_KEY);
-    setUserId(null);
   }, []);
 
   const updateProfile = useCallback<AuthContextValue["updateProfile"]>(
@@ -132,7 +188,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         if (contactError) throw new AppError("ذخیره اطلاعات تماس در سرور انجام نشد.");
         // The profile and contact records are intentionally stored separately.
-        
       } else if (!isDemoMode) {
         throw new AppError("ویرایش حساب تا زمان اتصال Supabase فعال نیست.");
       }
@@ -142,8 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user: activeUser, mode, signIn, signUp, signOut, updateProfile }),
-    [status, activeUser, mode, signIn, signUp, signOut, updateProfile],
+    () => ({ status, user: activeUser, mode, authError, signIn, signUp, signOut, updateProfile }),
+    [status, activeUser, mode, authError, signIn, signUp, signOut, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
