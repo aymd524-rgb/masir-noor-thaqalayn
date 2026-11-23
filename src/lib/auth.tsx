@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (requestId === authRequestRef.current) {
           setUserId(null);
-          setAuthError(SESSION_VERIFY_ERROR);
+          setAuthError(error instanceof AppError ? error.message : SESSION_VERIFY_ERROR);
           setReady(true);
         }
         if (error instanceof AppError) throw error;
