@@ -18,24 +18,19 @@ export function getSupabase(): SupabaseClient | null {
 type ProfileRow = {
   id: string;
   full_name?: string | null;
-  name?: string | null;
   role?: string | null;
   created_at?: string | null;
 };
 
 /**
- * Build the app user from the existing `profiles` row. Admin status is decided
- * by the server-side `is_admin()` function — never by client data — so a user
- * cannot promote themselves by editing their own profile.
+ * Build the app user from the authenticated user's own profile and contact rows.
+ * RLS restricts these reads to auth.uid(); database-side role protections remain
+ * authoritative for every privileged operation.
  */
 export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser): Promise<User> {
-  // The admin helper is intentionally stored in the private schema and is not
-  // callable through the public Data API. The user's own profile role is safe to
-  // read because RLS limits this row to auth.uid(), and a database trigger
-  // prevents non-admin users from changing the role.
   const { data: profile } = await sb
     .from("profiles")
-    .select("id,full_name,name,role,created_at")
+    .select("id,full_name,role,created_at")
     .eq("id", authUser.id)
     .maybeSingle<ProfileRow>();
 
@@ -53,7 +48,6 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
     email: authUser.email ?? "",
     fullName:
       profile?.full_name ||
-      profile?.name ||
       (authUser.user_metadata?.full_name as string | undefined) ||
       authUser.email ||
       "کاربر",
