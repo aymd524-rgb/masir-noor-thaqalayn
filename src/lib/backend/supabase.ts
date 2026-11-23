@@ -18,48 +18,53 @@ export function getSupabase(): SupabaseClient | null {
 type ProfileRow = {
   id: string;
   full_name?: string | null;
-  name?: string | null;
   role?: string | null;
   created_at?: string | null;
 };
 
 /**
- * Build the app user from the existing `profiles` row. Admin status is decided
- * by the server-side `is_admin()` function — never by client data — so a user
- * cannot promote themselves by editing their own profile.
+ * Build the app user from the existing profiles row. The profile role is
+ * accepted only when it is an explicit, known database value. Missing rows,
+ * query failures and unknown roles fail closed instead of becoming students.
  */
 export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser): Promise<User> {
-  // The admin helper is intentionally stored in the private schema and is not
-  // callable through the public Data API. The user's own profile role is safe to
-  // read because RLS limits this row to auth.uid(), and a database trigger
-  // prevents non-admin users from changing the role.
-  const { data: profile } = await sb
+  const { data: profile, error: profileError } = await sb
     .from("profiles")
-    .select("id,full_name,name,role,created_at")
+    .select("id,full_name,role,created_at")
     .eq("id", authUser.id)
     .maybeSingle<ProfileRow>();
 
-  const { data: contact } = await sb
+  if (profileError || !profile || profile.id !== authUser.id) {
+    throw new Error("Unable to verify the account profile.");
+  }
+
+  const role = profile.role;
+  if (role !== "student" && role !== "teacher" && role !== "admin") {
+    throw new Error("The account has an unsupported role.");
+  }
+
+  const { data: contact, error: contactError } = await sb
     .from("profile_contacts")
     .select("phone")
     .eq("user_id", authUser.id)
     .maybeSingle<{ phone: string | null }>();
 
-  const role: Role =
-    profile?.role === "admin" || profile?.role === "teacher" ? profile.role : "student";
+  if (contactError) {
+    throw new Error("Unable to verify account contact details.");
+  }
+
+  const metadataName =
+    typeof authUser.user_metadata?.full_name === "string" ? authUser.user_metadata.full_name : undefined;
 
   return {
     id: authUser.id,
     email: authUser.email ?? "",
-    fullName:
-      profile?.full_name ||
-      profile?.name ||
-      (authUser.user_metadata?.full_name as string | undefined) ||
-      authUser.email ||
-      "کاربر",
-    role,
+    fullName: profile.full_name || metadataName || authUser.email || "کاربر",
+    role: role as Role,
     phone: contact?.phone ?? undefined,
+    // The live profile contract inspected so far has no verified active flag.
+    // Do not infer disabled-account state from client metadata.
     active: true,
-    joinedAt: profile?.created_at ?? authUser.created_at,
+    joinedAt: profile.created_at ?? authUser.created_at,
   };
 }
