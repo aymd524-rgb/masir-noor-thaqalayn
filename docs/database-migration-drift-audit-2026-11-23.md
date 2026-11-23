@@ -132,3 +132,34 @@ Do not merge or cherry-pick the old feature branch. Do not run, replay, rename, 
 ### Explicit non-actions
 
 No migration was applied. No database schema, function, policy, grant, RLS setting, data, deployment, or Data API setting was changed. No branch was merged or cherry-picked. PR #8 and PR #9 remain open and unmerged.
+
+
+## Stage 132 — pull-request and commit-history recovery check (2026-11-23)
+
+### Pull-request review
+
+The repository's available PR history (#1–#9) was inspected with PR diffs. This provides an additional recovery route beyond the 11 branch trees checked in Stage 131.
+
+- PR #1 targets the divergent `feature/shared-content-supabase` base and changes only the public-auth/demo-mode frontend files; it contains no migration SQL.
+- PR #2 changes only the auth/config/login frontend files; it contains no migration SQL.
+- PRs #3, #4, and #5 each include `supabase/migrations/20261119103000_isolate_profile_contacts.sql`, which is already counted among the six files on `main`; these PR copies do not recover any of the 12 missing ledger migrations.
+- PRs #6–#9 contain no additional migration SQL. PR #8 and #9 are documentation/audit PRs; PR #7 is the profile-query fix.
+
+### Recovery conclusion
+
+The inspected PR diffs do not supply authoritative SQL for any of the 12 missing ledger entries. The repeated profile-contact migration is a duplicate source for an already-known migration, not a new recovered migration. The PR history therefore does not change the Stage 131 reconciliation count:
+
+- 19 applied ledger entries.
+- 7 entries with a same-name SQL source somewhere in the inspected repository refs (5 name matches with timestamp mismatch, 2 exact historical matches).
+- 12 entries without an authoritative SQL file found in the inspected branches and PR diffs.
+- 1 unmatched repository SQL file for secure quizzes, with live quiz objects but no matching ledger entry.
+
+The PR history review is bounded to the repository's currently available PRs and returned diffs; it is not proof that no backup, local clone, deleted remote ref, or external artifact exists.
+
+### Next safe recovery step
+
+Because the PR/branch recovery path did not locate the missing definitions, build a separately labelled current-schema baseline from read-only PostgreSQL catalogs. It must be treated as a snapshot of current state, not as the original 19 migrations and not as a replayable migration chain. Continue to avoid production DDL/DML, grants, migration ledger edits, and deployments.
+
+### Explicit non-actions
+
+No migration SQL was applied or replayed. No database objects, grants, RLS policies, data, settings, branches, or deployments were changed. No PR was merged or closed.
