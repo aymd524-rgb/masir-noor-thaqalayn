@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error } = await sb.auth.signInWithPassword({ email: normalized, password });
         if (error || !data.user) throw new AppError("ایمیل یا رمز عبور نادرست است.");
         const verifiedUser = await resolveBackendUser(sb, data.user);
-        if (requestId !== authRequestRef.current) return;
+        if (requestId !== authRequestRef.current) throw new AppError("درخواست ورود تغییر کرده است؛ دوباره تلاش کنید.");
         commit((d) => upsertVerifiedUser(d, verifiedUser));
         setUserId(verifiedUser.id);
         setAuthError(null);
