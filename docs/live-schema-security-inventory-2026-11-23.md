@@ -283,3 +283,24 @@ Additional GitHub code-search queries for profile/contact and legacy-table refer
 - No staging users or production role impersonation tests were run.
 - PR #7 and PR #9 remain review items; neither was merged by this work.
 - The new snapshot and role-test files are documentation/audit assets only.
+
+
+## Stage 129 — profile role isolation design (2026-11-23)
+
+Catalog and targeted source review confirmed that the existing `profiles_select_related_class_members` policy allows teachers to read profile rows for class-related students/teachers, while `profiles_select` permits self/admin and `profiles_admin` is admin-only. Therefore a column-level SELECT grant on `role` to all authenticated users would expose role values for those related profiles. The risk is real even though the current teacher query selects only `id,full_name`.
+
+Source touchpoints reviewed on `main`:
+- `src/lib/auth.tsx` calls `resolveBackendUser` on session restore and sign-in; profile edit updates `full_name`, contact update writes `profile_contacts`.
+- `src/lib/backend/supabase.ts` session resolver selects profile role; PR #7 removes nonexistent `name` but still selects role.
+- `src/components/admin/AdminBackendPanel.tsx` reads profile roles for admin directory and updates roles directly.
+- `src/components/admin/AdminCourseClassManager.tsx` filters profiles by `role='teacher'`.
+- `src/lib/backend/teacher.ts` needs only `id,full_name` for related student rows.
+- GitHub code-search returned no indexed matches; this is not proof of absence. A complete local repository-wide search remains a pre-migration gate.
+
+Prepared `docs/profile-role-isolation-proposal-2026-11-23.md`, a docs-only design for:
+1. `get_my_profile_role()`: no user-id argument; returns only the authenticated caller's own role; SECURITY DEFINER with empty search_path and strict EXECUTE grants.
+2. `admin_list_profiles(offset,limit,role)`: admin-only directory RPC with explicit `private.is_admin()` check, bounded pagination, and only identity/role fields; no contact data.
+3. Ordinary authenticated table SELECT limited to `id,full_name,created_at`, while role values are served only through the self-role RPC and admin directory RPC.
+4. Updating the session resolver and the two admin UI call sites, plus role-based integration tests and fail-closed auth bootstrap.
+
+No proposed function was created. No policy, grant, revoke, trigger, view, data, migration, production setting, or deployment was changed. The proposal requires full repository search, reconciled migration history, disposable staging tests, and separate approval before any production rollout.
