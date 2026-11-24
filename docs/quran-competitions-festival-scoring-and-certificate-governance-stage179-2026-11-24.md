@@ -357,3 +357,83 @@ Use synthetic learners, classes, and at least two isolated institutions:
 - Should the initial release support only aggregate standings, with no live opponent score feed?
 - What moderation and invitation rate limits are appropriate for minors?
 
+
+
+## 23. Explicit competition disciplines and platform-wide open competitions
+
+This section makes the competition discipline catalogue and the four participation scopes explicit. Competitions may be created for a single discipline or a clearly defined combined event. A participant's institution or class membership must not be required for an open platform-wide event unless the published eligibility rules specifically require it.
+
+### 23.1 Discipline catalogue
+
+Initial configurable disciplines:
+1. **Hifz (memorization):** full Quran, selected juz, surah, or specified passage; with declared scope and accuracy rubric.
+2. **Muraja'ah (revision):** retention and accurate recall of previously memorized material.
+3. **Qira'ah / recitation:** reading accuracy, fluency, articulation, and continuity.
+4. **Raw-khani (reading fluency):** level-appropriate recognition and fluent reading of Quranic text.
+5. **Tajwid:** theoretical knowledge and/or applied recitation, with separate rubrics.
+6. **Tarjomeh (translation):** word/phrase meaning and passage comprehension using declared reference translations.
+7. **Tafsir:** source-grounded understanding of selected passages, with declared approved references and level.
+8. **Tadabbur:** age-appropriate reflection evaluated with a transparent educational rubric, without claiming a single personal reflection is the only valid interpretation.
+9. **Quranic sciences and concepts:** vocabulary, themes, context, and introductory Quranic knowledge.
+10. **Hadith and Seerah:** source-attributed knowledge and understanding, with references and level-appropriate content.
+11. **Ethics and Islamic teachings:** scenario-based understanding of approved educational material.
+12. **Combined/team disciplines:** multi-part events, clearly separating component scores and published weights.
+
+Each event must identify one primary discipline, optional sub-discipline, source/edition, recitation riwaya where relevant, age/learning-level band, format (written, oral, practical, team), rubric version, and permitted accommodations. Do not combine unrelated disciplines into one rank unless a composite formula is published before registration.
+
+### 23.2 Four competition scopes
+
+A competition may operate at one or more explicitly selected scopes:
+
+- **Class scope:** learners compete within one class, or two/more classes compete as class teams. Class representatives and teachers must be authorized for the relevant classes.
+- **Institution scope:** classes or individuals represent their institution in an intra-institution event, or institutions compete against other institutions. Only authorized institutional representatives may accept institutional invitations.
+- **Platform-wide open scope:** any eligible person with an active platform account may register, whether independent, class-enrolled, or institution-affiliated. Institution membership is optional and must not create an unfair advantage. A person may represent an institution only when that representation is explicitly verified and accepted.
+- **Private/invited scope:** restricted to specifically invited learners, classes, or institutions, with explicit acceptance and applicable consent.
+
+An event must state whether it is open, invitation-only, class-restricted, institution-restricted, or a defined combination. No event may silently change its scope after registration opens.
+
+### 23.3 Platform-wide standings and fair categories
+
+For platform-wide open competitions:
+- Provide discipline-specific standings rather than one universal Quran ranking.
+- Separate age and learning-level categories where needed; publish the category rules before entry.
+- Permit independent learners to participate without joining an institution.
+- Avoid allowing institution size or number of enrolled learners to determine individual awards.
+- Distinguish individual standings from class and institution aggregate standings.
+- Show each participant only the public/consented information permitted by the event; private scores and learner profiles remain private by default.
+- Use participant display names or codes where appropriate, with public identity disclosure off by default for minors.
+- Publish provisional/final status, rubric version, tie rules, and appeal route.
+- Prevent duplicate entries in the same category where event policy requires; support legitimate participation in different disciplines.
+- Make the same eligibility, scoring, judging, accessibility, and appeal rules apply regardless of institution affiliation.
+
+### 23.4 Cross-scope event examples
+
+Supported designs include:
+- All registered learners compete in Quran reading, separated by declared age/level categories.
+- All eligible platform learners compete in memorization of a specified juz.
+- One class challenges another class in tajwid.
+- Several classes within one institution compete in recitation.
+- Institution A competes with Institution B in a multi-discipline festival.
+- Independent learners and institution-affiliated learners join the same open tafsir knowledge event under identical rules.
+- A festival runs separate hifz, recitation, tajwid, translation, tafsir, and hadith tracks, then optionally publishes a team/institution festival award using a pre-announced composite formula.
+
+### 23.5 Additional authorization and acceptance rules
+
+- Open platform events may be discoverable to all accounts, but registration and result access remain authenticated and eligibility-checked.
+- Institution affiliation is optional in open events and must never be inferred solely from a user-editable profile field.
+- Only verified institution representatives may submit or accept institution-level entries.
+- Class and institution aggregate rankings require an explicitly defined roster snapshot and a published aggregation formula.
+- A learner's participation in an individual open event does not grant their teacher or institution administrator access to unrelated private submissions.
+- A platform operator may manage event configuration and safeguarding without unrestricted access to all raw learner submissions.
+- Consent, guardian requirements, and age-appropriate safeguards apply to minors across every scope.
+
+### 23.6 Additional acceptance tests
+
+- An eligible independent account can register for an open platform-wide event without institution membership.
+- An eligible institution-affiliated learner can enter the same event under identical rules.
+- A user cannot claim institution representation without verified authorization.
+- Platform-wide hifz, recitation, reading, tajwid, translation, tafsir, tadabbur, and hadith events each use their own declared rubric and category rules.
+- A class cannot view another class's private learner records through cross-class standings.
+- An institution cannot access another institution's private records through platform-wide aggregate reports.
+- Scope, discipline, age/level bands, and scoring formula cannot be silently changed after registration begins.
+- Independent learners are not excluded from open rankings because they lack class or institution membership.
