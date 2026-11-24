@@ -222,3 +222,48 @@ Use immutable published versions for question sets and rubrics. Avoid storing ra
 
 ## 16. Status and safety
 This is a design document only. No assessment, competition, leaderboard, scoring logic, certificate, verification endpoint, audio recording, database schema, RLS, grants, RPCs, triggers, external service or live setting was changed. No learner result or personal data was accessed or modified. No migration, deployment, merge or release was performed.
+
+## 17. Configurable certificate branding, signatures, and downloads (product requirement addendum)
+The certificate header must not hard-code the platform name as the issuing organization for every course. The platform may provide a neutral template, but the visible issuer/organization title and optional subtitle are configurable per issuing organization, course, cohort or event, subject to authorization.
+
+### 17.1 Header and template ownership
+- Admin can define approved organization-level branding defaults and shared templates.
+- An authorized teacher/course owner may set the course-specific certificate title, subtitle, issuing unit and permitted visual identity for courses they manage.
+- The system must distinguish the platform name from the actual issuer. “مسیر نور ثقلین” may appear as platform attribution only when selected by an authorized administrator; it must not replace the course provider/issuer automatically.
+- Store a versioned snapshot of the title, issuer, template and relevant course/event metadata at issuance so later edits do not silently rewrite previously issued certificates.
+- Restrict logos, seals and issuer names to assets/organizations the actor is authorized to represent. Keep an audit record of template and branding changes.
+
+### 17.2 Teacher profile signature asset
+- Provide an optional signature-image upload field in the teacher profile, separate from the public profile avatar.
+- Only the authenticated teacher may upload, replace or remove their own signature asset; administrators may manage it only under a documented support/authorization process.
+- Validate file type and size, store the asset in a private bucket, and serve it only to authorized certificate-generation workflows. Do not expose a reusable public signature URL.
+- Require an explicit per-certificate or course-level choice before applying the signature. A stored signature must not be stamped automatically on every document without the teacher's configured authorization.
+- Record which authorized issuer identity/signature asset version was applied to each issued certificate. Replacing a profile signature affects future certificates only; it does not alter previously issued files.
+- Provide a text fallback (teacher name and role) when no signature image is uploaded.
+
+### 17.3 Student and teacher download flows
+- A learner may download only their own finalized, issued certificate from their account. Draft, preview, revoked or unapproved certificates must not be presented as valid downloadable credentials.
+- An authorized teacher may download a print-ready certificate batch or individual certificate for learners in currently assigned courses/classes, within their certificate permissions.
+- Provide two explicit output modes where policy permits: (a) finalized digital copy with configured authorized signatures, and (b) print-ready unsigned copy with reserved signature areas for handwritten teacher/manager signatures.
+- The print-ready copy must be clearly marked as an unsigned print copy or draft until signed and formally issued; it must not be confused with a valid issued certificate.
+- If a teacher downloads a blank/template or prefilled unsigned version to sign by hand, the system must not mark it issued or create a valid public verification result until the authorized issuance step is completed.
+- Downloads must be logged with actor, certificate/template version, output mode and timestamp. Do not log the file contents or signature bytes.
+
+### 17.4 Multiple signatories and approval
+- Support zero, one or multiple signature slots (for example instructor, academic supervisor or institution representative) according to the template's approval policy.
+- Each signature slot has a role, display name/title, authorized signer and optional signature asset. A teacher cannot insert another person's signature or claim an institutional approval without permission.
+- Where a wet signature is required, allow a print workflow followed by an authorized issuance/verification step; do not treat a downloaded unsigned file as proof of approval.
+- Define whether the course teacher, program manager or administrator is the final issuer. Apply least privilege and record the decision.
+
+### 17.5 Additional security and acceptance tests
+1. A teacher cannot change the platform-wide issuer identity or edit branding for a course they do not manage.
+2. A course-specific title/issuer can differ from the platform title and is frozen in the issued certificate snapshot.
+3. Learner A cannot download Learner B's certificate, including by changing an identifier in a URL.
+4. A learner cannot download a draft, unsigned, revoked or unapproved certificate as a valid credential.
+5. A teacher cannot download certificates for classes outside their current assignment.
+6. Signature assets are private, access-controlled, validated and unavailable through public bucket listing or guessed URLs.
+7. A teacher cannot upload or apply another person's signature as their own.
+8. Changing a teacher's signature affects only future certificates and preserves the historic issuance record.
+9. An unsigned print copy is visibly distinguished from an issued certificate and cannot pass public verification.
+10. Every final issue, reissue, revocation and authorized download is auditable.
+11. QR/public verification reveals only the minimal fields defined in Section 8 and never exposes signature-image storage paths or private profile data.
