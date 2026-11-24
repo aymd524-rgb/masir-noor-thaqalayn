@@ -191,3 +191,169 @@ Use synthetic event entries and accounts in isolated staging:
 ## 16. Explicit non-actions
 
 This stage is documentation only. No competition registration, judge assignment, scoring engine, result publication, certificate template, signature upload, certificate PDF, QR verifier, storage bucket, database schema, RLS policy, SQL function, migration, payment integration, notification, analytics, Supabase configuration, deployment, merge, or production setting was created or changed. No learner, judge, or institution data was accessed. All workflows remain proposals pending academic, legal, safeguarding, privacy, product, and technical approval.
+
+
+## 17. Challenge and invitation system — learner, teacher, class, and institution
+
+Add a formal challenge/invitation capability so competition can begin through an invitation between peers or authorized educational groups. A challenge is an invitation to join a defined event, not an automatic enrollment, public accusation, or permission to access the invited party's private data.
+
+### 17.1 Supported challenge types
+
+1. **Learner-to-learner:** a learner may invite a classmate to a friendly challenge, subject to the class and age-appropriate participation rules.
+2. **Teacher-to-learners:** a teacher may invite learners in their currently assigned class or classes, individually or as a defined group.
+3. **Class-to-class:** an authorized teacher may challenge another class. The sending teacher must be authorized for the source class, and the receiving class must be represented by its currently authorized teacher or institution coordinator.
+4. **Institution-to-institution:** an institution owner/admin or explicitly delegated competition coordinator may invite another institution to an inter-institution competition. The receiving institution must accept through an authorized representative.
+
+A teacher cannot challenge a class outside their assignment scope. A learner cannot create an official institution-level event or enroll classmates without their own acceptance. A teacher's invitation does not bypass guardian consent or other participation requirements.
+
+### 17.2 Invitation lifecycle
+
+Proposed states: draft, sent, pending_response, accepted, declined, expired, cancelled.
+
+After acceptance, eligible participants may proceed through registration and event enrollment. Invitation acceptance must not itself mark attendance, submit an assessment, publish a result, or issue a certificate.
+
+Every invitation should include:
+- Sender identity and sender's verified role/scope.
+- Target learner, class, or institution reference.
+- Event/category, format, level/age band, and proposed schedule.
+- Participation rules, rubric version, capacity, and closing date.
+- Whether participation is individual, team, class aggregate, or institution aggregate.
+- Guardian permission requirements and accessible event information.
+- Response deadline and cancellation policy.
+
+Use idempotency for repeated sends and acceptances; prevent duplicate active invitations for the same target/event where policy requires. Rate-limit invitations and provide mute/report/block controls to prevent repeated unwanted challenges. No public challenge board or pressure-based acceptance mechanic by default.
+
+### 17.3 Eligibility and acceptance rules
+
+- Validate the sender's current role and scope at send time and again at acceptance.
+- Revalidate target class/institution membership and event eligibility at enrollment time.
+- Class invitations are accepted by an authorized teacher or coordinator, not by any learner who happens to know the class identifier.
+- Institution invitations are accepted by an authorized institution representative.
+- A receiving party may decline without penalty; silence is not acceptance.
+- Invitations expire at the stated deadline and can be withdrawn by authorized senders before acceptance.
+- A challenge cannot silently move a learner or class into a different institution, expose private rosters, or change class membership.
+- For minors, apply event-specific guardian consent and institution safeguarding rules before enrollment.
+
+## 18. Live competition monitoring for teachers and institution administrators
+
+Provide authorized staff with an event operations view during the competition and a results/review view afterward.
+
+### 18.1 During the competition
+
+Authorized teacher view:
+- Current event and assigned class participation summary.
+- Which invited learners accepted, declined, or have not responded.
+- Registration/eligibility status and outstanding consent requirements.
+- Submission progress and operational status (not private content beyond teaching scope).
+- Assigned learner schedules, queue position, and event announcements.
+- Learner-specific progress only for learners in currently assigned classes.
+
+Institution admin/coordinator view:
+- Institution-wide participation and class-level aggregates for the institution's own event entries.
+- Status of invitations sent to or received from other institutions.
+- Class participation, submission completion, judge assignment coverage, and unresolved operational issues.
+- No access to another institution's private roster, learner identity mapping, or raw submissions unless explicitly authorized by event governance.
+
+A real-time dashboard should distinguish pending, submitted, under review, assessed, and finalized states. It must not imply that a score is final while judging or moderation remains open. Avoid showing competitor-specific confidential scores to unauthorized viewers.
+
+### 18.2 After the competition
+
+Teachers may review:
+- Their assigned learners' final scores and rubric dimensions.
+- Feedback and recommended learning steps.
+- Participation and completion records.
+- Their class's authorized aggregate result and rank, where that ranking policy has been published.
+
+Institution administrators may review:
+- Their institution's aggregate score, rank, participating classes, and event outcomes.
+- Breakdown by class/category where cohort size and privacy rules permit.
+- Certificates issued to eligible learners within their institution scope.
+- Appeals, corrections, and audit status that they are authorized to oversee.
+
+Raw judge notes, private appeals, personal recordings, and another institution's learner-level results must not appear merely because a user is an institution administrator.
+
+## 19. Inter-class and inter-institution ranking and visibility
+
+The product should support friendly competitive standings at multiple scopes while keeping individual learner results appropriately private.
+
+### 19.1 Ranking scopes
+
+- Peer challenge: display the result to the participating learners and authorized teacher according to event policy.
+- Class-versus-class: display participating class names or approved display labels, aggregate score, rank, and event status to accepted participating classes and their authorized teachers.
+- Institution-versus-institution: display participating institution names or approved public labels, aggregate score, rank, and event status to accepted participants and authorized institution representatives.
+- Institution internal standings: show class-level rankings only to authorized members of that institution and only for the relevant event.
+- Public festival: publish only the explicitly approved winner/placement information, with consent and safeguarding review; private learner-level scores remain hidden by default.
+
+### 19.2 Fair ranking rules
+
+Before invitations open, publish:
+- Ranking unit (individual, team, class, or institution).
+- Category and level boundaries.
+- Scoring aggregation formula and weights.
+- Minimum number of eligible participants/submissions required for an aggregate.
+- Treatment of absent, withdrawn, disqualified, incomplete, or late entries.
+- Tie and tie-break rules.
+- Whether rankings are provisional or final and when they are frozen.
+
+For institution rankings, avoid letting a large institution win solely because it has more entrants. Choose and disclose a fair aggregation model before the event, such as normalized category points, average eligible score with a minimum sample threshold, or a fixed-size team format. Do not switch the formula after seeing results. Where cohort sizes are small, suppress granular breakdowns that could identify an individual learner.
+
+### 19.3 Visibility and privacy matrix
+
+- Learner: own registration, own assessment, own certificate, and permitted challenge/class standings; no private record of other learners.
+- Teacher: own assigned learners' progress and scores; class aggregate and authorized opponent aggregate; no unrelated classes' learner-level records.
+- Institution admin: own institution's learner/class records within assigned administrative scope; inter-institution aggregate standings; no other institution's private records.
+- Judge: only assigned entries and scoring material; no unrestricted standings or identity mapping unless necessary and authorized.
+- Public/guest: only approved event information and explicitly published aggregate standings or winners; no private rosters, detailed learner scores, raw recordings, or appeal files.
+
+A participant-facing standings page must label provisional results clearly and must not expose private judge comments or another participant's personal data.
+
+## 20. Additional conceptual records and authorization checks
+
+Potential conceptual records (not migrations):
+- competition_invitations: sender, sender scope, target type/reference, event, status, expiry, and response.
+- competition_invitation_events: sent, accepted, declined, expired, cancelled, and actor audit events.
+- competition_participation_groups: class/team/institution representation and authorized representative.
+- competition_live_status: operational state snapshots with strictly scoped visibility.
+- competition_ranking_snapshots: immutable formula/version, aggregation unit, category, rank, score, and publication state.
+- competition_ranking_visibility: audience and scope for each published standings snapshot.
+
+Required server-side checks:
+- Sender role and current class/institution authority.
+- Target type and authorized representative.
+- Invitation status, expiry, duplicate prevention, and idempotency.
+- Eligibility, age/level category, consent, and capacity at acceptance/enrollment.
+- Event membership before exposing live status or standings.
+- Institution and class scope for every row, aggregate, export, notification, and realtime subscription.
+- Ranking formula version and source assessment set at finalization.
+- Revocation of visibility after membership/role changes where applicable.
+
+## 21. Additional challenge and ranking test cases
+
+Use synthetic learners, classes, and at least two isolated institutions:
+- Learner A can invite an eligible classmate but cannot invite an unrelated institution.
+- Teacher A can invite learners in assigned Class A but cannot invite Class B without assignment.
+- Teacher A can challenge Class B only through the authorized class-representative workflow.
+- Institution A's authorized coordinator can invite Institution B; an ordinary teacher or learner cannot impersonate the institution.
+- Only an authorized representative can accept class/institution invitations.
+- Declined, expired, cancelled, and duplicate invitations cannot enroll participants.
+- Repeated acceptance requests do not create duplicate registrations.
+- A teacher removed from a class loses live monitoring and learner-level result access on subsequent requests.
+- Institution A can see its own classes and approved institution-level opponent standings but cannot query Institution B's roster or learner records.
+- Institution B cannot see Institution A's private judge notes, recordings, appeals, or individual scores.
+- Provisional ranks are labeled and cannot be mistaken for final awards.
+- Final rankings reproduce from the frozen formula/version and eligible score set.
+- Small-cohort privacy thresholds prevent re-identification through granular breakdowns.
+- Public views disclose only fields explicitly approved for publication.
+- Realtime updates and exports enforce the same authorization as ordinary page requests.
+
+## 22. Additional product decisions
+
+- Should learner-to-learner invitations be limited to the same active class, and can a teacher disable them?
+- Which role may represent a class in a class-to-class challenge?
+- Which institution role may send and accept inter-institution challenges?
+- Are institution names public in standings, or can participants choose approved display labels?
+- Which aggregation formula and minimum cohort threshold should be used for institution rankings?
+- Which live progress indicators may be visible to opposing teams, if any?
+- Should the initial release support only aggregate standings, with no live opponent score feed?
+- What moderation and invitation rate limits are appropriate for minors?
+
