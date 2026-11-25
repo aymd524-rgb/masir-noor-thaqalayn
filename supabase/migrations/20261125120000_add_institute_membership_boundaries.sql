@@ -149,8 +149,9 @@ with check (private.is_admin() or private.is_institute_member(institute_id));
 
 drop policy if exists classes_institute_boundary on public.classes;
 create policy classes_institute_boundary on public.classes
-as restrictive for select to authenticated
-using (private.is_admin() or private.is_institute_member(institute_id));
+as restrictive for all to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id))
+with check (private.is_admin() or private.is_institute_member(institute_id));
 
 drop policy if exists enrollment_requests_institute_boundary on public.enrollment_requests;
 create policy enrollment_requests_institute_boundary on public.enrollment_requests
@@ -235,7 +236,7 @@ begin
 
   if new.teacher_id is not null
      and not private.is_admin()
-     and not private.is_institute_member(new.institute_id, array['owner','manager','teacher']) then
+     and not private.user_is_institute_member(new.teacher_id, new.institute_id, array['owner','manager','teacher']) then
     raise exception 'assigned teacher must be an active institute member' using errcode = '23514';
   end if;
   return new;
