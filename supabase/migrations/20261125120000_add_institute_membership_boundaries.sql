@@ -139,61 +139,101 @@ for update to authenticated
 using (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin())
 with check (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin());
 
--- Restrictive policies AND with all existing permissive policies, so legacy
--- broad policies cannot expose another institute's courses/classes/enrollments.
+-- Restrictive policies AND with existing permissive policies. Keep read access
+-- for active members, but explicitly limit writes so legacy broad policies
+-- cannot let students modify courses/classes or self-create enrollments.
 drop policy if exists courses_institute_boundary on public.courses;
-create policy courses_institute_boundary on public.courses
-as restrictive for all to authenticated
-using (private.is_admin() or private.is_institute_member(institute_id))
-with check (private.is_admin() or private.is_institute_member(institute_id));
+drop policy if exists courses_select_institute_boundary on public.courses;
+drop policy if exists courses_insert_institute_boundary on public.courses;
+drop policy if exists courses_update_institute_boundary on public.courses;
+drop policy if exists courses_delete_institute_boundary on public.courses;
+create policy courses_select_institute_boundary on public.courses
+as restrictive for select to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id));
+create policy courses_insert_institute_boundary on public.courses
+as restrictive for insert to authenticated
+with check (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
+create policy courses_update_institute_boundary on public.courses
+as restrictive for update to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']))
+with check (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
+create policy courses_delete_institute_boundary on public.courses
+as restrictive for delete to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
 
 drop policy if exists classes_institute_boundary on public.classes;
-create policy classes_institute_boundary on public.classes
-as restrictive for all to authenticated
-using (private.is_admin() or private.is_institute_member(institute_id))
-with check (private.is_admin() or private.is_institute_member(institute_id));
+drop policy if exists classes_select_institute_boundary on public.classes;
+drop policy if exists classes_insert_institute_boundary on public.classes;
+drop policy if exists classes_update_institute_boundary on public.classes;
+drop policy if exists classes_delete_institute_boundary on public.classes;
+create policy classes_select_institute_boundary on public.classes
+as restrictive for select to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id));
+create policy classes_insert_institute_boundary on public.classes
+as restrictive for insert to authenticated
+with check (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
+create policy classes_update_institute_boundary on public.classes
+as restrictive for update to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']))
+with check (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
+create policy classes_delete_institute_boundary on public.classes
+as restrictive for delete to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id, array['owner','manager']));
 
 drop policy if exists enrollment_requests_institute_boundary on public.enrollment_requests;
-create policy enrollment_requests_institute_boundary on public.enrollment_requests
-as restrictive for all to authenticated
-using (
-  private.is_admin()
-  or (private.class_institute_id(class_id) is not null and (
+drop policy if exists enrollment_requests_select_institute_boundary on public.enrollment_requests;
+drop policy if exists enrollment_requests_insert_institute_boundary on public.enrollment_requests;
+drop policy if exists enrollment_requests_update_institute_boundary on public.enrollment_requests;
+drop policy if exists enrollment_requests_delete_institute_boundary on public.enrollment_requests;
+create policy enrollment_requests_select_institute_boundary on public.enrollment_requests
+as restrictive for select to authenticated
+using (private.is_admin() or (
+  private.class_institute_id(class_id) is not null and (
     student_id = (select auth.uid())
     or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
-  ))
-)
-with check (
-  private.is_admin()
-  or (private.class_institute_id(class_id) is not null and (
+  )
+));
+create policy enrollment_requests_insert_institute_boundary on public.enrollment_requests
+as restrictive for insert to authenticated
+with check (private.is_admin() or (
+  private.class_institute_id(class_id) is not null and (
     (student_id = (select auth.uid()) and private.is_institute_member(private.class_institute_id(class_id), array['student']))
     or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
-  ))
-);
+  )
+));
+create policy enrollment_requests_update_institute_boundary on public.enrollment_requests
+as restrictive for update to authenticated
+using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']))
+with check (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']));
+create policy enrollment_requests_delete_institute_boundary on public.enrollment_requests
+as restrictive for delete to authenticated
+using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager']));
 
 drop policy if exists enrollments_institute_boundary on public.enrollments;
-create policy enrollments_institute_boundary on public.enrollments
-as restrictive for all to authenticated
-using (
-  private.is_admin()
-  or (
-    private.class_institute_id(class_id) is not null
-    and (
-      student_id = (select auth.uid())
-      or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
-    )
+drop policy if exists enrollments_select_institute_boundary on public.enrollments;
+drop policy if exists enrollments_insert_institute_boundary on public.enrollments;
+drop policy if exists enrollments_update_institute_boundary on public.enrollments;
+drop policy if exists enrollments_delete_institute_boundary on public.enrollments;
+create policy enrollments_select_institute_boundary on public.enrollments
+as restrictive for select to authenticated
+using (private.is_admin() or (
+  private.class_institute_id(class_id) is not null and (
+    student_id = (select auth.uid())
+    or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
   )
-)
-with check (
-  private.is_admin()
-  or (
-    private.class_institute_id(class_id) is not null
-    and (
-      (student_id = (select auth.uid()) and private.is_institute_member(private.class_institute_id(class_id), array['student']))
-      or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
-    )
-  )
-);
+));
+-- Enrollment records are created after an approved request; students cannot
+-- bypass that approval by inserting directly into enrollments.
+create policy enrollments_insert_institute_boundary on public.enrollments
+as restrictive for insert to authenticated
+with check (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']));
+create policy enrollments_update_institute_boundary on public.enrollments
+as restrictive for update to authenticated
+using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']))
+with check (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']));
+create policy enrollments_delete_institute_boundary on public.enrollments
+as restrictive for delete to authenticated
+using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager']));
 
 -- New/changed courses and classes must be assigned to an institute. Legacy
 -- unassigned rows remain intact but are hidden from non-admin authenticated users.
@@ -269,11 +309,13 @@ begin
   if new.student_id is null then
     raise exception 'student id is required' using errcode = '23502';
   end if;
-  if auth.uid() is not null and new.student_id <> auth.uid() and not private.is_admin() then
+  if auth.uid() is not null and new.student_id <> auth.uid()
+     and not private.is_admin()
+     and not private.is_institute_member(class_institute, array['owner','manager','teacher']) then
     raise exception 'cannot enroll another student' using errcode = '42501';
   end if;
   if not private.is_admin()
-     and not private.is_institute_member(class_institute, array['student']) then
+     and not private.user_is_institute_member(new.student_id, class_institute, array['student']) then
     raise exception 'student must be an active member of the class institute' using errcode = '42501';
   end if;
   return new;
