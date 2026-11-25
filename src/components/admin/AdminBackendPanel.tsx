@@ -153,6 +153,15 @@ export function AdminBackendPanel() {
   if(!sb) return;
   setSavingId(id);
   try{
+   if(status==="approved"){
+    const request=data?.requests.find(item=>item.id===id);
+    if(!request) throw new Error("درخواست در داده‌های مدیر پیدا نشد؛ صفحه را تازه‌سازی کنید.");
+    const {data:availabilityRows,error:availabilityError}=await sb.rpc("get_active_class_availability");
+    if(availabilityError) throw new Error(availabilityError.message);
+    const availability=(availabilityRows??[]).find((item:{class_id:string;remaining_seats:number|null})=>item.class_id===request.class_id);
+    if(!availability) throw new Error("ظرفیت کلاس قابل بررسی نیست؛ درخواست تأیید نشد.");
+    if(availability.remaining_seats!==null&&Number(availability.remaining_seats)<=0) throw new Error("ظرفیت کلاس تکمیل شده است؛ درخواست را تأیید نکنید.");
+   }
    const update=status==="approved"
     ? {status,payment_status:payment}
     : {status};
