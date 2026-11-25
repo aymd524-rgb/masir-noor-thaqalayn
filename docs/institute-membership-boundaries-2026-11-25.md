@@ -14,6 +14,8 @@
 5. Enrollment requests and enrollments are restricted to the class institute; a student must be an active student member.
 6. An assigned teacher must be an active teacher/manager/owner member of that institute.
 7. Existing legacy courses/classes with `institute_id IS NULL` are preserved, but are not visible to non-admin authenticated users under the new restrictive policies. They must be assigned by an authorized manager before students can use them.
+8. Restrictive policies separate read and write operations: active members can read course/class data, but only owners/managers can create or edit courses/classes. Students cannot directly insert enrollment rows to bypass approval; authorized institute staff create enrollments after approving requests.
+9. Enrollment triggers require the enrolled student to have active student membership in that institute. Staff may create a record for another student only when the student is an active member of the same institute.
 8. Restrictive policies are used so existing permissive policies cannot independently expose cross-institute rows.
 
 ## Provisioning path after review and rollout
@@ -22,6 +24,11 @@
 - An owner/manager approves the membership and assigns an appropriate role.
 - The user then sees only institute-scoped classes and courses.
 - The existing app still needs screens/actions for these steps and a server-backed active-institute context.
+
+## RLS design review
+- Operation-specific restrictive policies prevent a legacy permissive policy from granting students write access to course/class records or direct enrollment insertion.
+- Students may submit their own enrollment request only when active in that institute; pending/suspended members cannot request enrollment.
+- Staff enrollment writes are limited to active institute owner/manager/teacher members, and the trigger independently verifies the target student's active membership.
 
 ## Safety / validation limits
 - The migration assumes the existing schema contains `courses.is_active`, `classes.is_active`, `classes.course_id`, `classes.teacher_id`, `enrollment_requests.student_id/class_id`, and `enrollments.student_id/class_id`, consistent with the repository's current code and prior schema audit.
