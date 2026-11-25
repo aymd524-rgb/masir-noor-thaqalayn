@@ -28,6 +28,31 @@ create index if not exists institute_memberships_user_status_idx
 create index if not exists institute_memberships_institute_role_idx
   on public.institute_memberships (institute_id, role, status);
 
+-- Create the initial owner in the same transaction as institution creation.
+create or replace function private.assign_institute_creator_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if not private.is_admin() or auth.uid() is null then
+    raise exception 'only a signed-in system administrator can create an institute' using errcode = '42501';
+  end if;
+  insert into public.institute_memberships
+    (institute_id, user_id, role, status, reviewed_at, reviewed_by)
+  values
+    (new.id, auth.uid(), 'owner', 'active', now(), auth.uid());
+  return new;
+end;
+$function$;
+
+revoke all on function private.assign_institute_creator_owner() from public, anon, authenticated;
+drop trigger if exists institutions_assign_creator_owner on public.institutions;
+create trigger institutions_assign_creator_owner
+after insert on public.institutions
+for each row execute function private.assign_institute_creator_owner();
+
 alter table public.courses
   add column if not exists institute_id uuid references public.institutions(id) on delete restrict;
 alter table public.classes
