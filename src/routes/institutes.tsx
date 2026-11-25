@@ -31,14 +31,27 @@ function InstitutesPage() {
   const load = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("اتصال Supabase فعال نیست.");
+    const {data:authData,error:authError}=await sb.auth.getUser();
+    if(authError) throw new Error(authError.message);
+    const userId=authData.user?.id;
     const [i,m,p] = await Promise.all([
       sb.from("institutions").select("id,name,slug,is_active").eq("is_active",true).order("name"),
       sb.from("institute_memberships").select("id,institute_id,user_id,role,status,requested_at").order("requested_at",{ascending:false}),
+      userId
+        ? sb.from("user_institute_preferences").select("institute_id").eq("user_id",userId).maybeSingle()
+        : Promise.resolve({data:null,error:null}),
     ]);
     if(i.error) throw new Error(i.error.message);
     if(m.error) throw new Error(m.error.message);
+    if(p.error) throw new Error(p.error.message);
+    const loadedMemberships=m.data??[];
+    const savedInstituteId=p.data?.institute_id??"";
+    const savedIsActive=!!userId&&loadedMemberships.some(
+      membership=>membership.user_id===userId&&membership.institute_id===savedInstituteId&&membership.status==="active"
+    )&&(i.data??[]).some(institute=>institute.id===savedInstituteId);
     setInstitutes(i.data ?? []);
-    setMemberships(m.data ?? []);
+    setMemberships(loadedMemberships);
+    setActiveInstituteId(savedIsActive?savedInstituteId:"");
   },[]);
 
   useEffect(()=>{ let alive=true; void load().catch(e=>toast.error(e instanceof Error?e.message:"بارگذاری مؤسسه‌ها ناموفق بود.")).finally(()=>{if(alive)setLoading(false);}); return ()=>{alive=false;}; },[load]);
