@@ -74,7 +74,8 @@ function InstitutesPage() {
         toast.error(e instanceof Error?e.message:"پاک‌کردن انتخاب مؤسسه ناموفق بود.");
       } finally {setBusy(false);}
       return;
-    }\n    if(!memberships.some(m=>m.institute_id===instituteId&&m.user_id===user.id&&m.status==="active")) {
+    }
+    if(!memberships.some(m=>m.institute_id===instituteId&&m.user_id===user.id&&m.status==="active")) {
       toast.error("برای انتخاب مؤسسه باید عضویت فعال داشته باشید."); return;
     }
     setBusy(true);
