@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
+export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; coursePrice: number; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
 export type StudentRequest = { id: string; classId: string; classTitle: string; courseTitle: string; status: "pending" | "approved" | "rejected"; createdAt: string };
 export type StudentAttendance = { id: string; enrollmentId: string; sessionDate: string; status: "present" | "absent" | "late" | "excused" };
 export type StudentGrade = { id: string; enrollmentId: string; title: string; score: number; createdAt: string };
@@ -40,7 +40,7 @@ async function readRowsForIds<T>(
 /** Student reads are scoped by Supabase RLS to auth.uid(); no privileged key is used. */
 export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   const [courseResult, classResult, requestResult, enrollmentResult, availabilityResult] = await Promise.all([
-    readAllPages((from, to) => sb.from("courses").select("id,title,description").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("courses").select("id,title,description,price").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollment_requests").select("id,class_id,status,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollments").select("id,class_id,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
@@ -48,10 +48,11 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   ]);
   fail(courseResult.error); fail(classResult.error); fail(requestResult.error); fail(enrollmentResult.error); fail(availabilityResult.error);
   const availability = new Map((availabilityResult.data ?? []).map((row) => [row.class_id, row]));
-  const courses = new Map((courseResult.data ?? []).map((row) => [row.id, row.title]));
+  const courses = new Map((courseResult.data ?? []).map((row) => [row.id, { title: row.title, price: Number(row.price ?? 0) }]));
   const classes: StudentClass[] = (classResult.data ?? []).map((row) => ({
     id: row.id, title: row.title, courseId: row.course_id,
-    courseTitle: row.course_id ? courses.get(row.course_id) ?? "دوره آموزشی" : "دوره آموزشی",
+    courseTitle: row.course_id ? courses.get(row.course_id)?.title ?? "دوره آموزشی" : "دوره آموزشی",
+    coursePrice: row.course_id ? courses.get(row.course_id)?.price ?? 0 : 0,
     description: row.description, capacity: row.capacity,
     enrolledCount: Number(availability.get(row.id)?.enrolled_count ?? 0),
     remainingSeats: availability.get(row.id)?.remaining_seats ?? null,
@@ -104,6 +105,17 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
 
 /** RLS permits students to create only their own pending requests for active classes. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
+  const { data: targetClass, error: classError } = await sb.from("classes")
+    .select("course_id").eq("id", classId).eq("is_active", true).maybeSingle();
+  fail(classError);
+  if (!targetClass) throw new Error("این کلاس فعال نیست یا پیدا نشد.");
+  if (targetClass.course_id) {
+    const { data: course, error: courseError } = await sb.from("courses")
+      .select("price").eq("id", targetClass.course_id).eq("is_active", true).maybeSingle();
+    fail(courseError);
+    if (!course) throw new Error("دوره این کلاس فعال نیست یا پیدا نشد.");
+    if (Number(course.price ?? 0) > 0) throw new Error("این دوره شهریه دارد؛ تا فعال‌شدن درگاه پرداخت، درخواست ثبت‌نام آنلاین ممکن نیست.");
+  }
   const { data: existing, error: lookupError } = await sb.from("enrollment_requests")
     .select("id,status").eq("student_id", userId).eq("class_id", classId).eq("status", "pending").maybeSingle();
   fail(lookupError);
