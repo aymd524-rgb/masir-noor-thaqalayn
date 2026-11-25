@@ -182,6 +182,11 @@ export async function saveStudentHifzAssignmentStatus(
   input: { assignmentId: string; studentId: string; status: "in_progress" | "completed" | "needs_help"; note: string },
 ) {
   if (!input.assignmentId || !input.studentId || input.note.length > 1000) throw new Error("اطلاعات وضعیت برنامه معتبر نیست.");
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== input.studentId) {
+    throw new Error("برای ثبت وضعیت تکلیف باید با حساب دانش‌پژوه خود وارد شوید.");
+  }
   const { data: existing, error: lookupError } = await sb.from("hifz_assignment_completions")
     .select("id").eq("assignment_id", input.assignmentId).eq("student_id", input.studentId).maybeSingle();
   fail(lookupError);
