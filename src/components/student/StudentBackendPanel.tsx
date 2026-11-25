@@ -112,25 +112,25 @@ export function StudentBackendPanel({ user }: { user: User }) {
     hifzRecords: workspace.hifzRecords.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
     hifzAssignments: workspace.hifzAssignments.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
   } : { ...workspace, enrollments: [], requests: [], attendance: [], grades: [], hifzRecords: [], hifzAssignments: [] };
-  const present = workspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
-  const attendanceRate = workspace.attendance.length ? Math.round(present / workspace.attendance.length * 100) : null;
-  const memorizationRecords = workspace.hifzRecords.filter((record) => record.recordType === "memorization");
-  const reviewRecords = workspace.hifzRecords.filter((record) => record.recordType === "review");
+  const present = panelWorkspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
+  const attendanceRate = panelWorkspace.attendance.length ? Math.round(present / panelWorkspace.attendance.length * 100) : null;
+  const memorizationRecords = panelWorkspace.hifzRecords.filter((record) => record.recordType === "memorization");
+  const reviewRecords = panelWorkspace.hifzRecords.filter((record) => record.recordType === "review");
   const memorizationAyahEntries = memorizationRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
   const reviewAyahEntries = reviewRecords.reduce((sum, record) => sum + record.ayahEnd - record.ayahStart + 1, 0);
-  const excellentHifzAssessments = workspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
+  const excellentHifzAssessments = panelWorkspace.hifzRecords.filter((record) => record.assessment === "excellent").length;
   const todayIso = toLocalDateInputValue(new Date());
-  const completedHifzAssignments = workspace.hifzAssignments.filter((item) => item.status === "completed").length;
-  const overdueHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed" && item.dueDate < todayIso).length;
-  const activeHifzAssignments = workspace.hifzAssignments.filter((item) => item.status !== "completed").length;
-  const hifzAssignmentRate = workspace.hifzAssignments.length
-    ? Math.round(completedHifzAssignments / workspace.hifzAssignments.length * 100)
+  const completedHifzAssignments = panelWorkspace.hifzAssignments.filter((item) => item.status === "completed").length;
+  const overdueHifzAssignments = panelWorkspace.hifzAssignments.filter((item) => item.status !== "completed" && item.dueDate < todayIso).length;
+  const activeHifzAssignments = panelWorkspace.hifzAssignments.filter((item) => item.status !== "completed").length;
+  const hifzAssignmentRate = panelWorkspace.hifzAssignments.length
+    ? Math.round(completedHifzAssignments / panelWorkspace.hifzAssignments.length * 100)
     : 0;
 
-  const enrollmentProgress = workspace.enrollments.map((enrollment) => {
-    const records = workspace.attendance.filter((item) => item.enrollmentId === enrollment.id);
+  const enrollmentProgress = panelWorkspace.enrollments.map((enrollment) => {
+    const records = panelWorkspace.attendance.filter((item) => item.enrollmentId === enrollment.id);
     const effective = records.filter((item) => item.status === "present" || item.status === "late").length;
-    const grades = workspace.grades.filter((item) => item.enrollmentId === enrollment.id);
+    const grades = panelWorkspace.grades.filter((item) => item.enrollmentId === enrollment.id);
     const average = grades.length ? grades.reduce((sum, item) => sum + item.score, 0) / grades.length : null;
     return { ...enrollment, attendanceCount: records.length, attendanceRate: records.length ? Math.round(effective / records.length * 100) : null, gradeCount: grades.length, average };
   });
@@ -171,9 +171,9 @@ export function StudentBackendPanel({ user }: { user: User }) {
       </article>)}</div> : <p className="mt-3 text-sm text-muted-foreground">هنوز عضویت فعال در مؤسسه‌ای ندارید. پس از تأیید عضویت، کارت مؤسسه در این قسمت ظاهر می‌شود.</p>}
     </section>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Metric label="کلاس‌های قطعی" value={workspace.enrollments.length}/>
-      <Metric label="درخواست‌های منتظر" value={workspace.requests.filter((r) => r.status === "pending").length}/>
-      <Metric label="نمره‌ها" value={workspace.grades.length}/>
+      <Metric label="کلاس‌های قطعی" value={panelWorkspace.enrollments.length}/>
+      <Metric label="درخواست‌های منتظر" value={panelWorkspace.requests.filter((r) => r.status === "pending").length}/>
+      <Metric label="نمره‌ها" value={panelWorkspace.grades.length}/>
       <Metric label="حضور مؤثر" value={attendanceRate === null ? "—" : attendanceRate + "٪"}/>
     </div>
     <section className="rounded-2xl border bg-card p-5">
@@ -203,7 +203,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
           <div className="rounded-xl bg-muted/50 p-3"><p className="text-lg font-extrabold">{excellentHifzAssessments}</p><p className="text-xs text-muted-foreground">ارزیابی عالی</p></div>
         </div>
         {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((enrollment) => {
-          const records = workspace.hifzRecords.filter((record) => record.enrollmentId === enrollment.id);
+          const records = panelWorkspace.hifzRecords.filter((record) => record.enrollmentId === enrollment.id);
           return <li key={enrollment.id} className="py-3">
             <p className="text-sm font-semibold">{enrollment.classTitle} — {records.length} ارزیابی</p>
             {records.length ? <ul className="mt-2 space-y-2">{records.slice(0, 8).map((record) => <li key={record.id} className="rounded-xl bg-muted/50 p-3 text-sm">
@@ -222,18 +222,18 @@ export function StudentBackendPanel({ user }: { user: User }) {
       <h2 className="font-extrabold">برنامه هفتگی حفظ و مرور من</h2>
       <p className="mt-1 text-xs text-muted-foreground">برنامه‌های تعیین‌شده توسط استاد و مهلت انجام آن‌ها در این قسمت نمایش داده می‌شود.</p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{workspace.hifzAssignments.length}</p><p className="text-xs text-muted-foreground">کل برنامه‌ها</p></div>
+        <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{panelWorkspace.hifzAssignments.length}</p><p className="text-xs text-muted-foreground">کل برنامه‌ها</p></div>
         <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{completedHifzAssignments}</p><p className="text-xs text-muted-foreground">انجام‌شده</p></div>
         <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{overdueHifzAssignments}</p><p className="text-xs text-muted-foreground">عقب‌افتاده</p></div>
         <div className="rounded-xl bg-muted/50 p-3"><p className="text-xl font-extrabold">{hifzAssignmentRate}٪</p><p className="text-xs text-muted-foreground">درصد انجام</p></div>
       </div>
-      {workspace.hifzAssignments.length > 0 && <div className="mt-3 space-y-1">
+      {panelWorkspace.hifzAssignments.length > 0 && <div className="mt-3 space-y-1">
         <div className="flex justify-between text-xs"><span>پیشرفت برنامه‌های حفظ</span><b>{hifzAssignmentRate}٪</b></div>
         <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: hifzAssignmentRate + "%" }}/></div>
         <p className="text-xs text-muted-foreground">{activeHifzAssignments} برنامه تکمیل‌نشده باقی مانده است.</p>
       </div>}
 
-      {workspace.hifzAssignments.length ? <ul className="mt-3 divide-y">{workspace.hifzAssignments.map((item) => <li key={item.id} className="py-3">
+      {panelWorkspace.hifzAssignments.length ? <ul className="mt-3 divide-y">{panelWorkspace.hifzAssignments.map((item) => <li key={item.id} className="py-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <b className="text-sm">{item.assignmentType === "memorization" ? "حفظ جدید" : "مرور"} · {getSurah(item.surahNumber)?.name ?? ("سوره " + item.surahNumber)}، آیات {item.ayahStart} تا {item.ayahEnd}</b>
@@ -257,11 +257,11 @@ export function StudentBackendPanel({ user }: { user: User }) {
     </section>
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">وضعیت درخواست‌های من</h2>
-      {workspace.requests.length ? <ul className="mt-3 divide-y">{workspace.requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{item.classTitle} — {item.courseTitle}</span><b>{statusLabel[item.status]}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز درخواستی ثبت نکرده‌اید.</p>}
+      {panelWorkspace.requests.length ? <ul className="mt-3 divide-y">{panelWorkspace.requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{item.classTitle} — {item.courseTitle}</span><b>{statusLabel[item.status]}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز درخواستی ثبت نکرده‌اید.</p>}
     </section>
     <div className="grid gap-5 md:grid-cols-2">
-      <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین نمره‌ها</h2>{workspace.grades.length ? <ul className="mt-3 space-y-2">{workspace.grades.slice(-5).reverse().map((g) => <li key={g.id} className="flex justify-between gap-3 text-sm"><span>{g.title}</span><b>{g.score}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز نمره‌ای ثبت نشده است.</p>}</section>
-      <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">حضور و غیاب</h2>{workspace.attendance.length ? <ul className="mt-3 space-y-2">{workspace.attendance.slice(-6).reverse().map((a) => <li key={a.id} className="flex justify-between gap-3 text-sm"><span>{a.sessionDate}</span><b>{attendanceLabel[a.status]}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">گزارشی ثبت نشده است.</p>}</section>
+      <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین نمره‌ها</h2>{panelWorkspace.grades.length ? <ul className="mt-3 space-y-2">{panelWorkspace.grades.slice(-5).reverse().map((g) => <li key={g.id} className="flex justify-between gap-3 text-sm"><span>{g.title}</span><b>{g.score}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز نمره‌ای ثبت نشده است.</p>}</section>
+      <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">حضور و غیاب</h2>{panelWorkspace.attendance.length ? <ul className="mt-3 space-y-2">{panelWorkspace.attendance.slice(-6).reverse().map((a) => <li key={a.id} className="flex justify-between gap-3 text-sm"><span>{a.sessionDate}</span><b>{attendanceLabel[a.status]}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">گزارشی ثبت نشده است.</p>}</section>
     </div>
   </div>;
 }
