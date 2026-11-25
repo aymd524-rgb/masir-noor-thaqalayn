@@ -52,11 +52,9 @@ function InstitutesPage() {
     const sb=getSupabase(); if(!sb||!user)return;
     setBusy(true);
     try {
-      const {data:institution,error}=await sb.from("institutions").insert({name:cleanName,slug:cleanSlug}).select("id,name,slug,is_active").single();
+      const {error}=await sb.from("institutions").insert({name:cleanName,slug:cleanSlug});
       if(error)throw new Error(error.message);
-      const {error:ownerError}=await sb.from("institute_memberships").insert({institute_id:institution.id,user_id:user.id,role:"owner",status:"active",reviewed_at:new Date().toISOString(),reviewed_by:user.id});
-      if(ownerError)throw new Error("مؤسسه ساخته شد اما افزودن مالک انجام نشد: "+ownerError.message);
-      toast.success("مؤسسه ساخته شد و حساب مدیر به‌عنوان مالک ثبت شد.");
+      toast.success("مؤسسه ساخته شد و حساب مدیر به‌صورت خودکار و اتمیک مالک آن شد.");
       setName("");setSlug("");await load();
     } catch(e){toast.error(e instanceof Error?e.message:"ساخت مؤسسه انجام نشد.");}
     finally{setBusy(false);}
