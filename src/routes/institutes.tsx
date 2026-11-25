@@ -63,7 +63,18 @@ function InstitutesPage() {
 
   const chooseActiveInstitute = async (instituteId:string) => {
     const sb=getSupabase(); if(!sb||!user)return;
-    if(!instituteId) {\n      setBusy(true);\n      try { const {error}=await sb.from("user_institute_preferences").delete().eq("user_id",user.id); if(error)throw new Error(error.message); setActiveInstituteId(""); toast.success("انتخاب مؤسسهٔ فعال پاک شد."); }\n      catch(e){toast.error(e instanceof Error?e.message:"پاک‌کردن انتخاب مؤسسه ناموفق بود.");}\n      finally{setBusy(false);} return;\n    }\n    if(!memberships.some(m=>m.institute_id===instituteId&&m.user_id===user.id&&m.status==="active")) {
+    if(!instituteId) {
+      setBusy(true);
+      try {
+        const {error}=await sb.from("user_institute_preferences").delete().eq("user_id",user.id);
+        if(error)throw new Error(error.message);
+        setActiveInstituteId("");
+        toast.success("انتخاب مؤسسهٔ فعال پاک شد.");
+      } catch(e) {
+        toast.error(e instanceof Error?e.message:"پاک‌کردن انتخاب مؤسسه ناموفق بود.");
+      } finally {setBusy(false);}
+      return;
+    }\n    if(!memberships.some(m=>m.institute_id===instituteId&&m.user_id===user.id&&m.status==="active")) {
       toast.error("برای انتخاب مؤسسه باید عضویت فعال داشته باشید."); return;
     }
     setBusy(true);
