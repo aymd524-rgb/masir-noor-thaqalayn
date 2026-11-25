@@ -18,7 +18,7 @@
 7. Existing legacy courses/classes with `institute_id IS NULL` are preserved, but are not visible to non-admin authenticated users under the new restrictive policies. They must be assigned by an authorized manager before students can use them.
 8. Restrictive policies separate read and write operations: active members can read course/class data, but only owners/managers can create or edit courses/classes. Students cannot directly insert enrollment rows to bypass approval; authorized institute staff create enrollments after approving requests.
 9. Enrollment triggers require the enrolled student to have active student membership in that institute. Staff may create a record for another student only when the student is an active member of the same institute.
-8. Restrictive policies are used so existing permissive policies cannot independently expose cross-institute rows.
+10. Restrictive policies prevent existing permissive policies from independently exposing cross-institute rows.
 
 ## Provisioning path after review and rollout
 - A system administrator creates an institution; a database trigger creates the initial owner membership atomically in the same transaction.
