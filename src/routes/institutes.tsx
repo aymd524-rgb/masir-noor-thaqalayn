@@ -168,6 +168,9 @@ function InstitutesPage() {
 
   const requestJoin = async (e:FormEvent) => {
     e.preventDefault(); const sb=getSupabase(); if(!sb||!user||!selected)return;
+    if(!institutes.some(institute=>institute.id===selected&&institute.is_active)){
+      setSelected("");toast.info("این مؤسسه دیگر فعال نیست؛ لطفاً از فهرست مؤسسه‌های فعال انتخاب کنید.");return;
+    }
     if(memberships.some(m=>m.institute_id===selected&&m.user_id===user.id)){toast.info("برای این مؤسسه قبلاً عضویت ثبت شده است.");return;}
     setBusy(true);
     try{
