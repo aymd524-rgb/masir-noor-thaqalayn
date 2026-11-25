@@ -7,6 +7,15 @@ export type StudentGrade = { id: string; enrollmentId: string; title: string; sc
 export type StudentHifzAssignment = { id: string; enrollmentId: string; classTitle: string; surahNumber: number; ayahStart: number; ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string | null; status: "in_progress" | "completed" | "needs_help" | null; note: string | null };
 export type StudentHifzRecord = { id: string; enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number; recordType: "memorization" | "review"; assessment: "excellent" | "good" | "fair" | "needs_practice"; sessionDate: string; notes: string | null };
 
+/** Fail closed when the availability response is missing or malformed. Null means unlimited. */
+export function assertClassHasAvailableSeat(remainingSeats: number | null | undefined) {
+  if (remainingSeats === null) return;
+  if (typeof remainingSeats !== "number" || !Number.isFinite(remainingSeats)) {
+    throw new Error("ظرفیت کلاس در حال حاضر قابل بررسی نیست؛ دوباره تلاش کنید.");
+  }
+  if (remainingSeats <= 0) throw new Error("ظرفیت این کلاس تکمیل شده است.");
+}
+
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
 async function readAllPages<T>(
@@ -114,9 +123,7 @@ export async function requestStudentEnrollment(sb: SupabaseClient, userId: strin
   fail(availabilityError);
   const availability = (availabilityRows ?? []).find((row) => row.class_id === classId);
   if (!availability) throw new Error("ظرفیت کلاس در حال حاضر قابل بررسی نیست؛ دوباره تلاش کنید.");
-  if (availability.remaining_seats !== null && Number(availability.remaining_seats) <= 0) {
-    throw new Error("ظرفیت این کلاس تکمیل شده است.");
-  }
+  assertClassHasAvailableSeat(availability.remaining_seats);
   if (targetClass.course_id) {
     const { data: course, error: courseError } = await sb.from("courses")
       .select("price").eq("id", targetClass.course_id).eq("is_active", true).maybeSingle();
