@@ -15,7 +15,7 @@ begin
     return new;
   end if;
 
-  if new.payment_status not in ('paid', 'waived') then
+  if new.payment_status is null or new.payment_status not in ('paid', 'waived') then
     raise exception 'approved enrollment requires verified payment or an authorized waiver'
       using errcode = '23514';
   end if;
