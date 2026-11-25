@@ -109,6 +109,14 @@ export async function requestStudentEnrollment(sb: SupabaseClient, userId: strin
     .select("course_id").eq("id", classId).eq("is_active", true).maybeSingle();
   fail(classError);
   if (!targetClass) throw new Error("این کلاس فعال نیست یا پیدا نشد.");
+  // Refresh seat availability immediately before submitting; database policies must also enforce capacity atomically.
+  const { data: availabilityRows, error: availabilityError } = await sb.rpc("get_active_class_availability");
+  fail(availabilityError);
+  const availability = (availabilityRows ?? []).find((row) => row.class_id === classId);
+  if (!availability) throw new Error("ظرفیت کلاس در حال حاضر قابل بررسی نیست؛ دوباره تلاش کنید.");
+  if (availability.remaining_seats !== null && Number(availability.remaining_seats) <= 0) {
+    throw new Error("ظرفیت این کلاس تکمیل شده است.");
+  }
   if (targetClass.course_id) {
     const { data: course, error: courseError } = await sb.from("courses")
       .select("price").eq("id", targetClass.course_id).eq("is_active", true).maybeSingle();
