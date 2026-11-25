@@ -48,6 +48,13 @@ async function readRowsForIds<T>(
 
 /** Student reads are scoped by Supabase RLS to auth.uid(); no privileged key is used. */
 export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
+  // Do not start a student workspace read for a stale or mismatched user ID.
+  // RLS remains the authoritative database-level access boundary.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای مشاهدهٔ پنل دانش‌پژوه باید با حساب خود وارد شوید.");
+  }
   const [courseResult, classResult, requestResult, enrollmentResult, availabilityResult] = await Promise.all([
     readAllPages((from, to) => sb.from("courses").select("id,title,description,price").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity,institute_id").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
