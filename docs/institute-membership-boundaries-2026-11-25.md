@@ -34,7 +34,7 @@
 
 ## UI implementation status
 - The page uses the signed-in Supabase client and relies on RLS; it does not use a service-role key.
-- Managers can approve/suspend members and change a student to teacher or vice versa. Role assignment to manager/owner remains a system-admin workflow.
+- Managers can approve/suspend members and change a student to teacher or vice versa. Only institute owners or system administrators can grant owner/manager roles; a trigger prevents managers from escalating privileges and prevents removing the last active owner.
 - Active institutions are discoverable by authenticated users; institution details remain limited by active membership/admin policies.
 - No active-institute preference is persisted yet; this page does not claim that switching institute changes the app-wide current context.
 
