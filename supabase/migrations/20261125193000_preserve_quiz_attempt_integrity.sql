@@ -15,8 +15,7 @@ begin
 
     if new.course_id is distinct from old.course_id
        or new.time_limit_min is distinct from old.time_limit_min
-       or new.is_competition is distinct from old.is_competition
-       or new.is_published is distinct from old.is_published then
+       or new.is_competition is distinct from old.is_competition then
       raise exception 'quiz settings cannot be changed after submissions' using errcode = '42501';
     end if;
   end if;
@@ -40,7 +39,10 @@ declare
   target_quiz_id uuid;
 begin
   target_quiz_id := case when tg_op = 'DELETE' then old.quiz_id else new.quiz_id end;
-  if exists (select 1 from public.quiz_attempts a where a.quiz_id = target_quiz_id) then
+  if exists (select 1 from public.quiz_attempts a where a.quiz_id = target_quiz_id)
+     or (tg_op = 'UPDATE' and exists (
+       select 1 from public.quiz_attempts a where a.quiz_id = old.quiz_id
+     )) then
     raise exception 'quiz questions cannot be changed after submissions' using errcode = '42501';
   end if;
   return case when tg_op = 'DELETE' then old else new end;
@@ -79,7 +81,12 @@ begin
     raise exception 'answer index must point to an existing option' using errcode = '23514';
   end if;
 
-  if exists (select 1 from public.quiz_attempts a where a.quiz_id = target_quiz_id) then
+  if exists (select 1 from public.quiz_attempts a where a.quiz_id = target_quiz_id)
+     or (tg_op = 'UPDATE' and exists (
+       select 1 from public.quiz_questions old_question
+       join public.quiz_attempts a on a.quiz_id = old_question.quiz_id
+       where old_question.id = old.question_id
+     )) then
     raise exception 'quiz answer keys cannot be changed after submissions' using errcode = '42501';
   end if;
 
