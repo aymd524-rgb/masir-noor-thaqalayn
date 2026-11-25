@@ -82,6 +82,13 @@ async function readRowsForIds<T>(
  * authority; this helper does not use privileged keys or bypass policies.
  */
 export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, isAdmin: boolean) {
+  // Validate the requested teacher identity against the active session.
+  // The database RLS policies still decide which classes and records are visible.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای مشاهدهٔ پنل استاد باید با حساب خود وارد شوید.");
+  }
   let classQuery = sb
     .from("classes")
     .select("id,title,course_id,teacher_id,description,capacity")
