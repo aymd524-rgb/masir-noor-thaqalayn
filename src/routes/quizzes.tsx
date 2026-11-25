@@ -31,7 +31,10 @@ function QuizzesPage() {
   const [backendQuizzes, setBackendQuizzes] = useState<Quiz[]>([]);
   const [backendAttempts, setBackendAttempts] = useState<QuizAttempt[]>([]);
   const [backendLoading, setBackendLoading] = useState(false);
-  const [backendSubmitting, setBackendSubmitting] = useState(false);\n  const [backendSessionId, setBackendSessionId] = useState<string | null>(null);\n  const [expiresAt, setExpiresAt] = useState<string | null>(null);\n  const [timerNow, setTimerNow] = useState(Date.now());
+  const [backendSubmitting, setBackendSubmitting] = useState(false);
+  const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [timerNow, setTimerNow] = useState(Date.now());
 
   useEffect(() => {
     if (mode !== "backend" || !user) return;
@@ -52,7 +55,15 @@ function QuizzesPage() {
     return () => { alive = false; };
   }, [mode, user?.id, user?.role]);
 
-  useEffect(() => {\n    if (!expiresAt || !activeId) return;\n    const timer = window.setInterval(() => setTimerNow(Date.now()), 1000);\n    return () => window.clearInterval(timer);\n  }, [expiresAt, activeId]);\n\n  const remainingSeconds = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - timerNow) / 1000)) : null;\n\n  const sourceQuizzes = mode === "backend" ? backendQuizzes : db.quizzes;
+  useEffect(() => {
+    if (!expiresAt || !activeId) return;
+    const timer = window.setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt, activeId]);
+
+  const remainingSeconds = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - timerNow) / 1000)) : null;
+
+  const sourceQuizzes = mode === "backend" ? backendQuizzes : db.quizzes;
   const quizzes = sourceQuizzes.filter((quiz) => quiz.open);
   const activeQuiz = quizzes.find((quiz) => quiz.id === activeId);
   const allAttempts = mode === "backend" ? backendAttempts : db.attempts;
@@ -60,9 +71,25 @@ function QuizzesPage() {
   const competitionBoards = mode === "demo" ? quizzes.filter((quiz) => quiz.isCompetition).map((quiz) => ({ quiz, entries: buildCompetitionLeaderboard(quiz, db.attempts, db.users) })) : [];
   const managedQuizzes = user && (user.role === "teacher" || user.role === "admin") ? sourceQuizzes.filter((quiz) => user.role === "admin" || quiz.createdBy === user.id) : [];
 
-  const startQuiz = (quizId: string) => {
+  const startQuiz = async (quizId: string) => {
     setAnswers({});
     setResult(null);
+    setBackendSessionId(null);
+    setExpiresAt(null);
+    if (mode === "backend") {
+      const sb = getSupabase();
+      if (!sb) { toast.error("اتصال پایگاه داده در دسترس نیست."); return; }
+      setBackendSubmitting(true);
+      try {
+        const session = await startBackendQuizAttempt(sb, quizId);
+        setBackendSessionId(session.session_id);
+        setExpiresAt(session.expires_at);
+        setTimerNow(Date.now());
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "شروع آزمون انجام نشد.");
+        return;
+      } finally { setBackendSubmitting(false); }
+    }
     setActiveId(quizId);
   };
 
@@ -82,7 +109,8 @@ function QuizzesPage() {
     if (!sb) return;
     setBackendSubmitting(true);
     try {
-      if (!backendSessionId) throw new Error("جلسه زمان‌دار آزمون در دسترس نیست؛ از فهرست دوباره شروع کنید.");\n      const saved = await submitBackendQuizAttempt(sb, backendSessionId, answers);
+      if (!backendSessionId) throw new Error("جلسه زمان‌دار آزمون در دسترس نیست؛ از فهرست دوباره شروع کنید.");
+      const saved = await submitBackendQuizAttempt(sb, backendSessionId, answers);
       setResult({ quizId: activeQuiz.id, correct: saved.correct_count, total: saved.total_questions, score: saved.percentage });
       const workspace = await loadBackendQuizWorkspace(sb, user);
       setBackendAttempts(workspace.attempts);
@@ -211,7 +239,7 @@ function QuizzesPage() {
             <p className="mt-3 text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {faNum(quiz.timeLimitMin)} دقیقه</p>
             <span className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{quiz.isCompetition ? "مسابقه" : "آزمون"}</span>
             {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].total ? Math.round((previous[previous.length - 1].score / previous[previous.length - 1].total) * 100) : 0)}٪</p>}
-            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading} onClick={() => void startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
+            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading || backendSubmitting} onClick={() => void startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
           </li>;
         })}</ul> : <EmptyState icon={Trophy} title="آزمون فعالی وجود ندارد" description="پس از انتشار آزمون توسط مدرس، اینجا نمایش داده می‌شود." />}
       </>}
