@@ -330,10 +330,13 @@ with check (private.is_admin() or (
     or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
   )
 ));
+-- Only institute owners/managers (or system administrators) may change
+-- request status/payment approval. Teachers may read requests in their institute
+-- but cannot approve/reject or alter payment verification.
 create policy enrollment_requests_update_institute_boundary on public.enrollment_requests
 as restrictive for update to authenticated
-using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']))
-with check (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher']));
+using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager']))
+with check (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager']));
 create policy enrollment_requests_delete_institute_boundary on public.enrollment_requests
 as restrictive for delete to authenticated
 using (private.is_admin() or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager']));
