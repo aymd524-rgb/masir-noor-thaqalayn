@@ -17,10 +17,10 @@ export const Route = createFileRoute("/courses/$courseId")({
 function CourseDetailPage() {
   const { courseId } = Route.useParams();
   const { user, mode } = useAuth();
-  if (mode === "backend") return <BackendCourseDetail user={user} courseId={courseId}/>;
-  if (mode === "unavailable") return <div className="mx-auto max-w-3xl px-4 py-16 text-center"><h1 className="text-xl font-extrabold">اتصال سامانه هنوز پیکربندی نشده است</h1><p className="mt-2 text-sm text-muted-foreground">جزئیات دوره پس از تنظیم اتصال امن پایگاه داده نمایش داده می‌شود.</p></div>;
   const db = useDb();
   const navigate = Route.useNavigate();
+  if (mode === "backend") return <BackendCourseDetail user={user} courseId={courseId}/>;
+  if (mode === "unavailable") return <div className="mx-auto max-w-3xl px-4 py-16 text-center"><h1 className="text-xl font-extrabold">اتصال سامانه هنوز پیکربندی نشده است</h1><p className="mt-2 text-sm text-muted-foreground">جزئیات دوره پس از تنظیم اتصال امن پایگاه داده نمایش داده می‌شود.</p></div>;
   const course = db.courses.find((item) => item.id === courseId);
   if (!course || !course.published) {
     return (
