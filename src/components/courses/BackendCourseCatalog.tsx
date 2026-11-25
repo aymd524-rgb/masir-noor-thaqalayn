@@ -77,7 +77,7 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
             {courses.map((course) => <article key={course.id} className="flex flex-col rounded-2xl border bg-card p-5 shadow-soft">
               <h2 className="text-lg font-extrabold">{course.title}</h2>
               <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-muted-foreground">{course.description || "توضیحی برای این دوره ثبت نشده است."}</p>
-              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><Users className="h-4 w-4 text-primary"/>{faNum(course.classes.length)} کلاس فعال</div>
+              <div className="mt-4 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span className="flex items-center gap-2"><Users className="h-4 w-4 text-primary"/>{faNum(course.classes.length)} کلاس فعال</span><strong>{course.price > 0 ? `${faNum(course.price)} تومان` : "رایگان"}</strong></div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {course.classes.slice(0, 3).map((item) => <span key={item.id} className="rounded-full bg-muted px-2.5 py-1 text-xs">{item.title}</span>)}
                 {course.classes.length > 3 && <span className="rounded-full bg-muted px-2.5 py-1 text-xs">و {faNum(course.classes.length - 3)} کلاس دیگر</span>}
@@ -158,7 +158,7 @@ export function BackendCourseDetail({ user, courseId }: { user: User | null; cou
           <p className="text-sm font-bold text-hero-foreground/75">دوره آموزشی</p>
           <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">{course.title}</h1>
           <p className="mt-4 leading-8 text-hero-foreground/85">{course.description || "توضیحی برای این دوره ثبت نشده است."}</p>
-          <p className="mt-4 text-sm">{course.price > 0 ? "دوره دارای شهریه است؛ شرایط پرداخت از مدیر مؤسسه پیگیری شود." : "رایگان"}</p>
+          <p className="mt-4 text-sm">{course.price > 0 ? `شهریه: ${faNum(course.price)} تومان · پرداخت آنلاین هنوز فعال نیست` : "رایگان"}</p>
         </section>
         <section className="mt-6 rounded-2xl border bg-card p-5">
           <h2 className="text-lg font-extrabold">کلاس‌های فعال این دوره</h2>
