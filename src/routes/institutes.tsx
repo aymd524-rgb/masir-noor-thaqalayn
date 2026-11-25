@@ -12,6 +12,7 @@ export const Route = createFileRoute("/institutes")({ component: InstitutesPage 
 
 type Institute = { id: string; name: string; slug: string; is_active: boolean };
 type Membership = { id: string; institute_id: string; user_id: string; role: string; status: string; requested_at: string };
+type EnrollmentRequest = { id: string; student_id: string; class_id: string; status: string; payment_status: string; created_at: string; institute_id: string; class_title: string; student_name: string };
 
 const roleName: Record<string,string> = { owner: "مالک", manager: "مدیر مؤسسه", teacher: "استاد", student: "دانش‌پژوه" };
 const statusName: Record<string,string> = { pending: "در انتظار تأیید", active: "فعال", suspended: "تعلیق‌شده" };
@@ -20,6 +21,8 @@ function InstitutesPage() {
   const { user, mode } = useAuth();
   const [institutes,setInstitutes] = useState<Institute[]>([]);
   const [memberships,setMemberships] = useState<Membership[]>([]);
+  const [enrollmentRequests,setEnrollmentRequests] = useState<EnrollmentRequest[]>([]);
+  const [paymentChoice,setPaymentChoice]=useState<Record<string,"paid"|"waived"|"">>({});
   const [busy,setBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [name,setName] = useState("");
@@ -34,7 +37,7 @@ function InstitutesPage() {
     const {data:authData,error:authError}=await sb.auth.getUser();
     if(authError) throw new Error(authError.message);
     const userId=authData.user?.id;
-    const [i,m,p] = await Promise.all([
+    const [i,m,p,rq] = await Promise.all([
       sb.from("institutions").select("id,name,slug,is_active").eq("is_active",true).order("name"),
       sb.from("institute_memberships").select("id,institute_id,user_id,role,status,requested_at").order("requested_at",{ascending:false}),
       userId
@@ -44,6 +47,7 @@ function InstitutesPage() {
     if(i.error) throw new Error(i.error.message);
     if(m.error) throw new Error(m.error.message);
     if(p.error) throw new Error(p.error.message);
+    if(rq.error) throw new Error(rq.error.message);
     const loadedMemberships=m.data??[];
     const savedInstituteId=p.data?.institute_id??"";
     const savedIsActive=!!userId&&loadedMemberships.some(
@@ -134,6 +138,29 @@ function InstitutesPage() {
     catch(e){toast.error(e instanceof Error?e.message:"تغییر نقش ناموفق بود.");}finally{setBusy(false);}
   };
 
+  const reviewEnrollment=async(request:EnrollmentRequest,status:"approved"|"rejected")=>{
+    const sb=getSupabase();if(!sb)return;
+    const payment=status==="approved"?paymentChoice[request.id]:"";
+    if(status==="approved"&&!payment){toast.error("برای تأیید، وضعیت پرداخت را مشخص کنید.");return;}
+    if(status==="approved"&&payment==="paid"&&!window.confirm("پرداخت این دانش‌پژوه را بررسی و تأیید کرده‌اید؟"))return;
+    if(status==="approved"&&payment==="waived"&&!window.confirm("آیا این ثبت‌نام واقعاً معاف از پرداخت است؟"))return;
+    setBusy(true);
+    try{
+      const update=status==="approved"?{status,payment_status:payment}:{status};
+      const {data:updated,error}=await sb.from("enrollment_requests").update(update).eq("id",request.id).eq("status","pending").select("id").maybeSingle();
+      if(error)throw new Error(error.message);
+      if(!updated)throw new Error("درخواست تغییر نکرد؛ ممکن است قبلاً بررسی شده یا مجوز کافی ندارید.");
+      if(status==="approved"){
+        const {data:enrollment,error:enrollmentError}=await sb.from("enrollments").select("id").eq("student_id",request.student_id).eq("class_id",request.class_id).maybeSingle();
+        if(enrollmentError)throw new Error(enrollmentError.message);
+        if(!enrollment)throw new Error("درخواست تغییر کرد، اما ثبت‌نام قطعی در پایگاه داده پیدا نشد؛ وضعیت را بررسی کنید.");
+      }
+      toast.success(status==="approved"?"ثبت‌نام تأیید شد.":"درخواست ثبت‌نام رد شد.");
+      await load();
+    }catch(error){toast.error(error instanceof Error?error.message:"بررسی درخواست انجام نشد.");}
+    finally{setBusy(false);}
+  };
+
   const canManage=(instituteId:string)=>admin||memberships.some(m=>m.institute_id===instituteId&&m.user_id===user?.id&&m.status==="active"&&(m.role==="owner"||m.role==="manager"));
   const instituteName=(id:string)=>institutes.find(i=>i.id===id)?.name??"مؤسسه";
 
@@ -145,6 +172,7 @@ function InstitutesPage() {
       </section>
       <section className="space-y-3 rounded-2xl border bg-card p-5"><h2 className="font-bold">درخواست عضویت</h2>{institutes.length?<form onSubmit={requestJoin} className="space-y-3"><select className="h-11 w-full rounded-xl border bg-card px-3 text-sm" value={selected} onChange={e=>setSelected(e.target.value)} required><option value="">انتخاب مؤسسه</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select><Button type="submit" disabled={busy||!selected}>ارسال درخواست عضویت به‌عنوان دانش‌پژوه</Button></form>:<p className="text-sm text-muted-foreground">فعلاً مؤسسهٔ فعالی برای درخواست عضویت ثبت نشده است.</p>}</section>
       <section className="space-y-3 rounded-2xl border bg-card p-5"><h2 className="flex items-center gap-2 font-bold"><Users className="h-5 w-5"/>عضویت‌های من</h2>{memberships.filter(m=>m.user_id===user.id).length?<ul className="divide-y">{memberships.filter(m=>m.user_id===user.id).map(m=><li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{instituteName(m.institute_id)} · {roleName[m.role]??m.role}</span><span className="rounded-full bg-muted px-3 py-1">{statusName[m.status]??m.status}</span></li>)}</ul>:<p className="text-sm text-muted-foreground">هنوز عضویتی ثبت نشده است.</p>}</section>
+      {memberships.some(m=>canManage(m.institute_id))&&<section className="space-y-3 rounded-2xl border bg-card p-5"><h2 className="font-bold">بررسی درخواست‌های ثبت‌نام کلاس‌ها</h2><p className="text-sm text-muted-foreground">فقط درخواست‌های مؤسسه‌هایی نمایش داده می‌شود که شما مالک یا مدیر فعال آن‌ها هستید. استادها امکان تأیید یا رد ثبت‌نام را ندارند.</p>{enrollmentRequests.filter(r=>r.status==="pending"&&canManage(r.institute_id)).length?enrollmentRequests.filter(r=>r.status==="pending"&&canManage(r.institute_id)).map(r=><div key={r.id} className="space-y-2 border-b py-3 text-sm"><p className="font-semibold">{r.student_name} · {r.class_title}</p><p className="text-muted-foreground">{instituteName(r.institute_id)} · {new Date(r.created_at).toLocaleDateString("fa-IR")}</p><div className="flex flex-wrap items-center gap-2"><select aria-label="وضعیت پرداخت" className="h-9 rounded-lg border bg-card px-2" value={paymentChoice[r.id]??""} onChange={e=>setPaymentChoice(current=>({...current,[r.id]:e.target.value as "paid"|"waived"|""}))}><option value="">وضعیت پرداخت</option><option value="paid">پرداخت بررسی‌شده</option><option value="waived">معاف از پرداخت</option></select><Button size="sm" disabled={busy} onClick={()=>void reviewEnrollment(r,"approved")}>تأیید ثبت‌نام</Button><Button size="sm" variant="outline" disabled={busy} onClick={()=>void reviewEnrollment(r,"rejected")}>رد درخواست</Button></div></div>):<p className="text-sm text-muted-foreground">درخواست منتظر بررسی برای مؤسسه‌های تحت مدیریت شما وجود ندارد.</p>}</section>}
       {memberships.some(m=>canManage(m.institute_id))&&<section className="space-y-3 rounded-2xl border bg-card p-5"><h2 className="font-bold">مدیریت اعضای مؤسسه</h2>{memberships.filter(m=>canManage(m.institute_id)&&m.user_id!==user.id).map(m=><div key={m.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3 text-sm"><div><p className="font-semibold">{instituteName(m.institute_id)}</p><p className="text-muted-foreground">{m.user_id.slice(0,8)}… · {roleName[m.role]} · {statusName[m.status]}</p></div><div className="flex flex-wrap gap-2">{m.status!=="active"&&<Button size="sm" disabled={busy} onClick={()=>review(m,"active")}><CheckCircle2 className="me-1 h-4 w-4"/>تأیید</Button>}{m.status==="active"&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>review(m,"suspended")}>تعلیق</Button>}{m.status==="active"&&m.role==="student"&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>setRole(m,"teacher")}>تعیین استاد</Button>}{m.status==="active"&&m.role==="teacher"&&<Button size="sm" variant="outline" disabled={busy} onClick={()=>setRole(m,"student")}>تبدیل به دانش‌پژوه</Button>}</div></div>)}</section>}
       {loading&&<p className="text-sm text-muted-foreground">در حال بارگذاری…</p>}
       <p className="text-xs text-muted-foreground">این بخش به migration مؤسسه‌ها وابسته است. تا اجرای migration روی Supabase، ممکن است خطای نبود جدول نمایش داده شود؛ هیچ تغییری در پایگاه داده زنده به‌صورت خودکار انجام نمی‌شود.</p>
