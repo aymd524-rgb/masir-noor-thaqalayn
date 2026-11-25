@@ -37,6 +37,12 @@ begin
   from public.quizzes q where q.id = p_quiz_id and q.is_published = true
   for update;
   if not found then raise exception 'آزمون منتشرشده‌ای با این شناسه وجود ندارد.'; end if;
+  -- The quiz row lock serializes concurrent start requests for this quiz.
+  -- Count every session, including abandoned/expired ones, as the single allowed attempt.
+  if exists (select 1 from public.quiz_attempts a where a.quiz_id = p_quiz_id and a.student_id = v_user_id)
+     or exists (select 1 from public.quiz_attempt_sessions s where s.quiz_id = p_quiz_id and s.student_id = v_user_id) then
+    raise exception 'برای این آزمون قبلاً جلسه شروع شده است؛ امکان شروع دوباره وجود ندارد.';
+  end if;
   v_expires_at := v_started_at + make_interval(mins => v_duration);
   insert into public.quiz_attempt_sessions(quiz_id, student_id, started_at, expires_at)
   values (p_quiz_id, v_user_id, v_started_at, v_expires_at)
