@@ -48,3 +48,11 @@
 ## Active institute selection
 
 The institutes page now allows a signed-in user to select an active institute from their own active memberships and persist that choice in `user_institute_preferences`. Clearing the selection removes the preference. A security-definer trigger validates active membership on every insert/update; the preference is contextual UI state only and never grants access. If a membership is suspended, the app does not restore it as a valid active selection after reload. This preference is not yet wired as a global course/dashboard filter; that requires each data query and RLS policy to enforce the selected institute independently.
+
+## Enrollment request review permissions
+- Active institute owners and managers, plus system administrators, may update enrollment request status and payment status.
+- Active teachers may read requests within their institute but cannot approve/reject requests or change payment verification.
+- The restrictive RLS update policy enforces this even if an older permissive policy grants broader update access.
+- The admin backend panel remains system-admin-only; institute-scoped manager approval UI is not yet wired to the institute dashboard.
+- The approval trigger creates the enrollment in the same transaction as approval; payment marked `paid` must be verified outside the app, and `waived` requires an authorized waiver.
+- CI passed for the previous code head (`0ce9d651`); the new manager-only policy commit requires its own CI run. This migration remains unexecuted on the live database.
