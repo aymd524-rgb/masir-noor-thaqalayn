@@ -99,3 +99,12 @@ The institutes page now allows a signed-in user to select an active institute fr
 - This migration is branch-only and has not been applied to Supabase. Test with a student in the correct institute, a student from another institute, a pending/suspended member, a standalone published quiz, and a non-published quiz.
 
 - Follow-up refinement: the quiz-session guard now explicitly requires institute membership role `student`, not merely any active membership. Migration: `supabase/migrations/20261126009000_require_student_membership_for_quiz_session.sql`. This avoids a teacher/manager membership satisfying the course quiz gate. Branch-only; not applied to Supabase.
+
+
+## Quiz membership revalidation on resume and submission — 2026-11-26
+- Migration: `supabase/migrations/20261126010000_recheck_membership_on_quiz_resume_and_submit.sql`
+- Review found that the session INSERT guard protects only newly created sessions. The resume RPC can return an existing session without inserting, and the submit RPC can submit an existing session after institute membership is suspended.
+- The updated `start_quiz_attempt` rechecks active course, active institute, and active `student` membership before either resuming or creating a course quiz session. The original session deadline is preserved.
+- A session-update trigger rechecks the same membership conditions when `submitted_at` changes from null to non-null. Because it runs in the submit transaction, a failed membership check also rolls back the result insert.
+- Branch-only; not applied to Supabase. Staging tests must include active student, pending/suspended student, different institute, standalone quiz, suspension between start and resume, and suspension between start and submit.
+- GitHub build/test for the previous PR head `c087d98d416567c55aa68e72de6911295e9e687b` passed. Cloudflare preview build failed for that head; the actual error is only available in its Cloudflare build log. The new migration requires a fresh CI run.
