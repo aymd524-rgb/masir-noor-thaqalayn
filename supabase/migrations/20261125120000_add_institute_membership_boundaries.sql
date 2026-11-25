@@ -165,6 +165,53 @@ for update to authenticated
 using (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin())
 with check (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin());
 
+-- Managers can approve members and assign teacher/student roles, but cannot
+-- promote themselves or others to owner/manager. Only an institute owner or
+-- system administrator may grant or revoke manager/owner roles.
+create or replace function private.guard_institute_membership_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  actor_is_owner boolean;
+  actor_is_manager boolean;
+begin
+  if new.institute_id is distinct from old.institute_id
+     or new.user_id is distinct from old.user_id then
+    raise exception 'membership institute and user are immutable' using errcode = '42501';
+  end if;
+
+  if auth.uid() is null or private.is_admin() then
+    return new;
+  end if;
+
+  actor_is_owner := private.is_institute_member(old.institute_id, array['owner']);
+  actor_is_manager := private.is_institute_member(old.institute_id, array['manager']);
+
+  if not actor_is_owner and not actor_is_manager then
+    raise exception 'active institute owner or manager required' using errcode = '42501';
+  end if;
+
+  if old.role in ('owner','manager') and not actor_is_owner then
+    raise exception 'only an institute owner or system administrator can modify owner/manager membership' using errcode = '42501';
+  end if;
+
+  if new.role in ('owner','manager') and not actor_is_owner then
+    raise exception 'only an institute owner or system administrator can assign owner/manager roles' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function private.guard_institute_membership_update() from public, anon, authenticated;
+drop trigger if exists institute_memberships_guard_update on public.institute_memberships;
+create trigger institute_memberships_guard_update
+before update on public.institute_memberships
+for each row execute function private.guard_institute_membership_update();
+
 -- Restrictive policies AND with existing permissive policies. Keep read access
 -- for active members, but explicitly limit writes so legacy broad policies
 -- cannot let students modify courses/classes or self-create enrollments.
