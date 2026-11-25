@@ -78,3 +78,15 @@ The institutes page now allows a signed-in user to select an active institute fr
 7. Moving an enrollment to a full destination class fails; moving to a class with a free seat succeeds.
 8. A suspended or non-member student cannot be enrolled even when the class has available capacity.
 9. A class with null capacity remains unlimited.
+
+
+## Owner-membership deletion hardening — 2026-11-26
+- Migration: `supabase/migrations/20261126007000_protect_institute_owner_membership_deletes.sql`
+- Review found that the existing UPDATE guard protected owner/manager role changes, but DELETE was a separate operation and could bypass that guard.
+- The new BEFORE DELETE trigger blocks managers from deleting owner/manager membership rows, blocks deleting the last active owner, serializes membership deletion on the institute row, and still permits a user to withdraw their own pending request.
+- This is a new branch-only migration; it has not been applied to Supabase.
+- Add staging tests: manager attempts to delete owner/manager (must fail); owner attempts to delete last active owner (must fail); owner removes an owner while another active owner exists (allowed); user withdraws own pending request (allowed); concurrent deletion attempts cannot leave zero active owners.
+
+## Latest branch checks
+- Latest reviewed head before this follow-up: `bc92b23fbdac083294e9c889f40012cfd726f3e7` — GitHub build/test workflow passed; Cloudflare Workers build failed. Cloudflare's check exposes a build log link but no error text in the GitHub check output.
+- The owner-membership deletion migration was committed after that head. Its fresh checks are pending; no deployment or live database action has been performed.
