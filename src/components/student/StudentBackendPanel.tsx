@@ -70,6 +70,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
 
   const pendingIds = useMemo(() => new Set((workspace?.requests ?? []).filter((r) => r.status === "pending").map((r) => r.classId)), [workspace]);
   const enrolledIds = useMemo(() => new Set((workspace?.enrollments ?? []).map((r) => r.classId)), [workspace]);
+  const activeInstituteClasses = useMemo(() => (workspace?.classes ?? []).filter((item) => item.instituteId === activeInstituteId), [workspace, activeInstituteId]);
   const updateAssignment = async (assignmentId: string, status: "in_progress" | "completed" | "needs_help") => {
     const sb = getSupabase();
     if (!sb) return;
@@ -239,10 +240,10 @@ export function StudentBackendPanel({ user }: { user: User }) {
     </section>
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">کلاس‌های قابل ثبت‌نام</h2>
-      {workspace.classes.length ? <ul className="mt-3 divide-y">{workspace.classes.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+      {activeInstituteId && activeInstituteClasses.length ? <ul className="mt-3 divide-y">{activeInstituteClasses.map((item) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div><p className="font-semibold">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.courseTitle}{item.description ? " · " + item.description : ""} · {item.coursePrice > 0 ? `شهریه ${item.coursePrice.toLocaleString("fa-IR")} تومان` : "رایگان"}</p><p className="mt-1 text-xs font-medium text-muted-foreground">{item.capacity === null ? "ظرفیت نامحدود" : item.remainingSeats === 0 ? "ظرفیت تکمیل" : `${item.remainingSeats} جای خالی از ${item.capacity}`}</p></div>
         {enrolledIds.has(item.id) ? <span className="text-xs font-semibold text-muted-foreground">ثبت‌نام قطعی</span> : pendingIds.has(item.id) ? <span className="text-xs font-semibold text-muted-foreground">در انتظار بررسی</span> : item.remainingSeats === 0 ? <span className="text-xs font-semibold text-muted-foreground">ظرفیت تکمیل</span> : item.coursePrice > 0 ? <span className="text-xs font-semibold text-muted-foreground">ثبت‌نام پس از راه‌اندازی پرداخت</span> : <button disabled={!!busyClass} onClick={() => void submitRequest(item.id)} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busyClass === item.id ? "در حال ارسال…" : "درخواست ثبت‌نام"}</button>}
-      </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">فعلاً کلاس فعالی برای ثبت‌نام وجود ندارد.</p>}
+      </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">{!activeInstituteId ? "برای جلوگیری از ثبت‌نام اشتباه، ابتدا یکی از مؤسسه‌های فعال خود را در بالا انتخاب کنید." : "در مؤسسهٔ فعال شما فعلاً کلاس قابل ثبت‌نامی وجود ندارد."}</p>}
     </section>
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">وضعیت درخواست‌های من</h2>
