@@ -57,7 +57,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
       } : null;
     }).filter((item): item is StudentInstituteCard => item !== null);
     setInstitutes(cards);
-    setActiveInstituteId(cards.some((item) => item.id === preferenceResult.data?.institute_id) ? preferenceResult.data!.institute_id! : "");
+    setActiveInstituteId(cards.some((item) => item.id === preferenceResult.data?.institute_id && item.active) ? preferenceResult.data!.institute_id! : "");
     setWorkspace(workspaceData);
   }, [user.id]);
   useEffect(() => {
