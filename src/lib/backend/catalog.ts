@@ -75,11 +75,46 @@ export function mapCourseCatalog(
   }));
 }
 
-/** Uses the signed-in user's RLS-scoped Supabase session; no privileged key. */
+/** Uses the signed-in user's RLS-scoped session and the saved active-institute preference. */
 export async function loadBackendCourseCatalog(sb: SupabaseClient): Promise<CatalogCourse[]> {
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  throwIfError(authError);
+  if (!authData.user) throw new Error("برای دریافت دوره‌ها ابتدا وارد حساب شوید.");
+
+  const preferenceResult = await sb
+    .from("user_institute_preferences")
+    .select("institute_id")
+    .eq("user_id", authData.user.id)
+    .maybeSingle();
+  throwIfError(preferenceResult.error);
+  const activeInstituteId = preferenceResult.data?.institute_id ?? null;
+
+  let coursesQuery = sb
+    .from("courses")
+    .select("id,title,description,price")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  let classesQuery = sb
+    .from("classes")
+    .select("id,title,description,course_id,capacity,starts_at,ends_at")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  // Global courses/classes remain visible; institute-specific records are
+  // included only for the user's selected active institute. RLS remains the
+  // authority and independently validates membership.
+  if (activeInstituteId) {
+    const safeId = activeInstituteId;
+    coursesQuery = coursesQuery.or(`institute_id.eq.${safeId},institute_id.is.null`);
+    classesQuery = classesQuery.or(`institute_id.eq.${safeId},institute_id.is.null`);
+  } else {
+    coursesQuery = coursesQuery.is("institute_id", null);
+    classesQuery = classesQuery.is("institute_id", null);
+  }
+
   const [coursesResult, classesResult, availabilityResult] = await Promise.all([
-    sb.from("courses").select("id,title,description,price").eq("is_active", true).order("created_at", { ascending: false }),
-    sb.from("classes").select("id,title,description,course_id,capacity,starts_at,ends_at").eq("is_active", true).order("created_at", { ascending: false }),
+    coursesQuery,
+    classesQuery,
     sb.rpc("get_active_class_availability"),
   ]);
 
