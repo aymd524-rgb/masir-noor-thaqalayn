@@ -17,8 +17,11 @@ begin
   end if;
 
   if tg_table_name = 'enrollments' then
-    enforce_capacity := tg_op = 'INSERT'
-      or new.class_id is distinct from old.class_id;
+    if tg_op = 'INSERT' then
+      enforce_capacity := true;
+    elsif tg_op = 'UPDATE' then
+      enforce_capacity := new.class_id is distinct from old.class_id;
+    end if;
   end if;
 
   if enforce_capacity then
