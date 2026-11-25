@@ -165,6 +165,51 @@ for update to authenticated
 using (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin())
 with check (private.is_institute_member(institute_id, array['owner','manager']) or private.is_admin());
 
+-- Restrictive boundaries AND with all legacy permissive policies. Prevent
+-- older broad policies from granting membership data access or role changes.
+drop policy if exists institute_memberships_select_boundary on public.institute_memberships;
+drop policy if exists institute_memberships_insert_boundary on public.institute_memberships;
+drop policy if exists institute_memberships_update_boundary on public.institute_memberships;
+drop policy if exists institute_memberships_delete_boundary on public.institute_memberships;
+
+create policy institute_memberships_select_boundary on public.institute_memberships
+as restrictive for select to authenticated
+using (
+  user_id = (select auth.uid())
+  or private.is_institute_member(institute_id, array['owner','manager'])
+  or private.is_admin()
+);
+
+create policy institute_memberships_insert_boundary on public.institute_memberships
+as restrictive for insert to authenticated
+with check (
+  private.is_admin()
+  or (
+    user_id = (select auth.uid())
+    and role = 'student'
+    and status = 'pending'
+  )
+);
+
+create policy institute_memberships_update_boundary on public.institute_memberships
+as restrictive for update to authenticated
+using (
+  private.is_admin()
+  or private.is_institute_member(institute_id, array['owner','manager'])
+)
+with check (
+  private.is_admin()
+  or private.is_institute_member(institute_id, array['owner','manager'])
+);
+
+create policy institute_memberships_delete_boundary on public.institute_memberships
+as restrictive for delete to authenticated
+using (
+  private.is_admin()
+  or private.is_institute_member(institute_id, array['owner','manager'])
+  or (user_id = (select auth.uid()) and status = 'pending')
+);
+
 -- Managers can approve members and assign teacher/student roles, but cannot
 -- promote themselves or others to owner/manager. Only an institute owner or
 -- system administrator may grant or revoke manager/owner roles.
