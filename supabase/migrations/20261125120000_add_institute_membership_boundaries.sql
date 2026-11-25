@@ -202,6 +202,17 @@ begin
     raise exception 'only an institute owner or system administrator can assign owner/manager roles' using errcode = '42501';
   end if;
 
+  if old.role = 'owner' and (new.role <> 'owner' or new.status <> 'active')
+     and not exists (
+       select 1 from public.institute_memberships other_owner
+       where other_owner.institute_id = old.institute_id
+         and other_owner.user_id <> old.user_id
+         and other_owner.role = 'owner'
+         and other_owner.status = 'active'
+     ) then
+    raise exception 'an institute must retain at least one active owner' using errcode = '23514';
+  end if;
+
   return new;
 end;
 $function$;
