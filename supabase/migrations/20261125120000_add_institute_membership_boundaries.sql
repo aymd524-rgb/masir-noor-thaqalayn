@@ -94,9 +94,10 @@ grant select, insert, update on public.institutions to authenticated;
 grant select, insert, update on public.institute_memberships to authenticated;
 
 drop policy if exists institutions_select_member on public.institutions;
-create policy institutions_select_member on public.institutions
+drop policy if exists institutions_select_active_catalog on public.institutions;
+create policy institutions_select_active_catalog on public.institutions
 for select to authenticated
-using (private.is_institute_member(id) or private.is_admin());
+using (is_active or private.is_institute_member(id) or private.is_admin());
 
 drop policy if exists institutions_admin_insert on public.institutions;
 create policy institutions_admin_insert on public.institutions
