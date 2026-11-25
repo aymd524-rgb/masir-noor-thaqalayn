@@ -239,7 +239,8 @@ function QuizzesPage() {
             <p className="mt-3 text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {faNum(quiz.timeLimitMin)} دقیقه</p>
             <span className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{quiz.isCompetition ? "مسابقه" : "آزمون"}</span>
             {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].total ? Math.round((previous[previous.length - 1].score / previous[previous.length - 1].total) * 100) : 0)}٪</p>}
-            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading || backendSubmitting} onClick={() => void startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
+            {mode === "backend" && previous.length > 0 && <p className="mt-2 text-xs font-semibold text-muted-foreground">این آزمون را قبلاً شرکت کرده‌اید و امکان شروع دوباره ندارید.</p>}
+            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading || backendSubmitting || (mode === "backend" && previous.length > 0)} onClick={() => void startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>{mode === "backend" && previous.length > 0 ? "شرکت کرده‌اید" : "شروع آزمون"}</Button>
           </li>;
         })}</ul> : <EmptyState icon={Trophy} title="آزمون فعالی وجود ندارد" description="پس از انتشار آزمون توسط مدرس، اینجا نمایش داده می‌شود." />}
       </>}
