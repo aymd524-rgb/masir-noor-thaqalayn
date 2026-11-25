@@ -25,13 +25,13 @@ begin
   end if;
 
   if enforce_capacity then
-    select c.institute_id, c.capacity
+    select c.institute_id, c.capacity, c.is_active, c.course_id
       into class_row
     from public.classes c
     where c.id = new.class_id
     for update;
   else
-    select c.institute_id, c.capacity
+    select c.institute_id, c.capacity, c.is_active, c.course_id
       into class_row
     from public.classes c
     where c.id = new.class_id;
@@ -39,6 +39,25 @@ begin
 
   if not found or class_row.institute_id is null then
     raise exception 'class is not assigned to an institute' using errcode = '23514';
+  end if;
+
+  if class_row.is_active is not true then
+    raise exception 'class is inactive' using errcode = '23514';
+  end if;
+
+  if not exists (
+    select 1 from public.institutions i
+    where i.id = class_row.institute_id and i.is_active is true
+  ) then
+    raise exception 'institute is inactive or unavailable' using errcode = '23514';
+  end if;
+
+  if class_row.course_id is not null and not exists (
+    select 1 from public.courses co
+    where co.id = class_row.course_id and co.is_active is true
+      and co.institute_id = class_row.institute_id
+  ) then
+    raise exception 'linked course is missing, inactive, or belongs to another institute' using errcode = '23514';
   end if;
 
   if auth.uid() is not null and new.student_id <> auth.uid()
