@@ -125,9 +125,23 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
 /** RLS permits students to create only their own pending requests for active classes. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
   const { data: targetClass, error: classError } = await sb.from("classes")
-    .select("course_id").eq("id", classId).eq("is_active", true).maybeSingle();
+    .select("course_id,institute_id").eq("id", classId).eq("is_active", true).maybeSingle();
   fail(classError);
-  if (!targetClass) throw new Error("این کلاس فعال نیست یا پیدا نشد.");
+  if (!targetClass?.institute_id) throw new Error("این کلاس فعال نیست یا به مؤسسه‌ای اختصاص ندارد.");
+
+  // Guard the selected institute again at the point of enrollment so a stale
+  // page or copied class link cannot submit a request to another institute.
+  const { data: preference, error: preferenceError } = await sb
+    .from("user_institute_preferences").select("institute_id").eq("user_id", userId).maybeSingle();
+  fail(preferenceError);
+  if (preference?.institute_id !== targetClass.institute_id) {
+    throw new Error("این کلاس متعلق به مؤسسهٔ فعال شما نیست؛ ابتدا مؤسسهٔ درست را انتخاب کنید.");
+  }
+  const { data: activeMembership, error: membershipError } = await sb
+    .from("institute_memberships").select("id").eq("user_id", userId)
+    .eq("institute_id", targetClass.institute_id).eq("status", "active").maybeSingle();
+  fail(membershipError);
+  if (!activeMembership) throw new Error("برای ثبت‌نام در این کلاس باید عضویت فعال همین مؤسسه را داشته باشید.");
   // Refresh seat availability immediately before submitting; database policies must also enforce capacity atomically.
   const { data: availabilityRows, error: availabilityError } = await sb.rpc("get_active_class_availability");
   fail(availabilityError);
