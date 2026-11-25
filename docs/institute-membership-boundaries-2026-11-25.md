@@ -56,3 +56,25 @@ The institutes page now allows a signed-in user to select an active institute fr
 - The admin backend panel remains system-admin-only; institute-scoped manager approval UI is not yet wired to the institute dashboard.
 - The approval trigger creates the enrollment in the same transaction as approval; payment marked `paid` must be verified outside the app, and `waived` requires an authorized waiver.
 - CI passed for the previous code head (`0ce9d651`); the new manager-only policy commit requires its own CI run. This migration remains unexecuted on the live database.
+
+
+## Capacity enforcement follow-up — 2026-11-25
+- Migration: `supabase/migrations/20261126006000_enforce_capacity_for_all_enrollment_writes.sql`
+- It replaces the existing enrollment guard function in-place; existing triggers continue to reference the same function.
+- Enrollment inserts and moves into another class lock the target class row and count existing enrollments before allowing the write.
+- Approval-trigger enrollments and direct staff enrollment writes share the same class-row lock, preventing concurrent writers from exceeding a finite capacity.
+- Updates that do not change class assignment still validate institute membership but do not consume an additional seat.
+- The GitHub application build and test workflow passed for commit `a963accd484076c9543d2f400e18af2e960b8fae`.
+- Cloudflare Workers build failed for that commit; inspect the linked Cloudflare build logs before treating deployment compatibility as verified.
+- This migration is branch-only and has not been run against staging or production.
+
+### Required staging checks before rollout
+1. At capacity, a new enrollment insert fails with a capacity constraint error.
+2. Below capacity, one insert succeeds.
+3. Two concurrent inserts for the final seat result in exactly one successful enrollment.
+4. Approving a paid request at capacity fails and rolls back the request status update.
+5. Approving a paid request below capacity creates exactly one enrollment.
+6. A direct staff insert cannot exceed capacity.
+7. Moving an enrollment to a full destination class fails; moving to a class with a free seat succeeds.
+8. A suspended or non-member student cannot be enrolled even when the class has available capacity.
+9. A class with null capacity remains unlimited.
