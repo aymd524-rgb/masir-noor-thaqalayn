@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, GraduationCap, Heart, Library, ScrollText, Sparkles } from "lucide-react";
 import { useDb } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { categoryLabel, faNum, levelLabel } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
@@ -22,6 +23,7 @@ const features = [
 
 function HomePage() {
   const db = useDb();
+  const { mode } = useAuth();
   const courses = db.courses.filter((course) => course.published).slice(0, 3);
 
   return (
@@ -72,7 +74,16 @@ function HomePage() {
           </div>
           <Link to="/courses" className="shrink-0 text-sm font-bold text-primary">همه دوره‌ها</Link>
         </div>
-        {courses.length ? (
+        {mode === "backend" ? (
+          <div className="rounded-2xl border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">فهرست دوره‌های واقعی از پایگاه داده دریافت می‌شود.</p>
+            <Link to="/courses" className="mt-3 inline-flex text-sm font-bold text-primary">مشاهده دوره‌های فعال</Link>
+          </div>
+        ) : mode === "unavailable" ? (
+          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            پس از پیکربندی اتصال امن سامانه، دوره‌های فعال در این بخش نمایش داده می‌شوند.
+          </div>
+        ) : courses.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
               <Link key={course.id} to="/courses" className="rounded-2xl border bg-card p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
