@@ -102,6 +102,16 @@ export function StudentBackendPanel({ user }: { user: User }) {
 
   if (loading) return <p className="rounded-xl border p-4 text-sm text-muted-foreground">در حال دریافت اطلاعات از پایگاه داده…</p>;
   if (!workspace) return <p className="rounded-xl border p-4 text-sm">اطلاعات بارگذاری نشد. اتصال و دسترسی پایگاه داده را بررسی کنید.</p>;
+  // Show learning data for the selected institute only; other memberships remain intact.
+  const panelWorkspace = activeInstituteId ? {
+    ...workspace,
+    enrollments: workspace.enrollments.filter((item) => item.instituteId === activeInstituteId),
+    requests: workspace.requests.filter((item) => workspace.classes.find((cls) => cls.id === item.classId)?.instituteId === activeInstituteId),
+    attendance: workspace.attendance.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
+    grades: workspace.grades.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
+    hifzRecords: workspace.hifzRecords.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
+    hifzAssignments: workspace.hifzAssignments.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
+  } : { ...workspace, enrollments: [], requests: [], attendance: [], grades: [], hifzRecords: [], hifzAssignments: [] };
   const present = workspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
   const attendanceRate = workspace.attendance.length ? Math.round(present / workspace.attendance.length * 100) : null;
   const memorizationRecords = workspace.hifzRecords.filter((record) => record.recordType === "memorization");
