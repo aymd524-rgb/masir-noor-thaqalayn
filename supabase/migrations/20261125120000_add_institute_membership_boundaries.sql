@@ -434,3 +434,59 @@ comment on table public.institutions is 'Organizations that own courses and clas
 comment on table public.institute_memberships is 'Membership requests and active roles within an institute; pending requests grant no data access.';
 comment on column public.courses.institute_id is 'Institute owner; null legacy rows are not visible to non-admin authenticated users.';
 comment on column public.classes.institute_id is 'Institute owner; must match the linked course institute when course_id is set.';
+
+
+-- Persist the user's currently selected institute separately from profile data.
+-- The database trigger is authoritative: client-side selection never grants access.
+create table if not exists public.user_institute_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  institute_id uuid not null references public.institutions(id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_institute_preferences enable row level security;
+grant select, insert, update, delete on public.user_institute_preferences to authenticated;
+
+drop policy if exists user_institute_preferences_select_own on public.user_institute_preferences;
+create policy user_institute_preferences_select_own on public.user_institute_preferences
+for select to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists user_institute_preferences_insert_own on public.user_institute_preferences;
+create policy user_institute_preferences_insert_own on public.user_institute_preferences
+for insert to authenticated with check (user_id = (select auth.uid()));
+
+drop policy if exists user_institute_preferences_update_own on public.user_institute_preferences;
+create policy user_institute_preferences_update_own on public.user_institute_preferences
+for update to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
+
+drop policy if exists user_institute_preferences_delete_own on public.user_institute_preferences;
+create policy user_institute_preferences_delete_own on public.user_institute_preferences
+for delete to authenticated using (user_id = (select auth.uid()));
+
+create or replace function private.guard_user_institute_preference()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if new.user_id <> (select auth.uid()) and not private.is_admin() then
+    raise exception 'cannot change another user institute preference' using errcode = '42501';
+  end if;
+  if not private.user_is_institute_member(new.user_id, new.institute_id, null) then
+    raise exception 'selected institute requires an active membership' using errcode = '42501';
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$function$;
+
+revoke all on function private.guard_user_institute_preference() from public, anon, authenticated;
+drop trigger if exists user_institute_preferences_guard on public.user_institute_preferences;
+create trigger user_institute_preferences_guard
+before insert or update on public.user_institute_preferences
+for each row execute function private.guard_user_institute_preference();
+
+comment on table public.user_institute_preferences is 'User-selected active institute. Selection is validated against active membership and does not grant permissions.';
