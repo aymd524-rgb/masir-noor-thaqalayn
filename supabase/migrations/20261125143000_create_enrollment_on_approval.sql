@@ -26,8 +26,12 @@ begin
   where c.id = new.class_id
   for update;
 
-  if not found or class_row.is_active is not true then
-    raise exception 'class is missing or inactive'
+  if not found then
+    raise exception 'class does not exist'
+      using errcode = '23514';
+  end if;
+  if class_row.is_active is not true then
+    raise exception 'class is inactive'
       using errcode = '23514';
   end if;
 
