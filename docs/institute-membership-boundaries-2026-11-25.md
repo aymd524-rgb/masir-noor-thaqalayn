@@ -123,3 +123,9 @@ The institutes page now allows a signed-in user to select an active institute fr
 - This narrows the race between concurrent non-admin owner demotion/status changes and owner deletion. It is a code-level concurrency safeguard, not a substitute for transaction tests; lock contention/deadlock behavior must be exercised against a disposable database.
 - System-admin operations retain their existing override behavior in the guard.
 - Migration is not applied to the live Supabase project.
+
+
+## Latest PR build and data-access review — 2026-11-25
+- GitHub Actions `build` completed successfully for PR head `ac582bff855bd32d2c3bf8bd4cc45d82797b1f52` (check run 139464832960).
+- Reviewed restrictive RLS boundaries for `profile_contacts`, `hifz_records`, and weekly hifz assignments. Direct profile contact rows are owner-only; administrator access is intended through guarded RPCs. Hifz record/assignment reads are scoped to the enrollment owner, authorized enrollment managers, or system administrator; writes are role-scoped and completion/record deletion is restricted.
+- This was source review plus repository CI only. No database migration was applied and no database-level policy tests were executed.
