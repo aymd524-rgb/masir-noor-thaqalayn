@@ -93,6 +93,19 @@ export async function loadBackendCourseCatalog(sb: SupabaseClient): Promise<Cata
   // Legacy unassigned rows are intentionally hidden by the tenancy migration.
   if (!activeInstituteId) return [];
 
+  // A saved preference is not an access grant. Verify active membership and
+  // institution status before loading its catalog; stale preferences fail closed.
+  const [membershipResult, instituteResult] = await Promise.all([
+    sb.from("institute_memberships").select("id")
+      .eq("user_id", authData.user.id).eq("institute_id", activeInstituteId)
+      .eq("status", "active").maybeSingle(),
+    sb.from("institutions").select("id")
+      .eq("id", activeInstituteId).eq("is_active", true).maybeSingle(),
+  ]);
+  throwIfError(membershipResult.error);
+  throwIfError(instituteResult.error);
+  if (!membershipResult.data || !instituteResult.data) return [];
+
   const coursesQuery = sb
     .from("courses")
     .select("id,title,description,price")
