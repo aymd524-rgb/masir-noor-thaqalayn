@@ -43,3 +43,8 @@
 - This file has not been executed against a disposable staging database. Review the SQL and test with admin, manager, teacher, student, pending member, suspended member, and cross-institute cases before applying.
 - Existing rows are not automatically assigned to an institute; no guessed institute ownership is backfilled.
 - This does not yet implement invite codes, cross-institute competition permissions, or active-institute switching UI.
+
+
+## Active institute selection
+
+The institutes page now allows a signed-in user to select an active institute from their own active memberships and persist that choice in `user_institute_preferences`. Clearing the selection removes the preference. A security-definer trigger validates active membership on every insert/update; the preference is contextual UI state only and never grants access. If a membership is suspended, the app does not restore it as a valid active selection after reload. This preference is not yet wired as a global course/dashboard filter; that requires each data query and RLS policy to enforce the selected institute independently.
