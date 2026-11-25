@@ -104,8 +104,14 @@ export async function setBackendQuizPublished(sb: SupabaseClient, quizId: string
   if (error) throw error;
 }
 
-export async function submitBackendQuizAttempt(sb: SupabaseClient, quizId: string, answers: Record<string, number>) {
-  const { data, error } = await sb.rpc("submit_quiz_attempt", { p_quiz_id: quizId, p_answers: answers }).single();
+export async function startBackendQuizAttempt(sb: SupabaseClient, quizId: string) {
+  const { data, error } = await sb.rpc("start_quiz_attempt", { p_quiz_id: quizId }).single();
+  if (error) throw error;
+  return data as { session_id: string; started_at: string; expires_at: string };
+}
+
+export async function submitBackendQuizAttempt(sb: SupabaseClient, sessionId: string, answers: Record<string, number>) {
+  const { data, error } = await sb.rpc("submit_quiz_attempt", { p_session_id: sessionId, p_answers: answers }).single();
   if (error) throw error;
   return data as { attempt_id: string; correct_count: number; total_questions: number; percentage: number };
 }
