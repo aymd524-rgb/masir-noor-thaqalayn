@@ -43,11 +43,40 @@ function InstitutesPage() {
       userId
         ? sb.from("user_institute_preferences").select("institute_id").eq("user_id",userId).maybeSingle()
         : Promise.resolve({data:null,error:null}),
+      sb.from("enrollment_requests").select("id,student_id,class_id,status,payment_status,created_at").eq("status","pending").order("created_at",{ascending:false}),
     ]);
     if(i.error) throw new Error(i.error.message);
     if(m.error) throw new Error(m.error.message);
     if(p.error) throw new Error(p.error.message);
     if(rq.error) throw new Error(rq.error.message);
+
+    const pendingRequests=rq.data??[];
+    const classIds=[...new Set(pendingRequests.map(request=>request.class_id))];
+    const studentIds=[...new Set(pendingRequests.map(request=>request.student_id))];
+    const [classesResult,profilesResult]=await Promise.all([
+      classIds.length
+        ? sb.from("classes").select("id,title,institute_id").in("id",classIds)
+        : Promise.resolve({data:[],error:null}),
+      studentIds.length
+        ? sb.from("profiles").select("id,full_name").in("id",studentIds)
+        : Promise.resolve({data:[],error:null}),
+    ]);
+    if(classesResult.error) throw new Error(classesResult.error.message);
+    // Some deployments intentionally restrict profile visibility. In that case
+    // show a privacy-safe fallback rather than blocking institute management.
+    const classById=new Map((classesResult.data??[]).map(row=>[row.id,row]));
+    const profileById=new Map((profilesResult.data??[]).map(row=>[row.id,row.full_name]));
+    const mappedRequests:EnrollmentRequest[]=pendingRequests.flatMap(request=>{
+      const classRow=classById.get(request.class_id);
+      if(!classRow?.institute_id) return [];
+      return [{
+        ...request,
+        institute_id:classRow.institute_id,
+        class_title:classRow.title,
+        student_name:profileById.get(request.student_id)??`دانش‌پژوه ${request.student_id.slice(0,8)}`,
+      }];
+    });
+
     const loadedMemberships=m.data??[];
     const savedInstituteId=p.data?.institute_id??"";
     const savedIsActive=!!userId&&loadedMemberships.some(
@@ -55,6 +84,7 @@ function InstitutesPage() {
     )&&(i.data??[]).some(institute=>institute.id===savedInstituteId);
     setInstitutes(i.data ?? []);
     setMemberships(loadedMemberships);
+    setEnrollmentRequests(mappedRequests);
     setActiveInstituteId(savedIsActive?savedInstituteId:"");
   },[]);
 
