@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { createQuiz, setQuizOpen } from "@/lib/domain/actions";
 import type { Quiz, QuizAttempt, QuizQuestion } from "@/lib/domain/types";
 import { getSupabase } from "@/lib/backend/supabase";
-import { createBackendQuiz, loadBackendQuizWorkspace, setBackendQuizPublished, submitBackendQuizAttempt } from "@/lib/backend/quizzes";
+import { createBackendQuiz, loadBackendQuizWorkspace, setBackendQuizPublished, startBackendQuizAttempt, submitBackendQuizAttempt } from "@/lib/backend/quizzes";
 import { commit, useDb } from "@/lib/store";
 import { faNum } from "@/lib/format";
 import { scoreQuizAnswers } from "@/lib/quizzes/scoring";
@@ -31,7 +31,7 @@ function QuizzesPage() {
   const [backendQuizzes, setBackendQuizzes] = useState<Quiz[]>([]);
   const [backendAttempts, setBackendAttempts] = useState<QuizAttempt[]>([]);
   const [backendLoading, setBackendLoading] = useState(false);
-  const [backendSubmitting, setBackendSubmitting] = useState(false);
+  const [backendSubmitting, setBackendSubmitting] = useState(false);\n  const [backendSessionId, setBackendSessionId] = useState<string | null>(null);\n  const [expiresAt, setExpiresAt] = useState<string | null>(null);\n  const [timerNow, setTimerNow] = useState(Date.now());
 
   useEffect(() => {
     if (mode !== "backend" || !user) return;
@@ -52,7 +52,7 @@ function QuizzesPage() {
     return () => { alive = false; };
   }, [mode, user?.id, user?.role]);
 
-  const sourceQuizzes = mode === "backend" ? backendQuizzes : db.quizzes;
+  useEffect(() => {\n    if (!expiresAt || !activeId) return;\n    const timer = window.setInterval(() => setTimerNow(Date.now()), 1000);\n    return () => window.clearInterval(timer);\n  }, [expiresAt, activeId]);\n\n  const remainingSeconds = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - timerNow) / 1000)) : null;\n\n  const sourceQuizzes = mode === "backend" ? backendQuizzes : db.quizzes;
   const quizzes = sourceQuizzes.filter((quiz) => quiz.open);
   const activeQuiz = quizzes.find((quiz) => quiz.id === activeId);
   const allAttempts = mode === "backend" ? backendAttempts : db.attempts;
@@ -82,7 +82,7 @@ function QuizzesPage() {
     if (!sb) return;
     setBackendSubmitting(true);
     try {
-      const saved = await submitBackendQuizAttempt(sb, activeQuiz.id, answers);
+      if (!backendSessionId) throw new Error("جلسه زمان‌دار آزمون در دسترس نیست؛ از فهرست دوباره شروع کنید.");\n      const saved = await submitBackendQuizAttempt(sb, backendSessionId, answers);
       setResult({ quizId: activeQuiz.id, correct: saved.correct_count, total: saved.total_questions, score: saved.percentage });
       const workspace = await loadBackendQuizWorkspace(sb, user);
       setBackendAttempts(workspace.attempts);
@@ -172,7 +172,7 @@ function QuizzesPage() {
         <section className="rounded-2xl border bg-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><h2 className="text-lg font-extrabold">{activeQuiz.title}</h2><p className="mt-1 text-sm text-muted-foreground">{activeQuiz.description}</p></div>
-            <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{faNum(activeQuiz.questions.length)} پرسش</span>
+            <div className="flex flex-wrap gap-2"><span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{faNum(activeQuiz.questions.length)} پرسش</span>{mode === "backend" && remainingSeconds !== null && <span className={`rounded-full px-3 py-1 text-xs font-bold ${remainingSeconds === 0 ? "bg-destructive/10 text-destructive" : "bg-secondary"}`}>{remainingSeconds === 0 ? "زمان به پایان رسیده" : `زمان باقی‌مانده: ${faNum(Math.floor(remainingSeconds / 60))}:${faNum(String(remainingSeconds % 60).padStart(2, "0"))}`}</span>}</div>
           </div>
           {result?.quizId === activeQuiz.id ? (
             <div className="mt-6 rounded-xl bg-secondary/60 p-5 text-center">
@@ -198,7 +198,7 @@ function QuizzesPage() {
             </div>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">{faNum(Object.keys(answers).length)} پاسخ از {faNum(activeQuiz.questions.length)} پرسش</p>
-              <Button disabled={Object.keys(answers).length !== activeQuiz.questions.length || backendSubmitting} onClick={submitQuiz}>{backendSubmitting ? "در حال ثبت..." : "ثبت پاسخ‌ها و مشاهده نتیجه"}</Button>
+              <Button disabled={Object.keys(answers).length !== activeQuiz.questions.length || backendSubmitting || (mode === "backend" && !backendSessionId)} onClick={submitQuiz}>{backendSubmitting ? "در حال ثبت..." : "ثبت پاسخ‌ها و مشاهده نتیجه"}</Button>
             </div>
           </>}
         </section>
@@ -211,7 +211,7 @@ function QuizzesPage() {
             <p className="mt-3 text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {faNum(quiz.timeLimitMin)} دقیقه</p>
             <span className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{quiz.isCompetition ? "مسابقه" : "آزمون"}</span>
             {previous.length > 0 && <p className="mt-3 text-xs text-muted-foreground">آخرین نتیجه: {faNum(previous[previous.length - 1].total ? Math.round((previous[previous.length - 1].score / previous[previous.length - 1].total) * 100) : 0)}٪</p>}
-            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading} onClick={() => startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
+            <Button className="mt-4 w-full" variant="outline" disabled={!user || user.role !== "student" || backendLoading} onClick={() => void startQuiz(quiz.id)}><ClipboardList className="me-2 h-4 w-4"/>شروع آزمون</Button>
           </li>;
         })}</ul> : <EmptyState icon={Trophy} title="آزمون فعالی وجود ندارد" description="پس از انتشار آزمون توسط مدرس، اینجا نمایش داده می‌شود." />}
       </>}
