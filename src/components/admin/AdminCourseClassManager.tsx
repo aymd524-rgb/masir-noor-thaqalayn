@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/backend/supabase";
 
-type Course = { id: string; title: string; description: string | null; is_active: boolean };
+type Course = { id: string; title: string; description: string | null; price: number | string | null; is_active: boolean };
 type Teacher = { id: string; full_name: string | null };
 type ClassRow = { id: string; title: string; description: string | null; course_id: string | null; teacher_id: string | null; capacity: number | null; is_active: boolean; starts_at: string | null; ends_at: string | null };
 
@@ -12,6 +12,7 @@ export function AdminCourseClassManager() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
+  const [coursePrice, setCoursePrice] = useState("0");
   const [classTitle, setClassTitle] = useState("");
   const [classDescription, setClassDescription] = useState("");
   const [courseId, setCourseId] = useState("");
@@ -23,6 +24,7 @@ export function AdminCourseClassManager() {
   const [editingCourse, setEditingCourse] = useState<string | null>(null);
   const [editCourseTitle, setEditCourseTitle] = useState("");
   const [editCourseDescription, setEditCourseDescription] = useState("");
+  const [editCoursePrice, setEditCoursePrice] = useState("0");
   const [editingClass, setEditingClass] = useState<string | null>(null);
   const [editClassTitle, setEditClassTitle] = useState("");
   const [editClassDescription, setEditClassDescription] = useState("");
@@ -36,7 +38,7 @@ export function AdminCourseClassManager() {
     const sb = getSupabase();
     if (!sb) throw new Error("اتصال پایگاه داده فعال نیست.");
     const [c, t, cl] = await Promise.all([
-      sb.from("courses").select("id,title,description,is_active").order("created_at", { ascending: false }),
+      sb.from("courses").select("id,title,description,price,is_active").order("created_at", { ascending: false }),
       sb.from("profiles").select("id,full_name").eq("role", "teacher").order("full_name"),
       sb.from("classes").select("id,title,description,course_id,teacher_id,capacity,is_active,starts_at,ends_at").order("created_at", { ascending: false }),
     ]);
@@ -51,12 +53,13 @@ export function AdminCourseClassManager() {
   async function createCourse(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const sb = getSupabase();
-    if (!sb || !courseTitle.trim()) return;
+    const price = Number(coursePrice);
+    if (!sb || !courseTitle.trim() || !Number.isFinite(price) || price < 0 || price > 1000000000) return;
     setBusy(true);
     try {
-      const { error } = await sb.from("courses").insert({ title: courseTitle.trim(), description: courseDescription.trim(), is_active: true });
+      const { error } = await sb.from("courses").insert({ title: courseTitle.trim(), description: courseDescription.trim(), price, is_active: true });
       if (error) throw error;
-      setCourseTitle(""); setCourseDescription("");
+      setCourseTitle(""); setCourseDescription(""); setCoursePrice("0");
       await reload();
       toast.success("دوره ایجاد شد.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "ایجاد دوره انجام نشد."); }
@@ -102,16 +105,18 @@ export function AdminCourseClassManager() {
     setEditingCourse(item.id);
     setEditCourseTitle(item.title);
     setEditCourseDescription(item.description ?? "");
+    setEditCoursePrice(String(item.price ?? 0));
   }
 
   async function saveCourseEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const sb = getSupabase();
-    if (!sb || !editingCourse || !editCourseTitle.trim()) return;
+    const price = Number(editCoursePrice);
+    if (!sb || !editingCourse || !editCourseTitle.trim() || !Number.isFinite(price) || price < 0 || price > 1000000000) return;
     setBusy(true);
     try {
       const { error } = await sb.from("courses").update({
-        title: editCourseTitle.trim(), description: editCourseDescription.trim(),
+        title: editCourseTitle.trim(), description: editCourseDescription.trim(), price,
       }).eq("id", editingCourse);
       if (error) throw error;
       setEditingCourse(null);
@@ -177,15 +182,17 @@ export function AdminCourseClassManager() {
     <form onSubmit={createCourse} className="grid gap-3 sm:grid-cols-2">
       <label className="text-sm font-semibold">عنوان دوره<input required maxLength={120} value={courseTitle} onChange={e => setCourseTitle(e.target.value)} className={field} placeholder="مثلاً آموزش حفظ قرآن"/></label>
       <label className="text-sm font-semibold">توضیحات دوره<input maxLength={500} value={courseDescription} onChange={e => setCourseDescription(e.target.value)} className={field} placeholder="شرح کوتاه دوره"/></label>
-      <button disabled={busy || !courseTitle.trim()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">ایجاد دوره</button>
+      <label className="text-sm font-semibold">شهریه (تومان)<input type="number" min="0" max="1000000000" step="1000" value={coursePrice} onChange={e => setCoursePrice(e.target.value)} className={field}/></label>
+      <button disabled={busy || !courseTitle.trim() || !Number.isFinite(Number(coursePrice)) || Number(coursePrice) < 0 || Number(coursePrice) > 1000000000} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">ایجاد دوره</button>
     </form>
     <div className="border-t pt-4"><h3 className="font-bold">دوره‌های ثبت‌شده و ویرایش آن‌ها</h3>
       {courses.length ? <ul className="mt-2 divide-y">{courses.map(item => <li key={item.id} className="py-3 text-sm">
         {editingCourse === item.id ? <form onSubmit={saveCourseEdit} className="grid gap-2 sm:grid-cols-2">
           <label>عنوان دوره<input required maxLength={120} value={editCourseTitle} onChange={e => setEditCourseTitle(e.target.value)} className={field}/></label>
           <label>توضیحات<input maxLength={500} value={editCourseDescription} onChange={e => setEditCourseDescription(e.target.value)} className={field}/></label>
-          <div className="flex gap-2"><button disabled={busy || !editCourseTitle.trim()} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">ذخیره</button><button type="button" onClick={() => setEditingCourse(null)} className="rounded-lg border px-3 py-2 text-xs">انصراف</button></div>
-        </form> : <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-semibold">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"}</p></div><div className="flex gap-2"><button type="button" disabled={busy} onClick={() => beginCourseEdit(item)} className="rounded-lg border px-3 py-2 text-xs">ویرایش</button><button type="button" disabled={busy} onClick={() => void toggleCourse(item)} className="rounded-lg border px-3 py-2 text-xs">{item.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</button></div></div>}
+          <label>شهریه (تومان)<input type="number" min="0" max="1000000000" step="1000" value={editCoursePrice} onChange={e => setEditCoursePrice(e.target.value)} className={field}/></label>
+          <div className="flex gap-2"><button disabled={busy || !editCourseTitle.trim() || !Number.isFinite(Number(editCoursePrice)) || Number(editCoursePrice) < 0 || Number(editCoursePrice) > 1000000000} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">ذخیره</button><button type="button" onClick={() => setEditingCourse(null)} className="rounded-lg border px-3 py-2 text-xs">انصراف</button></div>
+        </form> : <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-semibold">{item.title}</p><p className="text-xs text-muted-foreground">{item.is_active ? "فعال" : "غیرفعال"} · {Number(item.price ?? 0) === 0 ? "رایگان" : `${Number(item.price).toLocaleString("fa-IR")} تومان`}</p></div><div className="flex gap-2"><button type="button" disabled={busy} onClick={() => beginCourseEdit(item)} className="rounded-lg border px-3 py-2 text-xs">ویرایش</button><button type="button" disabled={busy} onClick={() => void toggleCourse(item)} className="rounded-lg border px-3 py-2 text-xs">{item.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</button></div></div>}
       </li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز دوره‌ای تعریف نشده است.</p>}
     </div>
     <div className="border-t pt-4"><h3 className="font-bold">تعریف کلاس جدید</h3>
