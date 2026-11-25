@@ -89,4 +89,4 @@ The institutes page now allows a signed-in user to select an active institute fr
 
 ## Latest branch checks
 - Latest reviewed head before this follow-up: `bc92b23fbdac083294e9c889f40012cfd726f3e7` — GitHub build/test workflow passed; Cloudflare Workers build failed. Cloudflare's check exposes a build log link but no error text in the GitHub check output.
-- The owner-membership deletion migration was committed after that head. Its fresh checks are pending; no deployment or live database action has been performed.
+- Latest head after owner-membership deletion hardening: `8738cacd385db3acee4fa1ae5e1d401ee728b741`. GitHub build/test workflow passed for this exact SHA. Cloudflare Workers build failed for this exact SHA; inspect build `a5e57956-b6de-42cc-81db-a2097d521614` for the underlying log. No deployment or live database action has been performed.
