@@ -8,8 +8,10 @@ import { PageHeader } from "@/components/common/ui-bits";
 import { getSupabase } from "@/lib/backend/supabase";
 import {
   loadBackendCourseCatalog,
+  loadBackendCourseEnrollmentStates,
   type CatalogCourse,
 } from "@/lib/backend/catalog";
+import { requestStudentEnrollment } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
 import { faNum } from "@/lib/format";
 
@@ -94,13 +96,12 @@ function dateLabel(value: string | null) {
   return new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export function BackendCourseDetail({ user }: { user: User | null }) {
+export function BackendCourseDetail({ user, courseId }: { user: User | null; courseId: string }) {
   const [course, setCourse] = useState<CatalogCourse | null>(null);
   const [states, setStates] = useState<Map<string, {requestStatus: "pending" | "approved" | "rejected" | null; enrolled: boolean}>>(new Map());
   const [loading, setLoading] = useState(true);
   const [busyClass, setBusyClass] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const courseId = typeof window === "undefined" ? "" : window.location.pathname.split("/").filter(Boolean).at(-1) ?? "";
 
   const reload = useCallback(async () => {
     const sb = getSupabase();
@@ -109,7 +110,6 @@ export function BackendCourseDetail({ user }: { user: User | null }) {
     const found = catalog.find((item) => item.id === courseId) ?? null;
     setCourse(found);
     if (found && user?.role === "student") {
-      const { loadBackendCourseEnrollmentStates } = await import("@/lib/backend/catalog");
       const rows = await loadBackendCourseEnrollmentStates(sb, found, user.id);
       setStates(new Map(rows.map((row) => [row.classId, {requestStatus:row.requestStatus,enrolled:row.enrolled}])));
     } else {
@@ -134,7 +134,6 @@ export function BackendCourseDetail({ user }: { user: User | null }) {
     if (!sb || !user || user.role !== "student") return;
     setBusyClass(classId);
     try {
-      const { requestStudentEnrollment } = await import("@/lib/backend/student");
       await requestStudentEnrollment(sb, user.id, classId);
       await reload();
       toast.success("درخواست ثبت‌نام ارسال شد.");
