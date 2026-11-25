@@ -81,9 +81,11 @@ as $function$
 $function$;
 
 revoke all on function private.is_institute_member(uuid, text[]) from public, anon;
-revoke all on function private.user_is_institute_member(uuid, uuid, text[]) from public, anon;\nrevoke all on function private.class_institute_id(uuid) from public, anon;
+revoke all on function private.user_is_institute_member(uuid, uuid, text[]) from public, anon;
+revoke all on function private.class_institute_id(uuid) from public, anon;
 grant execute on function private.is_institute_member(uuid, text[]) to authenticated;
-grant execute on function private.user_is_institute_member(uuid, uuid, text[]) to authenticated;\ngrant execute on function private.class_institute_id(uuid) to authenticated;
+grant execute on function private.user_is_institute_member(uuid, uuid, text[]) to authenticated;
+grant execute on function private.class_institute_id(uuid) to authenticated;
 
 alter table public.institutions enable row level security;
 alter table public.institute_memberships enable row level security;
@@ -141,8 +143,9 @@ with check (private.is_institute_member(institute_id, array['owner','manager']) 
 -- broad policies cannot expose another institute's courses/classes/enrollments.
 drop policy if exists courses_institute_boundary on public.courses;
 create policy courses_institute_boundary on public.courses
-as restrictive for select to authenticated
-using (private.is_admin() or private.is_institute_member(institute_id));
+as restrictive for all to authenticated
+using (private.is_admin() or private.is_institute_member(institute_id))
+with check (private.is_admin() or private.is_institute_member(institute_id));
 
 drop policy if exists classes_institute_boundary on public.classes;
 create policy classes_institute_boundary on public.classes
@@ -151,16 +154,20 @@ using (private.is_admin() or private.is_institute_member(institute_id));
 
 drop policy if exists enrollment_requests_institute_boundary on public.enrollment_requests;
 create policy enrollment_requests_institute_boundary on public.enrollment_requests
-as restrictive for select to authenticated
+as restrictive for all to authenticated
 using (
   private.is_admin()
-  or (
-    private.class_institute_id(class_id) is not null
-    and (
-      student_id = (select auth.uid())
-      or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
-    )
-  )
+  or (private.class_institute_id(class_id) is not null and (
+    student_id = (select auth.uid())
+    or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
+  ))
+)
+with check (
+  private.is_admin()
+  or (private.class_institute_id(class_id) is not null and (
+    (student_id = (select auth.uid()) and private.is_institute_member(private.class_institute_id(class_id), array['student']))
+    or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
+  ))
 );
 
 drop policy if exists enrollments_institute_boundary on public.enrollments;
