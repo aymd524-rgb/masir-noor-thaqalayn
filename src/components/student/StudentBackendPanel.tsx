@@ -62,18 +62,11 @@ export function StudentBackendPanel({ user }: { user: User }) {
   }, [user.id]);
   useEffect(() => {
     let active = true;
-    void (async () => {
-      try {
-        const sb = getSupabase();
-        if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
-        const data = await loadStudentWorkspace(sb, user.id);
-        if (active) setWorkspace(data);
-      } catch (error) {
-        if (active) toast.error(error instanceof Error ? error.message : "دریافت اطلاعات انجام نشد.");
-      } finally { if (active) setLoading(false); }
-    })();
+    void reload().catch((error) => {
+      if (active) toast.error(error instanceof Error ? error.message : "دریافت اطلاعات انجام نشد.");
+    }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [user.id]);
+  }, [reload]);
 
   const pendingIds = useMemo(() => new Set((workspace?.requests ?? []).filter((r) => r.status === "pending").map((r) => r.classId)), [workspace]);
   const enrolledIds = useMemo(() => new Set((workspace?.enrollments ?? []).map((r) => r.classId)), [workspace]);
