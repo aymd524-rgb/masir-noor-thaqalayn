@@ -281,7 +281,7 @@ export function AdminBackendPanel() {
      <button type="button" disabled={savingId===req.id} onClick={()=>void reviewRequest(req.id,"rejected")} className="rounded-lg border px-3 py-2 font-semibold disabled:opacity-50">رد درخواست</button>
     </div>
    </li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواست منتظر بررسی وجود ندارد.</p>}
-   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. این پنل پیش از تأیید، ظرفیت را دوباره می‌خواند؛ اما این بررسی کلاینتی اتمی نیست. تا زمان اعمال قاعدهٔ ظرفیت در پایگاه داده، ثبت‌نام/تأیید هم‌زمان ممکن است از ظرفیت عبور کند؛ بنابراین ظرفیت را پس از تأیید نیز بررسی کنید.</p>
+   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. بررسی ظرفیت در این پنل صرفاً کنترل اولیه است؛ قاعدهٔ پایگاه داده هنگام تأیید نهایی، ظرفیت را با قفل کلاس به‌صورت اتمی بررسی می‌کند و از ثبت‌نام بیش از ظرفیت جلوگیری می‌کند.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین درخواست‌ها</h2>
    {data.requests.length?<ul className="mt-3 divide-y">{data.requests.slice(0,12).map(req=><li key={req.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><b>{req.status==="pending"?"در انتظار":req.status==="approved"?"تأیید شده":req.status==="rejected"?"رد شده":req.status}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواستی ثبت نشده است.</p>}
