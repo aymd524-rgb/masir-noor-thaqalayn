@@ -14,6 +14,7 @@ import { commit, useDb } from "@/lib/store";
 import { faNum } from "@/lib/format";
 import { scoreQuizAnswers } from "@/lib/quizzes/scoring";
 import { buildCompetitionLeaderboard } from "@/lib/quizzes/leaderboard";
+import { summarizeQuizResults } from "@/lib/quizzes/results-summary";
 
 export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 
@@ -183,14 +184,8 @@ function QuizzesPage() {
         <div className="border-t pt-4"><h3 className="font-bold">آزمون‌های ساخته‌شده</h3>
           {managedQuizzes.length ? <ul className="mt-2 divide-y">{managedQuizzes.map((quiz) => <li key={quiz.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{quiz.title}</p><p className="text-xs text-muted-foreground">{faNum(quiz.questions.length)} پرسش · {quiz.open ? "منتشرشده" : "غیرفعال"}</p>
                 {(() => {
-                  const quizAttempts = allAttempts.filter((attempt) => attempt.quizId === quiz.id);
-                  const average = quizAttempts.length
-                    ? Math.round(quizAttempts.reduce((sum, attempt) => sum + (attempt.total ? (attempt.score / attempt.total) * 100 : 0), 0) / quizAttempts.length)
-                    : null;
-                  const best = quizAttempts.length
-                    ? Math.max(...quizAttempts.map((attempt) => attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0))
-                    : null;
-                  return <p className="mt-1 text-xs text-muted-foreground">شرکت‌کنندگان: {faNum(quizAttempts.length)} · میانگین: {average === null ? "—" : `${faNum(average)}٪`} · بهترین نتیجه: {best === null ? "—" : `${faNum(best)}٪`}</p>;
+                  const summary = summarizeQuizResults(allAttempts.filter((attempt) => attempt.quizId === quiz.id));
+                  return <p className="mt-1 text-xs text-muted-foreground">شرکت‌کنندگان: {faNum(summary.count)} · میانگین: {summary.average === null ? "—" : `${faNum(summary.average)}٪`} · بهترین نتیجه: {summary.best === null ? "—" : `${faNum(summary.best)}٪`}</p>;
                 })()}</div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
         </div>
       </section>}
@@ -198,11 +193,10 @@ function QuizzesPage() {
         <h2 className="font-extrabold">گزارش نتایج قابل مشاهده</h2>
         <p className="mt-1 text-sm text-muted-foreground">این گزارش فقط بر پایه نتایجی ساخته می‌شود که سیاست‌های دسترسی پایگاه داده برای حساب شما مجاز کرده‌اند.</p>
         {(() => {
-          const reportRows = backendQuizzes.map((quiz) => {
-            const visibleAttempts = allAttempts.filter((attempt) => attempt.quizId === quiz.id);
-            const scores = visibleAttempts.map((attempt) => attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0);
-            return { quiz, count: visibleAttempts.length, average: scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null, best: scores.length ? Math.max(...scores) : null };
-          }).filter((row) => row.count > 0);
+          const reportRows = backendQuizzes.map((quiz) => ({
+            quiz,
+            ...summarizeQuizResults(allAttempts.filter((attempt) => attempt.quizId === quiz.id)),
+          })).filter((row) => row.count > 0);
           return reportRows.length ? <ul className="mt-3 divide-y">{reportRows.map((row) => <li key={row.quiz.id} className="py-3">
             <p className="text-sm font-semibold">{row.quiz.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">تعداد نتیجه‌های قابل مشاهده: {faNum(row.count)} · میانگین: {row.average === null ? "—" : `${faNum(row.average)}٪`} · بهترین: {row.best === null ? "—" : `${faNum(row.best)}٪`}</p>
