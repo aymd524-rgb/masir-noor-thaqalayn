@@ -58,6 +58,16 @@ as $function$
   );
 $function$;
 
+create or replace function private.user_is_institute_member(p_user_id uuid, p_institute_id uuid, p_roles text[] default null)
+returns boolean language sql stable security definer set search_path = ''
+as $function$
+  select exists (
+    select 1 from public.institute_memberships im
+    where im.institute_id = p_institute_id and im.user_id = p_user_id
+      and im.status = 'active' and (p_roles is null or im.role = any(p_roles))
+  );
+$function$;
+
 create or replace function private.class_institute_id(p_class_id uuid)
 returns uuid
 language sql
@@ -71,9 +81,9 @@ as $function$
 $function$;
 
 revoke all on function private.is_institute_member(uuid, text[]) from public, anon;
-revoke all on function private.class_institute_id(uuid) from public, anon;
+revoke all on function private.user_is_institute_member(uuid, uuid, text[]) from public, anon;\nrevoke all on function private.class_institute_id(uuid) from public, anon;
 grant execute on function private.is_institute_member(uuid, text[]) to authenticated;
-grant execute on function private.class_institute_id(uuid) to authenticated;
+grant execute on function private.user_is_institute_member(uuid, uuid, text[]) to authenticated;\ngrant execute on function private.class_institute_id(uuid) to authenticated;
 
 alter table public.institutions enable row level security;
 alter table public.institute_memberships enable row level security;
