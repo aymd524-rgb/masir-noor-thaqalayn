@@ -19,11 +19,28 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
   const [courses, setCourses] = useState<CatalogCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasActiveInstitute, setHasActiveInstitute] = useState(false);
 
   const reload = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("اتصال پایگاه داده در دسترس نیست.");
+    const {data:authData,error:authError}=await sb.auth.getUser();
+    if(authError) throw new Error(authError.message);
+    const userId=authData.user?.id;
+    if(!userId) throw new Error("برای مشاهدهٔ دوره‌ها ابتدا وارد حساب شوید.");
+    const {data:preference,error:preferenceError}=await sb
+      .from("user_institute_preferences").select("institute_id").eq("user_id",userId).maybeSingle();
+    if(preferenceError) throw new Error(preferenceError.message);
+    let active=false;
+    if(preference?.institute_id){
+      const {data:membership,error:membershipError}=await sb
+        .from("institute_memberships").select("id").eq("user_id",userId)
+        .eq("institute_id",preference.institute_id).eq("status","active").maybeSingle();
+      if(membershipError) throw new Error(membershipError.message);
+      active=!!membership;
+    }
     const rows = await loadBackendCourseCatalog(sb);
+    setHasActiveInstitute(active);
     setCourses(rows);
     setError(null);
   }, []);
@@ -38,13 +55,11 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
       setLoading(false);
       return () => { active = false; };
     }
-    void loadBackendCourseCatalog(sb).then((rows) => {
-      if (active) { setCourses(rows); setError(null); }
-    }).catch((reason) => {
+    void reload().catch((reason) => {
       if (active) setError(reason instanceof Error ? reason.message : "دریافت دوره‌ها انجام نشد.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [reload, user?.id]);
 
   const refresh = async () => {
     setLoading(true);
@@ -72,7 +87,11 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
           : error ? <section role="alert" className="rounded-2xl border border-destructive/40 p-5">
             <p className="text-sm">{error}</p><Button className="mt-3" onClick={() => void refresh()}>تلاش دوباره</Button>
           </section>
-          : courses.length === 0 ? <EmptyState title="هنوز دوره فعالی ثبت نشده است" description="پس از ایجاد و فعال‌سازی دوره توسط مدیر، اینجا نمایش داده می‌شود."/>
+          : courses.length === 0 ? <section className="rounded-2xl border bg-card p-6 text-center">
+            <h2 className="font-extrabold">{hasActiveInstitute ? "هنوز دورهٔ فعالی در مؤسسهٔ انتخاب‌شده نیست" : "ابتدا مؤسسهٔ آموزشی خود را انتخاب کنید"}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{hasActiveInstitute ? "مدیر مؤسسه می‌تواند دوره و کلاس فعال ایجاد کند." : "برای جلوگیری از ثبت‌نام در مؤسسهٔ اشتباه، دوره‌ها فقط پس از انتخاب مؤسسهٔ فعال نمایش داده می‌شوند."}</p>
+            <Button asChild className="mt-4"><Link to="/institutes">{hasActiveInstitute ? "مدیریت مؤسسهٔ من" : "انتخاب مؤسسهٔ فعال"}</Link></Button>
+          </section>
           : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => <article key={course.id} className="flex flex-col rounded-2xl border bg-card p-5 shadow-soft">
               <h2 className="text-lg font-extrabold">{course.title}</h2>
