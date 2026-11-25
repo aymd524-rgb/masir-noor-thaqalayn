@@ -89,28 +89,22 @@ export async function loadBackendCourseCatalog(sb: SupabaseClient): Promise<Cata
   throwIfError(preferenceResult.error);
   const activeInstituteId = preferenceResult.data?.institute_id ?? null;
 
-  let coursesQuery = sb
+  // Institute-scoped rows are the only catalog rows shown to learners.
+  // Legacy unassigned rows are intentionally hidden by the tenancy migration.
+  if (!activeInstituteId) return [];
+
+  const coursesQuery = sb
     .from("courses")
     .select("id,title,description,price")
     .eq("is_active", true)
+    .eq("institute_id", activeInstituteId)
     .order("created_at", { ascending: false });
-  let classesQuery = sb
+  const classesQuery = sb
     .from("classes")
     .select("id,title,description,course_id,capacity,starts_at,ends_at")
     .eq("is_active", true)
+    .eq("institute_id", activeInstituteId)
     .order("created_at", { ascending: false });
-
-  // Global courses/classes remain visible; institute-specific records are
-  // included only for the user's selected active institute. RLS remains the
-  // authority and independently validates membership.
-  if (activeInstituteId) {
-    const safeId = activeInstituteId;
-    coursesQuery = coursesQuery.or(`institute_id.eq.${safeId},institute_id.is.null`);
-    classesQuery = classesQuery.or(`institute_id.eq.${safeId},institute_id.is.null`);
-  } else {
-    coursesQuery = coursesQuery.is("institute_id", null);
-    classesQuery = classesQuery.is("institute_id", null);
-  }
 
   const [coursesResult, classesResult, availabilityResult] = await Promise.all([
     coursesQuery,
