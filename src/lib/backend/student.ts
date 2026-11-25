@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; coursePrice: number; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
+export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; coursePrice: number; instituteId: string | null; instituteName: string; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
 export type StudentRequest = { id: string; classId: string; classTitle: string; courseTitle: string; status: "pending" | "approved" | "rejected"; createdAt: string };
 export type StudentAttendance = { id: string; enrollmentId: string; sessionDate: string; status: "present" | "absent" | "late" | "excused" };
 export type StudentGrade = { id: string; enrollmentId: string; title: string; score: number; createdAt: string };
@@ -50,7 +50,7 @@ async function readRowsForIds<T>(
 export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   const [courseResult, classResult, requestResult, enrollmentResult, availabilityResult] = await Promise.all([
     readAllPages((from, to) => sb.from("courses").select("id,title,description,price").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
-    readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity,institute_id").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollment_requests").select("id,class_id,status,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollments").select("id,class_id,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     sb.rpc("get_active_class_availability"),
@@ -58,8 +58,15 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   fail(courseResult.error); fail(classResult.error); fail(requestResult.error); fail(enrollmentResult.error); fail(availabilityResult.error);
   const availability = new Map((availabilityResult.data ?? []).map((row) => [row.class_id, row]));
   const courses = new Map((courseResult.data ?? []).map((row) => [row.id, { title: row.title, price: Number(row.price ?? 0) }]));
+  const instituteIds = [...new Set((classResult.data ?? []).map((row) => row.institute_id).filter((id): id is string => !!id))];
+  const instituteResult = instituteIds.length
+    ? await sb.from("institutions").select("id,name").in("id", instituteIds)
+    : { data: [], error: null };
+  fail(instituteResult.error);
+  const instituteNames = new Map((instituteResult.data ?? []).map((row) => [row.id, row.name]));
   const classes: StudentClass[] = (classResult.data ?? []).map((row) => ({
     id: row.id, title: row.title, courseId: row.course_id,
+    instituteId: row.institute_id, instituteName: row.institute_id ? instituteNames.get(row.institute_id) ?? "مؤسسه" : "بدون مؤسسه",
     courseTitle: row.course_id ? courses.get(row.course_id)?.title ?? "دوره آموزشی" : "دوره آموزشی",
     coursePrice: row.course_id ? courses.get(row.course_id)?.price ?? 0 : 0,
     description: row.description, capacity: row.capacity,
@@ -73,7 +80,10 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   });
   const enrollments = (enrollmentResult.data ?? []).map((row) => ({
     id: row.id, classId: row.class_id, classTitle: classMap.get(row.class_id)?.title ?? "کلاس",
-    courseTitle: classMap.get(row.class_id)?.courseTitle ?? "دوره", createdAt: row.created_at,
+    courseTitle: classMap.get(row.class_id)?.courseTitle ?? "دوره",
+    instituteId: classMap.get(row.class_id)?.instituteId ?? null,
+    instituteName: classMap.get(row.class_id)?.instituteName ?? "مؤسسه",
+    createdAt: row.created_at,
   }));
   const enrollmentIds = enrollments.map((row) => row.id);
   const [attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
