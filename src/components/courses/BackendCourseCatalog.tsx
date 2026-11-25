@@ -33,11 +33,15 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
     if(preferenceError) throw new Error(preferenceError.message);
     let active=false;
     if(preference?.institute_id){
-      const {data:membership,error:membershipError}=await sb
-        .from("institute_memberships").select("id").eq("user_id",userId)
-        .eq("institute_id",preference.institute_id).eq("status","active").maybeSingle();
-      if(membershipError) throw new Error(membershipError.message);
-      active=!!membership;
+      const [membershipResult,instituteResult]=await Promise.all([
+        sb.from("institute_memberships").select("id").eq("user_id",userId)
+          .eq("institute_id",preference.institute_id).eq("status","active").maybeSingle(),
+        sb.from("institutions").select("id").eq("id",preference.institute_id)
+          .eq("is_active",true).maybeSingle(),
+      ]);
+      if(membershipResult.error) throw new Error(membershipResult.error.message);
+      if(instituteResult.error) throw new Error(instituteResult.error.message);
+      active=!!membershipResult.data&&!!instituteResult.data;
     }
     const rows = await loadBackendCourseCatalog(sb);
     setHasActiveInstitute(active);
