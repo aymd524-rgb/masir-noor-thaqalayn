@@ -31,6 +31,7 @@ export function BackendCourseCatalog({ user }: { user: User | null }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError(null);
     const sb = getSupabase();
     if (!user || !sb) {
       setCourses([]);
