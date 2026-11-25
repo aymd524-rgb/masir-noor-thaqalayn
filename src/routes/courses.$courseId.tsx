@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { approvedCount, requestEnrollment } from "@/lib/domain/actions";
 import { categoryLabel, faNum, levelLabel } from "@/lib/format";
 import { commit, useDb } from "@/lib/store";
-import { useAuth } from "@/lib/auth";
 import { BackendCourseDetail } from "@/components/courses/BackendCourseCatalog";
 
 export const Route = createFileRoute("/courses/$courseId")({
