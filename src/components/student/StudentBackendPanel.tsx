@@ -130,6 +130,13 @@ export function StudentBackendPanel({ user }: { user: User }) {
     const average = grades.length ? grades.reduce((sum, item) => sum + item.score, 0) / grades.length : null;
     return { ...enrollment, attendanceCount: records.length, attendanceRate: records.length ? Math.round(effective / records.length * 100) : null, gradeCount: grades.length, average };
   });
+  const progressByInstitute = new Map<string, typeof enrollmentProgress>();
+  for (const item of enrollmentProgress) {
+    const key = item.instituteId ?? "unassigned";
+    const rows = progressByInstitute.get(key) ?? [];
+    rows.push(item);
+    progressByInstitute.set(key, rows);
+  }
 
   const chooseInstitute = async (instituteId: string) => {
     const sb = getSupabase();
@@ -168,15 +175,19 @@ export function StudentBackendPanel({ user }: { user: User }) {
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="font-extrabold">گزارش پیشرفت آموزشی من</h2>
       <p className="mt-1 text-xs text-muted-foreground">این گزارش بر اساس حضور و غیاب و نمره‌های ثبت‌شده برای هر ثبت‌نام تهیه شده است.</p>
-      {enrollmentProgress.length ? <ul className="mt-3 divide-y">{enrollmentProgress.map((item) => <li key={item.id} className="py-4">
-        <div className="flex flex-wrap items-center justify-between gap-2"><b>{item.classTitle}</b><span className="text-xs text-muted-foreground">شروع ثبت‌نام: {new Date(item.createdAt).toLocaleDateString("fa-IR")}</span></div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceCount}</p><p className="text-xs text-muted-foreground">جلسات ثبت‌شده</p></div>
-          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceRate === null ? "—" : item.attendanceRate + "٪"}</p><p className="text-xs text-muted-foreground">حضور مؤثر</p></div>
-          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.gradeCount}</p><p className="text-xs text-muted-foreground">نمره‌های ثبت‌شده</p></div>
-          <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.average === null ? "—" : Number(item.average.toFixed(2))}</p><p className="text-xs text-muted-foreground">میانگین نمره</p></div>
-        </div>
-      </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
+      {enrollmentProgress.length ? <div className="mt-3 space-y-4">{[...progressByInstitute.entries()].map(([instituteId, items]) => <section key={instituteId} className="rounded-xl border p-4">
+        <h3 className="font-bold">{items[0]?.instituteName ?? "مؤسسه"}</h3>
+        <ul className="mt-2 divide-y">{items.map((item) => <li key={item.id} className="py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2"><b>{item.classTitle}</b><span className="text-xs text-muted-foreground">شروع ثبت‌نام: {new Date(item.createdAt).toLocaleDateString("fa-IR")}</span></div>
+          <p className="mt-1 text-sm text-muted-foreground">{item.courseTitle}</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceCount}</p><p className="text-xs text-muted-foreground">جلسات ثبت‌شده</p></div>
+            <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.attendanceRate === null ? "—" : item.attendanceRate + "٪"}</p><p className="text-xs text-muted-foreground">حضور مؤثر</p></div>
+            <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.gradeCount}</p><p className="text-xs text-muted-foreground">نمره‌های ثبت‌شده</p></div>
+            <div className="rounded-xl bg-muted/50 p-3"><p className="font-bold">{item.average === null ? "—" : Number(item.average.toFixed(2))}</p><p className="text-xs text-muted-foreground">میانگین نمره</p></div>
+          </div>
+        </li>)}</ul>
+      </section>)}</div> : <p className="mt-3 text-sm text-muted-foreground">پس از قطعی‌شدن ثبت‌نام در کلاس، گزارش پیشرفت شما اینجا نمایش داده می‌شود.</p>}
       <div className="mt-4 border-t pt-4">
         <h3 className="font-bold">گزارش حفظ و مرور قرآن</h3>
         <p className="mt-1 text-xs text-muted-foreground">ارزیابی‌های ثبت‌شده توسط استاد برای هر کلاس؛ آمار زیر تعداد آیاتِ موجود در رکوردهاست و آیات تکراری را حذف نمی‌کند.</p>
