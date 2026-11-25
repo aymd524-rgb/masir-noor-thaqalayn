@@ -194,6 +194,21 @@ function QuizzesPage() {
                 })()}</div><Button type="button" size="sm" variant="outline" onClick={() => toggleQuiz(quiz.id, !quiz.open)}>{quiz.open ? <><EyeOff className="me-1 h-4 w-4"/>غیرفعال‌کردن</> : <><Eye className="me-1 h-4 w-4"/>انتشار</>}</Button></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز آزمونی توسط این حساب ساخته نشده است.</p>}
         </div>
       </section>}
+      {mode === "backend" && (user?.role === "teacher" || user?.role === "admin") && !activeQuiz && <section className="rounded-2xl border bg-card p-5">
+        <h2 className="font-extrabold">گزارش نتایج قابل مشاهده</h2>
+        <p className="mt-1 text-sm text-muted-foreground">این گزارش فقط بر پایه نتایجی ساخته می‌شود که سیاست‌های دسترسی پایگاه داده برای حساب شما مجاز کرده‌اند.</p>
+        {(() => {
+          const reportRows = backendQuizzes.map((quiz) => {
+            const visibleAttempts = allAttempts.filter((attempt) => attempt.quizId === quiz.id);
+            const scores = visibleAttempts.map((attempt) => attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0);
+            return { quiz, count: visibleAttempts.length, average: scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null, best: scores.length ? Math.max(...scores) : null };
+          }).filter((row) => row.count > 0);
+          return reportRows.length ? <ul className="mt-3 divide-y">{reportRows.map((row) => <li key={row.quiz.id} className="py-3">
+            <p className="text-sm font-semibold">{row.quiz.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">تعداد نتیجه‌های قابل مشاهده: {faNum(row.count)} · میانگین: {row.average === null ? "—" : `${faNum(row.average)}٪`} · بهترین: {row.best === null ? "—" : `${faNum(row.best)}٪`}</p>
+          </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز نتیجه‌ای برای گزارش در دسترس این حساب وجود ندارد.</p>;
+        })()}
+      </section>}
       {!user && <p className="rounded-xl border p-4 text-sm">برای شرکت در آزمون ابتدا <Link className="font-bold text-primary underline" to="/auth">وارد حساب دانش‌پژوه</Link> شوید.</p>}
       {user && user.role !== "student" && <p className="rounded-xl border p-4 text-sm">شرکت در آزمون از حساب دانش‌پژوه امکان‌پذیر است.</p>}
       {activeQuiz && user?.role === "student" ? (
