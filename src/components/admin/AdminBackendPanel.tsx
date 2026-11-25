@@ -168,8 +168,16 @@ export function AdminBackendPanel() {
    const {data:updated,error}=await sb.from("enrollment_requests").update(update).eq("id",id).eq("status","pending").select("id").maybeSingle();
    if(error) throw new Error(error.message);
    if(!updated) throw new Error("درخواست تغییر نکرد؛ ممکن است قبلاً بررسی شده باشد یا دسترسی کافی وجود نداشته باشد.");
+   if(status==="approved"){
+    const request=data?.requests.find(item=>item.id===id);
+    if(!request) throw new Error("درخواست تأیید شد، اما اطلاعات کلاس برای بررسی ثبت‌نام در دسترس نیست؛ صفحه را تازه‌سازی کنید.");
+    const {data:enrollment,error:enrollmentError}=await sb.from("enrollments")
+     .select("id").eq("student_id",request.student_id).eq("class_id",request.class_id).maybeSingle();
+    if(enrollmentError) throw new Error("وضعیت ثبت‌نام قابل بررسی نیست: "+enrollmentError.message);
+    if(!enrollment) throw new Error("درخواست تغییر وضعیت یافت، اما ثبت‌نام قطعی در پایگاه داده پیدا نشد. تأیید نهایی را بررسی کنید.");
+   }
    await loadData();
-   toast.success(status==="approved"?"درخواست تأیید و ثبت‌نام قطعی شد.":"درخواست ثبت‌نام رد شد.");
+   toast.success(status==="approved"?"درخواست تأیید و ثبت‌نام در پایگاه داده بررسی شد.":"درخواست ثبت‌نام رد شد.");
   }catch(error){
    toast.error(error instanceof Error?error.message:"بررسی درخواست انجام نشد.");
   }finally{setSavingId(null);}
