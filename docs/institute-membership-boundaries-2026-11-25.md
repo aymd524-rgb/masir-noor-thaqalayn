@@ -116,3 +116,10 @@ The institutes page now allows a signed-in user to select an active institute fr
 - Cloudflare Workers preview build failed for this exact head; build ID `06c3f0b5-a97b-4f60-aac4-e49d88e875d6`: https://dash.cloudflare.com/01269ddae83800dfe633b467e3811c6a/workers/services/view/masir-noor-thaqalayn/production/builds/06c3f0b5-a97b-4f60-aac4-e49d88e875d6 . GitHub check output does not contain the underlying error text; inspect the Cloudflare build log before attempting a fix.
 - SQL review confirms the start/resume RPC rechecks active student membership for course quizzes, and the session submission trigger rechecks membership when `submitted_at` is set. This is code review only; the migration and race behavior have not been tested against a disposable database.
 - No Supabase migration, merge, or production deployment was performed.
+
+
+## Owner membership update serialization — 2026-11-25
+- Added migration `20261126011000_serialize_institute_owner_updates.sql` to make the membership UPDATE guard lock the institute row before checking whether an active owner remains, using the same institute-row lock target as the DELETE guard.
+- This narrows the race between concurrent non-admin owner demotion/status changes and owner deletion. It is a code-level concurrency safeguard, not a substitute for transaction tests; lock contention/deadlock behavior must be exercised against a disposable database.
+- System-admin operations retain their existing override behavior in the guard.
+- Migration is not applied to the live Supabase project.
