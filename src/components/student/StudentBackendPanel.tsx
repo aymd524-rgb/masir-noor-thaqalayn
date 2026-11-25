@@ -1,6 +1,8 @@
 import { getSurah } from "@/lib/quran/surahs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 import { getSupabase } from "@/lib/backend/supabase";
 import { toLocalDateInputValue } from "@/lib/date";
 import { loadStudentWorkspace, requestStudentEnrollment, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
@@ -11,7 +13,12 @@ const attendanceLabel = { present: "حاضر", absent: "غایب", late: "با �
 const hifzTypeLabel = { memorization: "حفظ جدید", review: "مرور" } as const;
 const hifzAssessmentLabel = { excellent: "عالی", good: "خوب", fair: "قابل قبول", needs_practice: "نیازمند تمرین" } as const;
 
+type StudentInstituteCard = { id: string; name: string; role: string; status: string; active: boolean; courseCount: number; classCount: number };
+
 export function StudentBackendPanel({ user }: { user: User }) {
+  const [institutes, setInstitutes] = useState<StudentInstituteCard[]>([]);
+  const [activeInstituteId, setActiveInstituteId] = useState("");
+  const [busyInstitute, setBusyInstitute] = useState("");
   const [workspace, setWorkspace] = useState<Awaited<ReturnType<typeof loadStudentWorkspace>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyClass, setBusyClass] = useState("");
@@ -19,7 +26,39 @@ export function StudentBackendPanel({ user }: { user: User }) {
   const reload = useCallback(async () => {
     const sb = getSupabase();
     if (!sb) throw new Error("تنظیمات اتصال پایگاه داده هنوز در برنامه وارد نشده است.");
-    setWorkspace(await loadStudentWorkspace(sb, user.id));
+    const [workspaceData, membershipResult, preferenceResult] = await Promise.all([
+      loadStudentWorkspace(sb, user.id),
+      sb.from("institute_memberships").select("institute_id,role,status").eq("user_id", user.id).order("requested_at", { ascending: false }),
+      sb.from("user_institute_preferences").select("institute_id").eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (membershipResult.error) throw new Error(membershipResult.error.message);
+    if (preferenceResult.error) throw new Error(preferenceResult.error.message);
+    const activeMemberships = (membershipResult.data ?? []).filter((item) => item.status === "active");
+    const instituteIds = [...new Set(activeMemberships.map((item) => item.institute_id))];
+    const [institutionResult, courseResult, classResult] = instituteIds.length ? await Promise.all([
+      sb.from("institutions").select("id,name,is_active").in("id", instituteIds),
+      sb.from("courses").select("id,institute_id").eq("is_active", true).in("institute_id", instituteIds),
+      sb.from("classes").select("id,institute_id").eq("is_active", true).in("institute_id", instituteIds),
+    ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+    if (institutionResult.error) throw new Error(institutionResult.error.message);
+    if (courseResult.error) throw new Error(courseResult.error.message);
+    if (classResult.error) throw new Error(classResult.error.message);
+    const institutionsById = new Map((institutionResult.data ?? []).map((item) => [item.id, item]));
+    const courseCounts = new Map<string, number>();
+    const classCounts = new Map<string, number>();
+    for (const item of courseResult.data ?? []) courseCounts.set(item.institute_id, (courseCounts.get(item.institute_id) ?? 0) + 1);
+    for (const item of classResult.data ?? []) classCounts.set(item.institute_id, (classCounts.get(item.institute_id) ?? 0) + 1);
+    const cards = activeMemberships.map((membership) => {
+      const institution = institutionsById.get(membership.institute_id);
+      return institution ? {
+        id: institution.id, name: institution.name, role: membership.role, status: membership.status,
+        active: institution.is_active, courseCount: courseCounts.get(institution.id) ?? 0,
+        classCount: classCounts.get(institution.id) ?? 0,
+      } : null;
+    }).filter((item): item is StudentInstituteCard => item !== null);
+    setInstitutes(cards);
+    setActiveInstituteId(cards.some((item) => item.id === preferenceResult.data?.institute_id) ? preferenceResult.data!.institute_id! : "");
+    setWorkspace(workspaceData);
   }, [user.id]);
   useEffect(() => {
     let active = true;
@@ -92,7 +131,34 @@ export function StudentBackendPanel({ user }: { user: User }) {
     return { ...enrollment, attendanceCount: records.length, attendanceRate: records.length ? Math.round(effective / records.length * 100) : null, gradeCount: grades.length, average };
   });
 
+  const chooseInstitute = async (instituteId: string) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    setBusyInstitute(instituteId);
+    try {
+      const { error } = await sb.from("user_institute_preferences").upsert(
+        { user_id: user.id, institute_id: instituteId, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (error) throw new Error(error.message);
+      setActiveInstituteId(instituteId);
+      toast.success("این مؤسسه برای فعالیت‌های بعدی انتخاب شد.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "انتخاب مؤسسه انجام نشد.");
+    } finally { setBusyInstitute(""); }
+  };
+
   return <div className="space-y-5">
+    <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">مؤسسه‌های من</h2>
+      <p className="mt-1 text-sm text-muted-foreground">هر مؤسسه در بخش جداگانه نمایش داده می‌شود. تغییر مؤسسهٔ فعال، عضویت شما در مؤسسه‌های دیگر را حذف نمی‌کند.</p>
+      {institutes.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">{institutes.map((institute) => <article key={institute.id} className="rounded-xl border p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="font-bold">{institute.name}</h3><span className="rounded-full bg-muted px-2.5 py-1 text-xs">{institute.role === "teacher" ? "استاد" : institute.role === "owner" ? "مالک" : institute.role === "manager" ? "مدیر" : "دانش‌پژوه"}</span></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm"><p className="rounded-lg bg-muted/50 p-2">دوره‌های فعال: {institute.courseCount}</p><p className="rounded-lg bg-muted/50 p-2">کلاس‌های فعال: {institute.classCount}</p></div>
+        {activeInstituteId === institute.id ? <p className="mt-3 text-sm font-semibold text-primary">مؤسسهٔ فعال فعلی</p> : <Button className="mt-3 w-full" variant="outline" size="sm" disabled={!!busyInstitute} onClick={() => void chooseInstitute(institute.id)}>{busyInstitute === institute.id ? "در حال ذخیره…" : "انتخاب برای ثبت‌نام و مشاهدهٔ دوره‌ها"}</Button>}
+        <Button asChild variant="link" className="mt-1 px-0"><Link to="/courses">رفتن به فهرست دوره‌ها</Link></Button>
+      </article>)}</div> : <p className="mt-3 text-sm text-muted-foreground">هنوز عضویت فعال در مؤسسه‌ای ندارید. پس از تأیید عضویت، کارت مؤسسه در این قسمت ظاهر می‌شود.</p>}
+    </section>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <Metric label="کلاس‌های قطعی" value={workspace.enrollments.length}/>
       <Metric label="درخواست‌های منتظر" value={workspace.requests.filter((r) => r.status === "pending").length}/>
