@@ -1,18 +1,31 @@
 -- Validate each quiz option at the database boundary, not only in the UI.
 create or replace function private.valid_quiz_options(p_options jsonb)
 returns boolean
-language sql
+language plpgsql
 immutable
 set search_path = ''
 as $function$
-  select jsonb_typeof(p_options) = 'array'
-    and jsonb_array_length(p_options) between 2 and 8
-    and not exists (
-      select 1
-      from jsonb_array_elements(p_options) as item(value)
-      where jsonb_typeof(item.value) is distinct from 'string'
-         or char_length(btrim(item.value #>> '{}')) = 0
-    );
+declare
+  item jsonb;
+begin
+  if p_options is null or jsonb_typeof(p_options) is distinct from 'array' then
+    return false;
+  end if;
+
+  if jsonb_array_length(p_options) < 2 or jsonb_array_length(p_options) > 8 then
+    return false;
+  end if;
+
+  for item in select value from jsonb_array_elements(p_options)
+  loop
+    if jsonb_typeof(item) is distinct from 'string'
+       or char_length(btrim(item #>> '{}')) = 0 then
+      return false;
+    end if;
+  end loop;
+
+  return true;
+end;
 $function$;
 
 revoke all on function private.valid_quiz_options(jsonb) from public, anon, authenticated;
