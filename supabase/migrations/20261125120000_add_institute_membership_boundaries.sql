@@ -173,13 +173,23 @@ with check (
 
 drop policy if exists enrollments_institute_boundary on public.enrollments;
 create policy enrollments_institute_boundary on public.enrollments
-as restrictive for select to authenticated
+as restrictive for all to authenticated
 using (
   private.is_admin()
   or (
     private.class_institute_id(class_id) is not null
     and (
       student_id = (select auth.uid())
+      or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
+    )
+  )
+)
+with check (
+  private.is_admin()
+  or (
+    private.class_institute_id(class_id) is not null
+    and (
+      (student_id = (select auth.uid()) and private.is_institute_member(private.class_institute_id(class_id), array['student']))
       or private.is_institute_member(private.class_institute_id(class_id), array['owner','manager','teacher'])
     )
   )
