@@ -108,3 +108,11 @@ The institutes page now allows a signed-in user to select an active institute fr
 - A session-update trigger rechecks the same membership conditions when `submitted_at` changes from null to non-null. Because it runs in the submit transaction, a failed membership check also rolls back the result insert.
 - Branch-only; not applied to Supabase. Staging tests must include active student, pending/suspended student, different institute, standalone quiz, suspension between start and resume, and suspension between start and submit.
 - GitHub build/test for the previous PR head `c087d98d416567c55aa68e72de6911295e9e687b` passed. Cloudflare preview build failed for that head; the actual error is only available in its Cloudflare build log. The new migration requires a fresh CI run.
+
+
+## Latest quiz-session revalidation check — 2026-11-25
+- Verified the current PR head is `ff8e34e6bad263addf00f23193cd0453a9a1c2da` and includes migration `20261126010000_recheck_membership_on_quiz_resume_and_submit.sql`.
+- GitHub Actions `build` completed successfully for this exact head.
+- Cloudflare Workers preview build failed for this exact head; build ID `06c3f0b5-a97b-4f60-aac4-e49d88e875d6`: https://dash.cloudflare.com/01269ddae83800dfe633b467e3811c6a/workers/services/view/masir-noor-thaqalayn/production/builds/06c3f0b5-a97b-4f60-aac4-e49d88e875d6 . GitHub check output does not contain the underlying error text; inspect the Cloudflare build log before attempting a fix.
+- SQL review confirms the start/resume RPC rechecks active student membership for course quizzes, and the session submission trigger rechecks membership when `submitted_at` is set. This is code review only; the migration and race behavior have not been tested against a disposable database.
+- No Supabase migration, merge, or production deployment was performed.
