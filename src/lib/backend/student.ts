@@ -124,6 +124,13 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
 
 /** RLS permits students to create only their own pending requests for active classes. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
+  // Match the supplied student ID to the authenticated session before any
+  // institute or enrollment checks; RLS remains the database-level boundary.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای ارسال درخواست ثبت‌نام باید با حساب دانش‌پژوه خود وارد شوید.");
+  }
   const { data: targetClass, error: classError } = await sb.from("classes")
     .select("course_id,institute_id").eq("id", classId).eq("is_active", true).maybeSingle();
   fail(classError);
