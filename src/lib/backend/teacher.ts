@@ -54,6 +54,13 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+async function requireSignedInUser(sb: SupabaseClient): Promise<string> {
+  const { data, error } = await sb.auth.getUser();
+  fail(error);
+  if (!data.user) throw new Error("برای ثبت اطلاعات باید وارد حساب خود شوید.");
+  return data.user.id;
+}
+
 async function readAllPages<T>(query: any, pageSize = 500): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += pageSize) {
@@ -189,6 +196,7 @@ export async function saveTeacherAttendance(
   sb: SupabaseClient,
   input: { enrollmentId: string; sessionDate: string; status: TeacherAttendance["status"] },
 ) {
+  await requireSignedInUser(sb);
   validateAttendanceInput(input);
   const { data: existing, error: findError } = await sb
     .from("attendance")
@@ -214,6 +222,7 @@ export async function saveTeacherGrade(
   sb: SupabaseClient,
   input: { enrollmentId: string; title: string; score: number },
 ) {
+  await requireSignedInUser(sb);
   validateGradeInput(input);
   const { error } = await sb.from("grades").insert({
     enrollment_id: input.enrollmentId,
@@ -236,6 +245,7 @@ export async function saveTeacherHifzRecord(
     notes: string;
   },
 ) {
+  await requireSignedInUser(sb);
   if (!input.enrollmentId || !Number.isInteger(input.surahNumber) || input.surahNumber < 1 || input.surahNumber > 114
     || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart
@@ -262,6 +272,10 @@ export async function saveTeacherHifzAssignment(
   sb: SupabaseClient,
   input: { enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string; assignedBy: string },
 ) {
+  const signedInUserId = await requireSignedInUser(sb);
+  if (signedInUserId !== input.assignedBy) {
+    throw new Error("فقط استاد واردشده می‌تواند برنامهٔ حفظ را به نام خود ثبت کند.");
+  }
   const surah = getSurah(input.surahNumber);
   if (!input.enrollmentId || !surah || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > surah.ayahCount
