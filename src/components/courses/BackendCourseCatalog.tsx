@@ -172,7 +172,8 @@ export function BackendCourseDetail({ user, courseId }: { user: User | null; cou
                 <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4"/>{dateLabel(item.startsAt)}</p>
                 <p className="flex items-center gap-2"><Users className="h-4 w-4"/>{item.capacity === null ? "ظرفیت نامحدود اعلام شده" : `${faNum(item.remainingSeats ?? Math.max(0,item.capacity-item.enrolledCount))} جای خالی از ${faNum(item.capacity)} نفر`}</p>
               </div>
-              {state?.enrolled ? <p className="mt-3 text-sm font-semibold text-primary">در این کلاس ثبت‌نام قطعی دارید.</p>
+              {course.price > 0 && !state?.enrolled && state?.requestStatus !== "pending" && state?.requestStatus !== "approved" ? <p className="mt-3 text-sm text-muted-foreground">این دوره شهریه دارد؛ ثبت‌نام آنلاین تا فعال‌شدن درگاه پرداخت انجام نمی‌شود. برای اطلاع از شرایط با مدیر مؤسسه تماس بگیرید.</p>
+                : state?.enrolled ? <p className="mt-3 text-sm font-semibold text-primary">در این کلاس ثبت‌نام قطعی دارید.</p>
                 : state?.requestStatus === "pending" ? <p className="mt-3 text-sm">درخواست شما در انتظار بررسی است.</p>
                 : state?.requestStatus === "approved" ? <p className="mt-3 text-sm font-semibold text-primary">درخواست شما تأیید شده است.</p>
                 : state?.requestStatus === "rejected" ? <p className="mt-3 text-sm">درخواست قبلی رد شده است؛ برای پیگیری با مدیر تماس بگیرید.</p>
