@@ -4,7 +4,9 @@
 - Migration file: `supabase/migrations/20261125120000_add_institute_membership_boundaries.sql`
 - Added to the feature branch only.
 - Not applied to Supabase; no live tables, policies, rows, or settings were changed.
-- The application UI for institute creation, membership approval, and active-institute selection is not yet connected to this schema.
+- A first `/institutes` page is now in the feature branch for active institute discovery, student membership requests, manager approval/suspension, basic role changes, and system-admin institute creation.
+- The global navigation now links to the institute page.
+- Persistent active-institute switching and full institute-scoped dashboard context are not yet implemented.
 
 ## Intended behavior
 1. Each course and class is assigned to one institute.
@@ -19,7 +21,7 @@
 8. Restrictive policies are used so existing permissive policies cannot independently expose cross-institute rows.
 
 ## Provisioning path after review and rollout
-- An administrator creates an institution and its initial owner membership.
+- A system administrator creates an institution; a database trigger creates the initial owner membership atomically in the same transaction.
 - A user requests membership in an institution; it remains pending.
 - An owner/manager approves the membership and assigns an appropriate role.
 - The user then sees only institute-scoped classes and courses.
@@ -29,6 +31,12 @@
 - Operation-specific restrictive policies prevent a legacy permissive policy from granting students write access to course/class records or direct enrollment insertion.
 - Students may submit their own enrollment request only when active in that institute; pending/suspended members cannot request enrollment.
 - Staff enrollment writes are limited to active institute owner/manager/teacher members, and the trigger independently verifies the target student's active membership.
+
+## UI implementation status
+- The page uses the signed-in Supabase client and relies on RLS; it does not use a service-role key.
+- Managers can approve/suspend members and change a student to teacher or vice versa. Role assignment to manager/owner remains a system-admin workflow.
+- Active institutions are discoverable by authenticated users; institution details remain limited by active membership/admin policies.
+- No active-institute preference is persisted yet; this page does not claim that switching institute changes the app-wide current context.
 
 ## Safety / validation limits
 - The migration assumes the existing schema contains `courses.is_active`, `classes.is_active`, `classes.course_id`, `classes.teacher_id`, `enrollment_requests.student_id/class_id`, and `enrollments.student_id/class_id`, consistent with the repository's current code and prior schema audit.
