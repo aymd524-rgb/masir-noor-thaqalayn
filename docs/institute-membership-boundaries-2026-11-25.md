@@ -129,3 +129,10 @@ The institutes page now allows a signed-in user to select an active institute fr
 - GitHub Actions `build` completed successfully for PR head `ac582bff855bd32d2c3bf8bd4cc45d82797b1f52` (check run 139464832960).
 - Reviewed restrictive RLS boundaries for `profile_contacts`, `hifz_records`, and weekly hifz assignments. Direct profile contact rows are owner-only; administrator access is intended through guarded RPCs. Hifz record/assignment reads are scoped to the enrollment owner, authorized enrollment managers, or system administrator; writes are role-scoped and completion/record deletion is restricted.
 - This was source review plus repository CI only. No database migration was applied and no database-level policy tests were executed.
+
+
+## Course quiz membership locking — 2026-11-26
+- Added `20261126012000_lock_student_membership_during_quiz.sql` to check and acquire a `FOR SHARE` lock on the caller's active student membership for course quiz start/resume, session creation, and submission.
+- The lock is held through the transaction. A concurrent membership update/delete must wait if quiz start/submit acquired the lock first; if revocation completes first, the membership check fails. This narrows the race between the earlier membership recheck and a concurrent suspension.
+- Standalone quizzes remain unaffected by institute membership checks. Existing one-attempt and server-timer rules are preserved in the replacement start RPC.
+- This is a source-level mitigation only. The migration has not been applied to any database; concurrency behavior still requires integration testing against a disposable PostgreSQL/Supabase database with two concurrent transactions, including suspension, role change, deletion, session resume, and submit.
