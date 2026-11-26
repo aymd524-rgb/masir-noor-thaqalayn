@@ -157,3 +157,24 @@ The institutes page now allows a signed-in user to select an active institute fr
 - Added `src/lib/backend/enrollment-approval-lock.test.ts` with SQL source assertions for the lock scopes, capacity/payment checks, and function ACL.
 - This is source-level hardening; it has not been applied to a database. Verify lock ordering and concurrent approval/revocation/deactivation behavior in a disposable Supabase/PostgreSQL environment before production use.
 - GitHub Actions Build check passed for quiz-lock assertion fix commit `3665a3b6e8f05dfcb34fdb3cc8a7951011f25aec`; the documentation follow-up check also completed successfully at commit `1fcb0a2309c6be713bfd4cc1d4f7ed346956b550`.
+
+
+## Free validation plan — 2026-11-26
+- No paid Supabase branch or paid database environment is required for repository-level checks. GitHub Actions runs the existing Vitest/build workflow on the feature branch.
+- A disposable local Supabase/PostgreSQL instance can be used later at no database-branch charge, provided the runner has Docker and the Supabase CLI installed. Do not connect the local test runner to the production project.
+- The latest enrollment-approval source test now also checks the intended row-lock acquisition order (class, institute, linked course, student membership, capacity check, enrollment insert) and confirms the original approval transition trigger remains wired to the replacement function.
+- These source assertions are regression checks only. They do not prove PostgreSQL lock compatibility or concurrency outcomes.
+
+### Required free local integration scenarios
+1. Apply migrations to a fresh local database in timestamp order.
+2. Verify pending or suspended student membership prevents approval.
+3. Verify an active student in the correct institute can be enrolled after authorized approval.
+4. Verify inactive institute, inactive course, or inactive class blocks approval.
+5. Verify payment status other than `paid` or `waived` blocks approval.
+6. Verify capacity is never exceeded when two approvals compete for the final seat.
+7. Run approval and membership suspension in separate concurrent transactions; confirm whichever acquires the membership lock first determines the valid serialized outcome.
+8. Run approval while institute/course deactivation is attempted; verify serialization and inspect for deadlocks.
+9. Verify repeated approval does not create duplicate enrollment rows.
+10. Verify a failed trigger rolls back the request status change and enrollment insert together.
+
+No paid database branch was created. Production Supabase remains unchanged; do not apply these migrations to production until local integration checks and review are complete.
