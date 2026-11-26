@@ -149,3 +149,11 @@ The institutes page now allows a signed-in user to select an active institute fr
 - Updated the source-level assertion to check the submission guard function instead of expecting the trigger declaration in this migration.
 - GitHub Actions Build check passed for exact commit `3665a3b6e8f05dfcb34fdb3cc8a7951011f25aec`.
 - This pass confirms repository tests/build only; it does not validate SQL execution or concurrent transaction behavior. The PR remains open and Draft, and no Supabase migration or deployment was performed.
+
+
+## Enrollment approval row-lock hardening — 2026-11-26
+- Added `20261126013000_lock_membership_during_enrollment_approval.sql`. Approval now takes `FOR SHARE` locks on the active institute, linked active course (when present), and the exact active student membership before inserting an enrollment. These locks are held through transaction completion and serialize approval with institute/course deactivation and membership status/role changes or deletion.
+- Existing class `FOR UPDATE` capacity serialization, verified payment/waiver requirement, active-class validation, and duplicate-enrollment check are preserved.
+- Added `src/lib/backend/enrollment-approval-lock.test.ts` with SQL source assertions for the lock scopes, capacity/payment checks, and function ACL.
+- This is source-level hardening; it has not been applied to a database. Verify lock ordering and concurrent approval/revocation/deactivation behavior in a disposable Supabase/PostgreSQL environment before production use.
+- GitHub Actions Build check passed for quiz-lock assertion fix commit `3665a3b6e8f05dfcb34fdb3cc8a7951011f25aec`; the documentation follow-up check also completed successfully at commit `1fcb0a2309c6be713bfd4cc1d4f7ed346956b550`.
