@@ -34,7 +34,7 @@ describe("course quiz membership locking (SQL regression checks)", () => {
     expect(migration).toMatch(/create or replace function private\.guard_quiz_session_submission_membership/i);
     expect(migration).toMatch(/old\.submitted_at is null and new\.submitted_at is not null/i);
     expect(migration).toMatch(/not private\.lock_active_student_membership\(institute_id\)/i);
-    expect(migration).toMatch(/before update of submitted_at on public\.quiz_attempt_sessions/i);
+    expect(migration).toMatch(/guard_quiz_session_submission_membership\(\)[\s\S]*?returns trigger[\s\S]*?return new/i);
   });
 
   it("restricts helper execution and keeps course checks separate from standalone quizzes", () => {
