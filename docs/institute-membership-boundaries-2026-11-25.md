@@ -136,3 +136,9 @@ The institutes page now allows a signed-in user to select an active institute fr
 - The lock is held through the transaction. A concurrent membership update/delete must wait if quiz start/submit acquired the lock first; if revocation completes first, the membership check fails. This narrows the race between the earlier membership recheck and a concurrent suspension.
 - Standalone quizzes remain unaffected by institute membership checks. Existing one-attempt and server-timer rules are preserved in the replacement start RPC.
 - This is a source-level mitigation only. The migration has not been applied to any database; concurrency behavior still requires integration testing against a disposable PostgreSQL/Supabase database with two concurrent transactions, including suspension, role change, deletion, session resume, and submit.
+
+
+## Quiz membership lock regression coverage — 2026-11-26
+- Added `src/lib/backend/quiz-membership-lock.test.ts` with source-level regression assertions for caller-scoped active student row locking, start/resume checks, final-submit checks, and helper execution grants.
+- These Vitest checks validate expected SQL patterns in the migration; they are not a substitute for applying the migration to a disposable database and running concurrent transaction tests.
+- GitHub Actions build for commit `480b442fb3ace9162a9a63c0ab48d57fdd9dc6b2` completed successfully. CI for the new regression test commit is queued as of this documentation update.
