@@ -142,3 +142,10 @@ The institutes page now allows a signed-in user to select an active institute fr
 - Added `src/lib/backend/quiz-membership-lock.test.ts` with source-level regression assertions for caller-scoped active student row locking, start/resume checks, final-submit checks, and helper execution grants.
 - These Vitest checks validate expected SQL patterns in the migration; they are not a substitute for applying the migration to a disposable database and running concurrent transaction tests.
 - GitHub Actions build for commit `480b442fb3ace9162a9a63c0ab48d57fdd9dc6b2` completed successfully. CI for the new regression test commit is queued as of this documentation update.
+
+
+## Quiz membership lock CI follow-up — 2026-11-26
+- The first CI run for the membership-lock regression test failed because the test asserted a trigger declaration that is not present in this migration file; the migration replaces the trigger function while the trigger is established by an earlier migration.
+- Updated the source-level assertion to check the submission guard function instead of expecting the trigger declaration in this migration.
+- GitHub Actions Build check passed for exact commit `3665a3b6e8f05dfcb34fdb3cc8a7951011f25aec`.
+- This pass confirms repository tests/build only; it does not validate SQL execution or concurrent transaction behavior. The PR remains open and Draft, and no Supabase migration or deployment was performed.
