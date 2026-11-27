@@ -41,16 +41,16 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
 
   const { data: contact } = await sb
     .from("profile_contacts")
-    .select("phone")
+    .select("phone,email")
     .eq("user_id", authUser.id)
-    .maybeSingle<{ phone: string | null }>();
+    .maybeSingle<{ phone: string | null; email: string | null }>();
 
   const role: Role =
     profile?.role === "admin" || profile?.role === "teacher" ? profile.role : "student";
 
   return {
     id: authUser.id,
-    email: authUser.email ?? "",
+    email: contact?.email ?? authUser.email ?? "",
     fullName:
       profile?.full_name ||
       profile?.name ||
@@ -58,7 +58,7 @@ export async function resolveBackendUser(sb: SupabaseClient, authUser: AuthUser)
       authUser.email ||
       "کاربر",
     role,
-    phone: contact?.phone ?? undefined,
+    phone: contact?.phone ?? authUser.phone ?? undefined,
     active: true,
     joinedAt: profile?.created_at ?? authUser.created_at,
   };
