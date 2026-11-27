@@ -167,11 +167,6 @@ with check (
       and e.student_id = issued_certificates.student_id
       and private.can_manage_class_certificates(c.id)
   )
-  and (
-    signature_teacher_id is null
-    or signature_teacher_id = (select auth.uid())
-    or private.is_admin()
-  )
 );
 
 drop policy if exists issued_certificates_staff_revoke on public.issued_certificates;
@@ -256,7 +251,10 @@ begin
       if new.signature_teacher_id is distinct from class_row.teacher_id
          or not exists (
            select 1 from public.teacher_signatures ts
+           join public.institute_memberships im on im.user_id = ts.teacher_id
            where ts.teacher_id = new.signature_teacher_id
+             and im.institute_id = new.institute_id
+             and im.role = 'teacher' and im.status = 'active'
          ) then
         raise exception 'signature must belong to the assigned teacher and have an uploaded signature'
           using errcode = '23514';
