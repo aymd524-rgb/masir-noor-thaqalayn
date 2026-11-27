@@ -56,7 +56,7 @@ function HomePage() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">همه ۶۰۴ صفحه با رسم‌الخط عثمان طه؛ ورق‌زدن و رفتن مستقیم به شماره صفحه</p>
           </div>
         </div>
-        <Link to="/mushaf" className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground sm:mt-0">باز کردن مصحف <ArrowLeft className="h-4 w-4" /></Link>
+        <Link to="/quran/mushaf" className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground sm:mt-0">باز کردن مصحف <ArrowLeft className="h-4 w-4" /></Link>
       </section>
 
       <section className="py-10">
