@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, fix/combined-auth-contact-privacy-2026-11-19]
+    branches: [main, fix/combined-auth-contact-privacy-2026-11-19, integration/institutes-phone-otp-2026-11-27]
 
 jobs:
   build:
