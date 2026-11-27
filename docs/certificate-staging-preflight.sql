@@ -32,6 +32,15 @@ begin
 
   if not exists (
     select 1 from pg_trigger
+    where tgrelid = 'public.institute_certificate_settings'::regclass
+      and tgname = 'certificate_settings_audit_guard'
+      and not tgisinternal
+  ) then
+    raise exception 'Missing certificate settings audit guard trigger';
+  end if;
+
+  if not exists (
+    select 1 from pg_trigger
     where tgrelid = 'public.teacher_signatures'::regclass
       and tgname = 'teacher_signature_pointer_guard'
       and not tgisinternal
@@ -83,7 +92,7 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
     where (
       (n.nspname = 'public' and p.proname in ('issue_course_certificate','revoke_course_certificate'))
-      or (n.nspname = 'private' and p.proname in ('guard_teacher_signature_pointer','guard_issued_certificate_changes'))
+      or (n.nspname = 'private' and p.proname in ('guard_certificate_settings_audit','guard_teacher_signature_pointer','guard_issued_certificate_changes'))
     )
     and (
       not p.prosecdef
