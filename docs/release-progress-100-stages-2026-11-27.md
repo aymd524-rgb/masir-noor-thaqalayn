@@ -149,3 +149,11 @@
 - [x] PR #20 head `e985381666fe6979f81d54a0dd0a8af91c68f931`: run 46033448170 / #593 موفق؛ test و build موفق.
 - [x] توضیحات PR #19 با نتایج CI جدید و موانع انتشار به‌روزرسانی شد.
 - [ ] آزمون دیتابیس/RLS در staging، پیامک واقعی، منبع مصحف ۱۵ خطی و چاپ Android هنوز انجام نشده‌اند.
+
+
+## Staging test-plan preparation (2026-11-27)
+- [x] Stage 8: corrected stale CI reporting in the integration validation record.
+- [x] Added a staging acceptance checklist covering institute/RLS isolation, memberships, course/class/enrollment and capacity, phone OTP, contact privacy, certificate/signature security, and quiz membership scope.
+- [x] PR #20 current head `a68850509a7d38a3bd60de036262078314b5b721` passed Build check run 46033772972 (#594), including `bun run test` and `bun run build`.
+- [ ] PR #19 documentation head `e723fa6263b4a947bd2682ab637ba4beada0f7ed` awaits its own CI result; previous code head passed.
+- [ ] Checklist execution against disposable staging Supabase is pending; no migrations or production changes were made.
