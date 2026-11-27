@@ -1,11 +1,10 @@
-import { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
 import { buildPageLines, type SourceVerse } from "./layout";
 import { LINES_PER_PAGE, clampPage, pageRange } from "./metadata";
 import type { MushafLine, MushafPageData, MushafSource } from "./types";
 
 /**
- * Demo source: shows the 15-line frame, page/surah/juz navigation from Tanzil metadata,
- * and EMPTY placeholder lines. It never renders verse text.
+ * Text-free 15-line frame for navigation while no approved full-text dataset is bundled.
+ * Never fills missing pages with guessed or generated Qur'an text.
  */
 export const demoSource: MushafSource = {
   id: "demo",
@@ -24,31 +23,11 @@ export const demoSource: MushafSource = {
   },
 };
 
-/** Pages whose verbatim text + line layout are bundled in the app (prototype). */
-export const SNAPSHOT_PAGES = Object.keys(QPC_HAFS_SNAPSHOT.pages).map(Number);
+/** No Quran Foundation text is bundled in the public repository. */
+export const SNAPSHOT_PAGES: number[] = [];
 
-export const QPC_PROVENANCE = {
-  label: "نمونه اولیه — متن از منبع، هنوز با مرجع رسمی تطبیق انسانی نشده",
-  attribution:
-    "متن عثمانی حفص مجمع ملک فهد (KFGQPC) و شماره سطرها: Quran.com API v4 — قلم: KFGQPC HAFS Uthmanic Script — فهرست‌ها: Tanzil.net (CC BY 3.0)",
-};
-
-/**
- * Prototype source: pages in SNAPSHOT_PAGES (1–2) show the verbatim KFGQPC Hafs text with
- * the source's own line numbers; every other page falls back to the text-free demo frame.
- */
-export const prototypeSource: MushafSource = {
-  id: "qpc-hafs-prototype",
-  demo: true,
-  name: "نمونه اولیه صفحات ۱ و ۲",
-  attribution: demoSource.attribution,
-  async getPage(page, signal) {
-    const p = clampPage(page);
-    const verses = QPC_HAFS_SNAPSHOT.pages[String(p)];
-    if (!verses) return demoSource.getPage(p, signal);
-    return { page: p, lines: buildPageLines(verses), basmala: QPC_HAFS_SNAPSHOT.basmala, provenance: QPC_PROVENANCE };
-  },
-};
+/** Kept as a compatibility alias for existing reader imports. */
+export const prototypeSource: MushafSource = demoSource;
 
 interface V4Word {
   char_type_name: string;
@@ -62,8 +41,11 @@ interface V4Verse {
 }
 
 /**
- * Adapter for a Quran.com API v4–compatible endpoint (verses/by_page with word line numbers).
- * Disabled by default — enable only after the usage licence for the text has been obtained.
+ * Live Quran Foundation API adapter.
+ * Enable only after the developer has accepted the current Developer Terms,
+ * obtained production API access, and configured the app's attribution/privacy requirements.
+ * This adapter requests content for display; do not turn regular API responses into
+ * a bundled/public dataset or retain them beyond the permitted period.
  */
 export function quranComV4Source(baseUrl: string): MushafSource {
   let basmala: Promise<string[]> | null = null;
@@ -94,7 +76,7 @@ export function quranComV4Source(baseUrl: string): MushafSource {
     id: "quran-com-v4",
     demo: false,
     name: "Quran.com API v4",
-    attribution: "متن عثمانی و شماره سطرها: Quran.com API v4 — فهرست‌ها: Tanzil.net (CC BY 3.0)",
+    attribution: "Quran data provided by Quran Foundation.",
     async getPage(page, signal): Promise<MushafPageData> {
       const p = clampPage(page);
       const verses: V4Verse[] = [];
@@ -114,20 +96,23 @@ export function quranComV4Source(baseUrl: string): MushafSource {
         page: p,
         lines: buildPageLines(verses.map(toVerse)),
         basmala: await basmala,
-        provenance: { label: "متن از Quran.com API v4 — هنوز با مرجع رسمی تطبیق انسانی نشده", attribution: "متن عثمانی و شماره سطرها: Quran.com API v4 — فهرست‌ها: Tanzil.net (CC BY 3.0)" },
+        provenance: {
+          label: "متن زنده از Quran Foundation API",
+          attribution: "Quran data provided by Quran Foundation.",
+        },
       };
     },
   };
 }
 
 /**
- * Active source. Default is the prototype (real text on pages 1–2 only, demo frame elsewhere). Set VITE_MUSHAF_SOURCE=quran-com-v4 (and optionally
- * VITE_MUSHAF_API_BASE) only once the text licence is in place.
+ * Default is the text-free demo. Enable the live API only after production
+ * access and all current Quran Foundation Developer Terms requirements are met.
  */
 export function getMushafSource(): MushafSource {
   const env = import.meta.env;
   if (env["VITE_MUSHAF_SOURCE"] === "quran-com-v4") {
     return quranComV4Source(env["VITE_MUSHAF_API_BASE"] || "https://api.quran.com/api/v4");
   }
-  return prototypeSource;
+  return demoSource;
 }
