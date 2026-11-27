@@ -12,6 +12,34 @@ create table if not exists public.institute_certificate_settings (
   updated_at timestamptz not null default now()
 );
 
+-- Keep the certificate-settings audit fields server-stamped. The client may
+-- submit updated_by during upsert, but it cannot impersonate another editor.
+create or replace function private.guard_certificate_settings_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  actor_id uuid := (select auth.uid());
+begin
+  if actor_id is null then
+    raise exception 'signed-in editor required for certificate settings'
+      using errcode = '42501';
+  end if;
+
+  new.updated_by := actor_id;
+  new.updated_at := now();
+  return new;
+end;
+$function$;
+
+revoke all on function private.guard_certificate_settings_audit() from public, anon, authenticated;
+drop trigger if exists certificate_settings_audit_guard on public.institute_certificate_settings;
+create trigger certificate_settings_audit_guard
+before insert or update on public.institute_certificate_settings
+for each row execute function private.guard_certificate_settings_audit();
+
 create table if not exists public.teacher_signatures (
   teacher_id uuid primary key references auth.users(id) on delete cascade,
   storage_path text not null unique
