@@ -48,3 +48,5 @@ Run these checks only against a disposable/staging Supabase project after applyi
 33. If the teacher's active institute membership is removed after a signature upload, verify they cannot update the signature pointer or upload new signature objects; existing issued certificate snapshots should follow the intended recipient-access policy.
 
 34. A pending or rejected enrollment cannot receive a certificate through `issue_course_certificate`; only an `approved` enrollment in an active class and active institute may be issued one.
+
+35. Verify the certificate insert RLS policy independently requires `enrollments.status = 'approved'` as defense in depth, even though authenticated direct writes are revoked and the issuance RPC also checks status.
