@@ -110,4 +110,20 @@ describe("fixed-line Mushaf layout", () => {
     expect(lines[13]).toEqual({ kind: "surah-header", surah: 113 });
     expect(lines[14]).toEqual({ kind: "basmala" });
   });
+
+  it("rejects an invalid word kind from an external source", () => {
+    expect(() =>
+      buildPageLines([
+        { surah: 2, ayah: 1, words: [{ text: "bad", kind: "not-a-word" as "word", line: 1 }] },
+      ]),
+    ).toThrow(/invalid word type/);
+  });
+
+  it("rejects non-integer source line numbers", () => {
+    expect(() =>
+      buildPageLines([
+        { surah: 2, ayah: 1, words: [{ text: "bad", kind: "word", line: 1.5 }] },
+      ]),
+    ).toThrow(/out of range/);
+  });
 });
