@@ -70,11 +70,32 @@ const toSource = (v: ApiVerse) => {
 
 const pages: Record<number, ReturnType<typeof toSource>[]> = {};
 for (const page of PAGES) {
-  const main = (await versesOnPage(page, MUSHAF_ID)).map(toSource);
+  const rawMain = await versesOnPage(page, MUSHAF_ID);
+  const main = rawMain.map(toSource);
   const check = (await versesOnPage(page, CHECK_MUSHAF_ID)).map(toSource);
-  const sig = (vs: typeof main) => vs.map((v) => `${v.surah}:${v.ayah}=` + v.words.map((w) => w.line).join(",")).join("|");
-  if (sig(main) !== sig(check)) throw new Error(`Layout mismatch on page ${page} between mushaf ${MUSHAF_ID} and ${CHECK_MUSHAF_ID}`);
+  if (!main.length) throw new Error(`No verses returned for page ${page}`);
+  const keys = new Set<string>();
+  for (const verse of main) {
+    const key = `${verse.surah}:${verse.ayah}`;
+    if (keys.has(key)) throw new Error(`Duplicate verse ${key} on page ${page}`);
+    keys.add(key);
+    const rawVerse = rawMain.find((v) => v.verse_key === key);
+    if (!rawVerse || rawVerse.page_number !== page) throw new Error(`Unexpected page metadata for ${key}; expected page ${page}`);
+    if (!verse.words.length) throw new Error(`No word/end markers for ${key} on page ${page}`);
+    for (const word of verse.words) {
+      if (!word.text.trim()) throw new Error(`Empty word text in ${key} on page ${page}`);
+      if (!Number.isInteger(word.line) || word.line < 1 || word.line > 15) {
+        throw new Error(`Invalid 15-line source line ${word.line} in ${key} on page ${page}`);
+      }
+    }
+  }
+  const sig = (vs: typeof main) => vs.map((v) => `${v.surah}:${v.ayah}=` + v.words.map((w) => `${w.line}:${w.text}`).join(",")).join("|");
+  if (sig(main) !== sig(check)) throw new Error(`Text/layout mismatch on page ${page} between mushaf ${MUSHAF_ID} and ${CHECK_MUSHAF_ID}`);
   pages[page] = main;
+}
+
+if (allPages && (Object.keys(pages).length !== 604 || Array.from({ length: 604 }, (_, i) => i + 1).some((page) => !pages[page]))) {
+  throw new Error("Full mushaf snapshot incomplete: expected all 604 pages");
 }
 
 const basmalaVerse = (await getJson(`${API}/verses/by_key/1:1?words=true&word_fields=text_qpc_hafs`)).verse as ApiVerse;
