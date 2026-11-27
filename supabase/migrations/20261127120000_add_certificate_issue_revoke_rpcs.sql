@@ -70,9 +70,9 @@ begin
       using errcode = '23514';
   end if;
 
-  select e.id, e.student_id, e.class_id, c.institute_id, c.teacher_id,
-         c.title as class_title, c.is_active as class_active,
-         i.is_active as institute_active
+  select e.id, e.student_id, e.class_id, e.status as enrollment_status,
+         c.institute_id, c.teacher_id, c.title as class_title,
+         c.is_active as class_active, i.is_active as institute_active
     into enrollment_row
   from public.enrollments e
   join public.classes c on c.id = e.class_id
@@ -81,9 +81,10 @@ begin
   for share of e, c, i;
 
   if not found
+     or enrollment_row.enrollment_status is distinct from 'approved'
      or enrollment_row.class_active is not true
      or enrollment_row.institute_active is not true then
-    raise exception 'active class enrollment not found'
+    raise exception 'approved enrollment in an active class is required'
       using errcode = '23514';
   end if;
 
