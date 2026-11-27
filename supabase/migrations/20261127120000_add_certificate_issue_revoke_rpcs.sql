@@ -57,6 +57,7 @@ declare
   heading_text text;
   body_text text;
   signature_id uuid;
+  signature_path text;
   certificate_code text;
 begin
   if actor_id is null then
@@ -128,8 +129,12 @@ begin
          and im.role = 'teacher' and im.status = 'active'
      ) then
     signature_id := enrollment_row.teacher_id;
+    select ts.storage_path into signature_path
+    from public.teacher_signatures ts
+    where ts.teacher_id = enrollment_row.teacher_id;
   else
     signature_id := null;
+    signature_path := null;
   end if;
 
   certificate_code := 'CERT-' || upper(replace(gen_random_uuid()::text, '-', ''));
@@ -138,13 +143,15 @@ begin
   insert into public.issued_certificates (
     institute_id, class_id, enrollment_id, student_id,
     certificate_number, heading_snapshot, body_snapshot,
-    student_name_snapshot, class_title_snapshot, issued_by, signature_teacher_id
+    student_name_snapshot, class_title_snapshot, issued_by, signature_teacher_id,
+    signature_storage_path_snapshot
   )
   values (
     enrollment_row.institute_id, enrollment_row.class_id,
     enrollment_row.id, enrollment_row.student_id,
     certificate_code, heading_text, body_text,
-    student_name, enrollment_row.class_title, actor_id, signature_id
+    student_name, enrollment_row.class_title, actor_id, signature_id,
+    signature_path
   )
   returning issued_certificates.id,
             issued_certificates.certificate_number,
