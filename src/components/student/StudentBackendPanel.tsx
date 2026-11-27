@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { getSupabase } from "@/lib/backend/supabase";
 import { toLocalDateInputValue } from "@/lib/date";
-import { loadStudentWorkspace, requestStudentEnrollment, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
+import { loadStudentWorkspace, requestStudentEnrollment, resolveActiveInstituteId, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
 
 const statusLabel = { pending: "در انتظار بررسی", approved: "تأیید شده", rejected: "رد شده" } as const;
@@ -57,11 +57,10 @@ export function StudentBackendPanel({ user }: { user: User }) {
       } : null;
     }).filter((item): item is StudentInstituteCard => item !== null);
     setInstitutes(cards);
-    const preferredInstitute = cards.find(
-      (item) => item.id === preferenceResult.data?.institute_id && item.active,
+    const selectedInstituteId = resolveActiveInstituteId(
+      cards,
+      preferenceResult.data?.institute_id,
     );
-    const firstActiveInstitute = cards.find((item) => item.active);
-    const selectedInstituteId = preferredInstitute?.id ?? firstActiveInstitute?.id ?? "";
 
     // Keep the fallback selection consistent with requestStudentEnrollment,
     // which checks the persisted preference before submitting a class request.
