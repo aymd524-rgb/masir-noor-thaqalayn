@@ -8,6 +8,11 @@ declare
 begin
   select array_agg(item) into missing
   from unnest(array[
+    'public.institutions',
+    'public.institute_memberships',
+    'public.classes',
+    'public.enrollments',
+    'public.profiles',
     'public.institute_certificate_settings',
     'public.teacher_signatures',
     'public.issued_certificates'
@@ -16,6 +21,13 @@ begin
 
   if missing is not null then
     raise exception 'Missing certificate tables: %', array_to_string(missing, ', ');
+  end if;
+
+  if to_regprocedure('private.is_institute_member(uuid,text[])') is null
+     or to_regprocedure('private.user_is_institute_member(uuid,uuid,text[])') is null
+     or to_regprocedure('private.can_manage_class_certificates(uuid)') is null
+     or to_regprocedure('private.is_admin()') is null then
+    raise exception 'Required institute authorization helper functions are missing';
   end if;
 
   if not exists (
