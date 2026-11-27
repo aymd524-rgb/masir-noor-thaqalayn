@@ -61,9 +61,19 @@ export function StudentBackendPanel({ user }: { user: User }) {
       (item) => item.id === preferenceResult.data?.institute_id && item.active,
     );
     const firstActiveInstitute = cards.find((item) => item.active);
-    // A student with an active membership should not see an empty workspace
-    // merely because they have not saved an institute preference yet.
-    setActiveInstituteId(preferredInstitute?.id ?? firstActiveInstitute?.id ?? "");
+    const selectedInstituteId = preferredInstitute?.id ?? firstActiveInstitute?.id ?? "";
+
+    // Keep the fallback selection consistent with requestStudentEnrollment,
+    // which checks the persisted preference before submitting a class request.
+    // Only save when the existing preference is missing or no longer valid.
+    if (selectedInstituteId && selectedInstituteId !== preferenceResult.data?.institute_id) {
+      const { error: savePreferenceError } = await sb.from("user_institute_preferences").upsert(
+        { user_id: user.id, institute_id: selectedInstituteId, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (savePreferenceError) throw new Error(savePreferenceError.message);
+    }
+    setActiveInstituteId(selectedInstituteId);
     setWorkspace(workspaceData);
   }, [user.id]);
   useEffect(() => {
