@@ -12,6 +12,7 @@ import {
   type TeacherAttendance,
 } from "@/lib/backend/teacher";
 import type { User } from "@/lib/domain/types";
+import { CertificateManagementPanel } from "./CertificateManagementPanel";
 
 const statusLabels: Record<TeacherAttendance["status"], string> = {
   present: "حاضر",
@@ -182,6 +183,7 @@ export function TeacherBackendPanel({ user }: { user: User }) {
     </section>
 
     {activeClass && <>
+      <CertificateManagementPanel user={user} classInfo={activeClass} enrollments={enrollments}/>
       <section className="rounded-2xl border bg-card p-5">
         <h2 className="font-extrabold">دانش‌پژوهان کلاس</h2>
         <p className="mt-1 text-sm text-muted-foreground">{enrollments.length} ثبت‌نام قطعی</p>
