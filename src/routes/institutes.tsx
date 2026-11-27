@@ -94,7 +94,7 @@ function InstitutesPage() {
     const savedInstituteId=p.data?.institute_id??"";
     const savedIsActive=!!userId&&loadedMemberships.some(
       membership=>membership.user_id===userId&&membership.institute_id===savedInstituteId&&membership.status==="active"
-    )&&(i.data??[]).some(institute=>institute.id===savedInstituteId);
+    )&&(i.data??[]).some(institute=>institute.id===savedInstituteId&&institute.is_active);
     setInstitutes(i.data ?? []);
     setMemberships(loadedMemberships);
     setMembershipNames(loadedNames);
