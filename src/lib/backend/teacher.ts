@@ -9,6 +9,7 @@ export type TeacherClass = {
   teacherId: string | null;
   description: string | null;
   capacity: number | null;
+  instituteId: string | null;
 };
 export type TeacherEnrollment = {
   id: string;
@@ -98,13 +99,13 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }
   let classQuery = sb
     .from("classes")
-    .select("id,title,course_id,teacher_id,description,capacity")
+    .select("id,title,course_id,teacher_id,description,capacity,institute_id")
     .eq("is_active", true);
   if (!isAdmin) classQuery = classQuery.eq("teacher_id", userId);
 
   const classRows = await readAllPages<{
     id: string; title: string; course_id: string | null; teacher_id: string | null;
-    description: string | null; capacity: number | null;
+    description: string | null; capacity: number | null; institute_id: string | null;
   }>(classQuery.order("created_at", { ascending: false }));
   const classes: TeacherClass[] = (classRows ?? []).map((row) => ({
     id: row.id,
@@ -113,6 +114,7 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
     teacherId: row.teacher_id,
     description: row.description,
     capacity: row.capacity,
+    instituteId: row.institute_id,
   }));
   const classIds = classes.map((item) => item.id);
   if (!classIds.length) {
