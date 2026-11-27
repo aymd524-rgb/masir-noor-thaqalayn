@@ -52,7 +52,6 @@ export function StudentCertificatesPanel({ user }: { user: User }) {
       return;
     }
     setBusyId(certificate.id);
-    printWindow.onload = () => setTimeout(() => printWindow.print(), 350);
     try {
       let signatureUrl = "";
       if (certificate.status === "issued" && certificate.signature_storage_path_snapshot) {
@@ -106,9 +105,23 @@ h1{font-size:28px;margin:0 0 22px}
 
 </body>
 </html>`;
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
+      const printDocument = printWindow.document;
+      printDocument.open();
+      printDocument.write(html);
+      printDocument.close();
+
+      const printWhenReady = () => {
+        void printDocument.fonts.ready
+          .then(() => printWindow.print())
+          .catch(() => printWindow.print());
+      };
+      const signatureImage = printDocument.querySelector("img");
+      if (signatureImage && !signatureImage.complete) {
+        signatureImage.addEventListener("load", printWhenReady, { once: true });
+        signatureImage.addEventListener("error", printWhenReady, { once: true });
+      } else {
+        printWhenReady();
+      }
     } catch (error) {
       printWindow.close();
       toast.error(error instanceof Error ? error.message : "آماده‌سازی گواهی برای چاپ انجام نشد.");
