@@ -283,6 +283,8 @@ begin
      or new.certificate_number is distinct from old.certificate_number
      or new.heading_snapshot is distinct from old.heading_snapshot
      or new.body_snapshot is distinct from old.body_snapshot
+     or new.student_name_snapshot is distinct from old.student_name_snapshot
+     or new.class_title_snapshot is distinct from old.class_title_snapshot
      or new.issued_by is distinct from old.issued_by
      or new.signature_teacher_id is distinct from old.signature_teacher_id
      or new.issued_at is distinct from old.issued_at then
