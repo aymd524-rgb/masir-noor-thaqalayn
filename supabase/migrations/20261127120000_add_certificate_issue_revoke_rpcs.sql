@@ -2,8 +2,34 @@
 -- This migration is code-only and must be tested on staging before production.
 
 alter table public.issued_certificates
-  add column if not exists student_name_snapshot text
-    check (student_name_snapshot is null or char_length(btrim(student_name_snapshot)) between 2 and 200);
+  add column if not exists student_name_snapshot text;
+
+update public.issued_certificates ic
+set student_name_snapshot = p.full_name
+from public.profiles p
+where p.id = ic.student_id and ic.student_name_snapshot is null;
+
+alter table public.issued_certificates
+  alter column student_name_snapshot set not null;
+
+alter table public.issued_certificates
+  add constraint issued_certificates_student_name_snapshot_check
+  check (char_length(btrim(student_name_snapshot)) between 2 and 200);
+
+alter table public.issued_certificates
+  add column if not exists class_title_snapshot text;
+
+update public.issued_certificates ic
+set class_title_snapshot = c.title
+from public.classes c
+where c.id = ic.class_id and ic.class_title_snapshot is null;
+
+alter table public.issued_certificates
+  alter column class_title_snapshot set not null;
+
+alter table public.issued_certificates
+  add constraint issued_certificates_class_title_snapshot_check
+  check (char_length(btrim(class_title_snapshot)) between 2 and 180);
 
 -- Direct client writes are disabled. The SECURITY DEFINER RPCs below perform
 -- their own identity, membership, class, enrollment and staff checks.
@@ -106,13 +132,13 @@ begin
   insert into public.issued_certificates (
     institute_id, class_id, enrollment_id, student_id,
     certificate_number, heading_snapshot, body_snapshot,
-    student_name_snapshot, issued_by, signature_teacher_id
+    student_name_snapshot, class_title_snapshot, issued_by, signature_teacher_id
   )
   values (
     enrollment_row.institute_id, enrollment_row.class_id,
     enrollment_row.id, enrollment_row.student_id,
     certificate_code, heading_text, body_text,
-    student_name, actor_id, signature_id
+    student_name, enrollment_row.class_title, actor_id, signature_id
   )
   returning issued_certificates.id,
             issued_certificates.certificate_number,
