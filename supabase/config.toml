@@ -1,0 +1,2 @@
+[functions.mushaf-page]
+verify_jwt = false

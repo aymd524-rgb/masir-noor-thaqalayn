@@ -18,6 +18,8 @@ export interface MushafPageData {
   page: number;
   /** Always exactly 15 slots, in mushaf order. */
   lines: MushafLine[];
+  /** Layout is source-defined: fixed 15-line printed page or flowing text. */
+  layout?: "fixed-lines" | "verse-flow";
   /** Basmala words as supplied by the source (never typed by hand). */
   basmala?: string[];
   /** Present only when the lines contain real text from a cited source (otherwise demo/placeholder). */

@@ -1,11 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
+export type StudentClass = { id: string; title: string; courseId: string | null; courseTitle: string; coursePrice: number; instituteId: string | null; instituteName: string; description: string | null; capacity: number | null; enrolledCount: number; remainingSeats: number | null };
 export type StudentRequest = { id: string; classId: string; classTitle: string; courseTitle: string; status: "pending" | "approved" | "rejected"; createdAt: string };
 export type StudentAttendance = { id: string; enrollmentId: string; sessionDate: string; status: "present" | "absent" | "late" | "excused" };
 export type StudentGrade = { id: string; enrollmentId: string; title: string; score: number; createdAt: string };
 export type StudentHifzAssignment = { id: string; enrollmentId: string; classTitle: string; surahNumber: number; ayahStart: number; ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string | null; status: "in_progress" | "completed" | "needs_help" | null; note: string | null };
 export type StudentHifzRecord = { id: string; enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number; recordType: "memorization" | "review"; assessment: "excellent" | "good" | "fair" | "needs_practice"; sessionDate: string; notes: string | null };
+
+/** Fail closed when the availability response is missing or malformed. Null means unlimited. */
+export function assertClassHasAvailableSeat(remainingSeats: number | null | undefined) {
+  if (remainingSeats === null) return;
+  if (typeof remainingSeats !== "number" || !Number.isFinite(remainingSeats)) {
+    throw new Error("ظرفیت کلاس در حال حاضر قابل بررسی نیست؛ دوباره تلاش کنید.");
+  }
+  if (remainingSeats <= 0) throw new Error("ظرفیت این کلاس تکمیل شده است.");
+}
 
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
@@ -39,19 +48,34 @@ async function readRowsForIds<T>(
 
 /** Student reads are scoped by Supabase RLS to auth.uid(); no privileged key is used. */
 export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
+  // Do not start a student workspace read for a stale or mismatched user ID.
+  // RLS remains the authoritative database-level access boundary.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای مشاهدهٔ پنل دانش‌پژوه باید با حساب خود وارد شوید.");
+  }
   const [courseResult, classResult, requestResult, enrollmentResult, availabilityResult] = await Promise.all([
-    readAllPages((from, to) => sb.from("courses").select("id,title,description").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
-    readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("courses").select("id,title,description,price").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
+    readAllPages((from, to) => sb.from("classes").select("id,title,course_id,description,capacity,institute_id").eq("is_active", true).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollment_requests").select("id,class_id,status,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     readAllPages((from, to) => sb.from("enrollments").select("id,class_id,created_at").eq("student_id", userId).order("created_at", { ascending: false }).range(from, to)),
     sb.rpc("get_active_class_availability"),
   ]);
   fail(courseResult.error); fail(classResult.error); fail(requestResult.error); fail(enrollmentResult.error); fail(availabilityResult.error);
   const availability = new Map((availabilityResult.data ?? []).map((row) => [row.class_id, row]));
-  const courses = new Map((courseResult.data ?? []).map((row) => [row.id, row.title]));
+  const courses = new Map((courseResult.data ?? []).map((row) => [row.id, { title: row.title, price: Number(row.price ?? 0) }]));
+  const instituteIds = [...new Set((classResult.data ?? []).map((row) => row.institute_id).filter((id): id is string => !!id))];
+  const instituteResult = instituteIds.length
+    ? await sb.from("institutions").select("id,name").in("id", instituteIds)
+    : { data: [], error: null };
+  fail(instituteResult.error);
+  const instituteNames = new Map((instituteResult.data ?? []).map((row) => [row.id, row.name]));
   const classes: StudentClass[] = (classResult.data ?? []).map((row) => ({
     id: row.id, title: row.title, courseId: row.course_id,
-    courseTitle: row.course_id ? courses.get(row.course_id) ?? "دوره آموزشی" : "دوره آموزشی",
+    instituteId: row.institute_id, instituteName: row.institute_id ? instituteNames.get(row.institute_id) ?? "مؤسسه" : "بدون مؤسسه",
+    courseTitle: row.course_id ? courses.get(row.course_id)?.title ?? "دوره آموزشی" : "دوره آموزشی",
+    coursePrice: row.course_id ? courses.get(row.course_id)?.price ?? 0 : 0,
     description: row.description, capacity: row.capacity,
     enrolledCount: Number(availability.get(row.id)?.enrolled_count ?? 0),
     remainingSeats: availability.get(row.id)?.remaining_seats ?? null,
@@ -63,7 +87,10 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   });
   const enrollments = (enrollmentResult.data ?? []).map((row) => ({
     id: row.id, classId: row.class_id, classTitle: classMap.get(row.class_id)?.title ?? "کلاس",
-    courseTitle: classMap.get(row.class_id)?.courseTitle ?? "دوره", createdAt: row.created_at,
+    courseTitle: classMap.get(row.class_id)?.courseTitle ?? "دوره",
+    instituteId: classMap.get(row.class_id)?.instituteId ?? null,
+    instituteName: classMap.get(row.class_id)?.instituteName ?? "مؤسسه",
+    createdAt: row.created_at,
   }));
   const enrollmentIds = enrollments.map((row) => row.id);
   const [attendanceResult, gradeResult, hifzResult, assignmentResult] = await Promise.all([
@@ -102,8 +129,55 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   return { classes, requests, enrollments, attendance, grades, hifzRecords, hifzAssignments };
 }
 
+/** Resolve a stable active institute selection without dropping other memberships. */
+export function resolveActiveInstituteId<T extends { id: string; active: boolean }>(
+  institutes: T[],
+  preferredId: string | null | undefined,
+): string {
+  const preferred = institutes.find((item) => item.id === preferredId && item.active);
+  return preferred?.id ?? institutes.find((item) => item.active)?.id ?? "";
+}
+
 /** RLS permits students to create only their own pending requests for active classes. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
+  // Match the supplied student ID to the authenticated session before any
+  // institute or enrollment checks; RLS remains the database-level boundary.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای ارسال درخواست ثبت‌نام باید با حساب دانش‌پژوه خود وارد شوید.");
+  }
+  const { data: targetClass, error: classError } = await sb.from("classes")
+    .select("course_id,institute_id").eq("id", classId).eq("is_active", true).maybeSingle();
+  fail(classError);
+  if (!targetClass?.institute_id) throw new Error("این کلاس فعال نیست یا به مؤسسه‌ای اختصاص ندارد.");
+
+  // Guard the selected institute again at the point of enrollment so a stale
+  // page or copied class link cannot submit a request to another institute.
+  const { data: preference, error: preferenceError } = await sb
+    .from("user_institute_preferences").select("institute_id").eq("user_id", userId).maybeSingle();
+  fail(preferenceError);
+  if (preference?.institute_id !== targetClass.institute_id) {
+    throw new Error("این کلاس متعلق به مؤسسهٔ فعال شما نیست؛ ابتدا مؤسسهٔ درست را انتخاب کنید.");
+  }
+  const { data: activeMembership, error: membershipError } = await sb
+    .from("institute_memberships").select("id").eq("user_id", userId)
+    .eq("institute_id", targetClass.institute_id).eq("status", "active").maybeSingle();
+  fail(membershipError);
+  if (!activeMembership) throw new Error("برای ثبت‌نام در این کلاس باید عضویت فعال همین مؤسسه را داشته باشید.");
+  // Refresh seat availability immediately before submitting; database policies must also enforce capacity atomically.
+  const { data: availabilityRows, error: availabilityError } = await sb.rpc("get_active_class_availability");
+  fail(availabilityError);
+  const availability = (availabilityRows ?? []).find((row) => row.class_id === classId);
+  if (!availability) throw new Error("ظرفیت کلاس در حال حاضر قابل بررسی نیست؛ دوباره تلاش کنید.");
+  assertClassHasAvailableSeat(availability.remaining_seats);
+  if (targetClass.course_id) {
+    const { data: course, error: courseError } = await sb.from("courses")
+      .select("price").eq("id", targetClass.course_id).eq("is_active", true).maybeSingle();
+    fail(courseError);
+    if (!course) throw new Error("دوره این کلاس فعال نیست یا پیدا نشد.");
+    if (Number(course.price ?? 0) > 0) throw new Error("این دوره شهریه دارد؛ تا فعال‌شدن درگاه پرداخت، درخواست ثبت‌نام آنلاین ممکن نیست.");
+  }
   const { data: existing, error: lookupError } = await sb.from("enrollment_requests")
     .select("id,status").eq("student_id", userId).eq("class_id", classId).eq("status", "pending").maybeSingle();
   fail(lookupError);
@@ -124,6 +198,11 @@ export async function saveStudentHifzAssignmentStatus(
   input: { assignmentId: string; studentId: string; status: "in_progress" | "completed" | "needs_help"; note: string },
 ) {
   if (!input.assignmentId || !input.studentId || input.note.length > 1000) throw new Error("اطلاعات وضعیت برنامه معتبر نیست.");
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== input.studentId) {
+    throw new Error("برای ثبت وضعیت تکلیف باید با حساب دانش‌پژوه خود وارد شوید.");
+  }
   const { data: existing, error: lookupError } = await sb.from("hifz_assignment_completions")
     .select("id").eq("assignment_id", input.assignmentId).eq("student_id", input.studentId).maybeSingle();
   fail(lookupError);

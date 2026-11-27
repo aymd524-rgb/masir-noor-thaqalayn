@@ -8,11 +8,24 @@ import { commit, readDb, useDb } from "./store";
 const SESSION_KEY = "masir-noor-session";
 
 type Status = "loading" | "signed-out" | "signed-in";
+type PhoneCodeRequest = {
+  phone: string;
+  intent: "signin" | "signup";
+  fullName?: string;
+  email?: string;
+};
+
+function normalizePhone(phone: string) {
+  const compact = phone.trim().replace(/[\s()-]/g, "");
+  return compact.startsWith("00") ? `+${compact.slice(2)}` : compact;
+}
 
 interface AuthContextValue {
   status: Status;
   user: User | null;
   mode: "demo" | "backend" | "unavailable";
+  requestPhoneCode: (input: PhoneCodeRequest) => Promise<void>;
+  verifyPhoneCode: (input: { phone: string; code: string; email?: string }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { fullName: string; email: string; password: string }) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
@@ -61,6 +74,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = useMemo(() => (userId ? (db.users.find((u) => u.id === userId) ?? null) : null), [db, userId]);
   const activeUser = user && user.active ? user : null;
   const status: Status = !ready ? "loading" : activeUser ? "signed-in" : "signed-out";
+
+  const requestPhoneCode = useCallback(async (input: PhoneCodeRequest) => {
+    const sb = getSupabase();
+    if (!sb) {
+      throw new AppError("ارسال پیامک واقعی فقط پس از اتصال Supabase و پیکربندی سرویس پیامک فعال می‌شود.");
+    }
+    const phone = normalizePhone(input.phone);
+    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+      throw new AppError("شماره را همراه کد کشور وارد کنید؛ مانند +98912…");
+    }
+    if (input.intent === "signup" && (input.fullName?.trim().length ?? 0) < 3) {
+      throw new AppError("نام و نام خانوادگی را وارد کنید.");
+    }
+    const options =
+      input.intent === "signup"
+        ? {
+            shouldCreateUser: true,
+            data: {
+              full_name: input.fullName?.trim(),
+              ...(input.email?.trim() ? { contact_email: input.email.trim().toLowerCase() } : {}),
+            },
+          }
+        : { shouldCreateUser: false };
+    const { error } = await sb.auth.signInWithOtp({ phone, options });
+    if (error) {
+      if (/sms|provider|phone/i.test(error.message)) {
+        throw new AppError("ارسال پیامک انجام نشد. سرویس پیامک در تنظیمات Supabase باید پیکربندی شود.");
+      }
+      throw new AppError("ارسال کد انجام نشد. شماره را بررسی کنید و کمی بعد دوباره تلاش کنید.");
+    }
+  }, []);
+
+  const verifyPhoneCode = useCallback(async (input: { phone: string; code: string; email?: string }) => {
+    const sb = getSupabase();
+    if (!sb) throw new AppError("تأیید پیامکی تا زمان اتصال Supabase فعال نیست.");
+    const phone = normalizePhone(input.phone);
+    const code = input.code.trim();
+    if (!/^\+[1-9]\d{7,14}$/.test(phone)) throw new AppError("شماره تلفن معتبر نیست.");
+    if (!/^\d{4,8}$/.test(code)) throw new AppError("کد پیامک را درست وارد کنید.");
+
+    const { data, error } = await sb.auth.verifyOtp({ phone, token: code, type: "sms" });
+    if (error || !data.user) throw new AppError("کد تأیید نادرست یا منقضی شده است.");
+    const metadataEmail = (data.user.user_metadata?.contact_email as string | undefined)?.trim().toLowerCase();
+    const contactEmail = input.email?.trim().toLowerCase() || metadataEmail;
+    // Always persist the verified phone in the private contact table so
+    // authorized admin contact tools can find it. Preserve an existing
+    // optional email when a user signs in without entering one.
+    const { data: previousContact, error: contactReadError } = await sb
+      .from("profile_contacts")
+      .select("email")
+      .eq("user_id", data.user.id)
+      .maybeSingle<{ email: string | null }>();
+    if (contactReadError) {
+      throw new AppError("حساب تأیید شد، اما اطلاعات تماس خوانده نشد. دوباره وارد شوید.");
+    }
+    const { error: contactError } = await sb
+      .from("profile_contacts")
+      .upsert(
+        {
+          user_id: data.user.id,
+          phone,
+          email: contactEmail || previousContact?.email || null,
+        },
+        { onConflict: "user_id" },
+      );
+    if (contactError) {
+      throw new AppError("حساب تأیید شد، اما ذخیره اطلاعات تماس انجام نشد. دوباره وارد شوید.");
+    }
+
+    const appUser = await resolveBackendUser(sb, data.user);
+    commit((d) => upsertVerifiedUser(d, appUser));
+    setUserId(appUser.id);
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const sb = getSupabase();
@@ -124,15 +210,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .update({ full_name: patch.fullName })
           .eq("id", activeUser.id);
         if (error) throw new AppError("ذخیره پروفایل در سرور انجام نشد.");
+        const { data: previousContact, error: contactReadError } = await sb
+          .from("profile_contacts")
+          .select("email")
+          .eq("user_id", activeUser.id)
+          .maybeSingle<{ email: string | null }>();
+        if (contactReadError) throw new AppError("خواندن اطلاعات تماس در سرور انجام نشد.");
         const { error: contactError } = await sb
           .from("profile_contacts")
           .upsert(
-            { user_id: activeUser.id, phone: patch.phone?.trim() || null },
+            {
+              user_id: activeUser.id,
+              phone: patch.phone?.trim() || null,
+              email: previousContact?.email ?? null,
+            },
             { onConflict: "user_id" },
           );
         if (contactError) throw new AppError("ذخیره اطلاعات تماس در سرور انجام نشد.");
-        // The profile and contact records are intentionally stored separately.
-        
       } else if (!isDemoMode) {
         throw new AppError("ویرایش حساب تا زمان اتصال Supabase فعال نیست.");
       }
@@ -142,8 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user: activeUser, mode, signIn, signUp, signOut, updateProfile }),
-    [status, activeUser, mode, signIn, signUp, signOut, updateProfile],
+    () => ({ status, user: activeUser, mode, requestPhoneCode, verifyPhoneCode, signIn, signUp, signOut, updateProfile }),
+    [status, activeUser, mode, requestPhoneCode, verifyPhoneCode, signIn, signUp, signOut, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

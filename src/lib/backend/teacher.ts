@@ -7,6 +7,8 @@ export type TeacherClass = {
   title: string;
   courseId: string | null;
   teacherId: string | null;
+  instituteId: string | null;
+  instituteName: string | null;
   description: string | null;
   capacity: number | null;
 };
@@ -54,6 +56,13 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+async function requireSignedInUser(sb: SupabaseClient): Promise<string> {
+  const { data, error } = await sb.auth.getUser();
+  fail(error);
+  if (!data.user) throw new Error("برای ثبت اطلاعات باید وارد حساب خود شوید.");
+  return data.user.id;
+}
+
 async function readAllPages<T>(query: any, pageSize = 500): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += pageSize) {
@@ -82,21 +91,40 @@ async function readRowsForIds<T>(
  * authority; this helper does not use privileged keys or bypass policies.
  */
 export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, isAdmin: boolean) {
+  // Validate the requested teacher identity against the active session.
+  // The database RLS policies still decide which classes and records are visible.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  fail(authError);
+  if (!authData.user || authData.user.id !== userId) {
+    throw new Error("برای مشاهدهٔ پنل استاد باید با حساب خود وارد شوید.");
+  }
   let classQuery = sb
     .from("classes")
-    .select("id,title,course_id,teacher_id,description,capacity")
+    .select("id,title,course_id,teacher_id,institute_id,description,capacity")
     .eq("is_active", true);
   if (!isAdmin) classQuery = classQuery.eq("teacher_id", userId);
 
   const classRows = await readAllPages<{
     id: string; title: string; course_id: string | null; teacher_id: string | null;
-    description: string | null; capacity: number | null;
+    institute_id: string | null; description: string | null; capacity: number | null;
   }>(classQuery.order("created_at", { ascending: false }));
+  const instituteIds = [...new Set((classRows ?? []).map((row) => row.institute_id).filter((id): id is string => !!id))];
+  const instituteNames = new Map<string, string>();
+  if (instituteIds.length) {
+    const { data: instituteRows, error: instituteError } = await sb
+      .from("institutions")
+      .select("id,name")
+      .in("id", instituteIds);
+    fail(instituteError);
+    for (const institute of instituteRows ?? []) instituteNames.set(institute.id, institute.name);
+  }
   const classes: TeacherClass[] = (classRows ?? []).map((row) => ({
     id: row.id,
     title: row.title,
     courseId: row.course_id,
     teacherId: row.teacher_id,
+    instituteId: row.institute_id,
+    instituteName: row.institute_id ? instituteNames.get(row.institute_id) ?? null : null,
     description: row.description,
     capacity: row.capacity,
   }));
@@ -182,6 +210,7 @@ export async function saveTeacherAttendance(
   sb: SupabaseClient,
   input: { enrollmentId: string; sessionDate: string; status: TeacherAttendance["status"] },
 ) {
+  await requireSignedInUser(sb);
   validateAttendanceInput(input);
   const { data: existing, error: findError } = await sb
     .from("attendance")
@@ -207,6 +236,7 @@ export async function saveTeacherGrade(
   sb: SupabaseClient,
   input: { enrollmentId: string; title: string; score: number },
 ) {
+  await requireSignedInUser(sb);
   validateGradeInput(input);
   const { error } = await sb.from("grades").insert({
     enrollment_id: input.enrollmentId,
@@ -229,6 +259,7 @@ export async function saveTeacherHifzRecord(
     notes: string;
   },
 ) {
+  await requireSignedInUser(sb);
   if (!input.enrollmentId || !Number.isInteger(input.surahNumber) || input.surahNumber < 1 || input.surahNumber > 114
     || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart
@@ -255,6 +286,10 @@ export async function saveTeacherHifzAssignment(
   sb: SupabaseClient,
   input: { enrollmentId: string; surahNumber: number; ayahStart: number; ayahEnd: number; assignmentType: "memorization" | "review"; dueDate: string; instructions: string; assignedBy: string },
 ) {
+  const signedInUserId = await requireSignedInUser(sb);
+  if (signedInUserId !== input.assignedBy) {
+    throw new Error("فقط استاد واردشده می‌تواند برنامهٔ حفظ را به نام خود ثبت کند.");
+  }
   const surah = getSurah(input.surahNumber);
   if (!input.enrollmentId || !surah || !Number.isInteger(input.ayahStart) || input.ayahStart < 1
     || !Number.isInteger(input.ayahEnd) || input.ayahEnd < input.ayahStart || input.ayahEnd > surah.ayahCount

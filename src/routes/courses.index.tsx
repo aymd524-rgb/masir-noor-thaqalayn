@@ -8,6 +8,8 @@ import { approvedCount } from "@/lib/domain/actions";
 import type { CourseCategory } from "@/lib/domain/types";
 import { categoryLabel, faNum, levelLabel } from "@/lib/format";
 import { useDb } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { BackendCourseCatalog } from "@/components/courses/BackendCourseCatalog";
 
 const CATS = Object.keys(categoryLabel) as CourseCategory[];
 
@@ -29,9 +31,12 @@ export const Route = createFileRoute("/courses/")({
 });
 
 function CoursesPage() {
+  const { user, mode } = useAuth();
   const db = useDb();
   const { category } = Route.useSearch();
   const navigate = Route.useNavigate();
+  if (mode === "backend") return <BackendCourseCatalog user={user}/>;
+  if (mode === "unavailable") return <div className="mx-auto max-w-3xl px-4 py-16 text-center"><h1 className="text-xl font-extrabold">اتصال سامانه هنوز پیکربندی نشده است</h1><p className="mt-2 text-sm text-muted-foreground">برای نمایش دوره‌های واقعی، مدیر سامانه باید اتصال امن پایگاه داده را تنظیم کند.</p></div>;
   const list = db.courses.filter((c) => c.published && (!category || c.category === category));
 
   return (

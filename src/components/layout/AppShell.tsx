@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   GraduationCap,
+  Building2,
   Home,
   LayoutDashboard,
   Library,
@@ -71,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
               ))}
+              <li><Link to="/institutes" className="rounded-lg px-2.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-accent-foreground">مؤسسه‌ها</Link></li>
             </ul>
           </nav>
 
@@ -122,6 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onNavigate={() => setOpen(false)}
                 />
               )}
+              <DrawerLink to="/institutes" icon={Building2} label="مؤسسه‌های آموزشی" onNavigate={() => setOpen(false)} />
             </ul>
             <div className="divider-ornament my-3" />
             <ul className="space-y-1">
@@ -188,7 +191,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-type AppPath = "/" | "/account" | "/auth" | "/student" | "/teacher" | "/admin" | (typeof SECTIONS)[number]["to"];
+type AppPath = "/" | "/account" | "/auth" | "/institutes" | "/student" | "/teacher" | "/admin" | (typeof SECTIONS)[number]["to"];
 
 function DrawerLink({
   to,

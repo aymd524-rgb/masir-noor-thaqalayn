@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { faNum } from "@/lib/format";
+import { parsePageInput, sanitizePageInput } from "@/lib/mushaf/page-input";
 import {
   TOTAL_JUZ,
   TOTAL_PAGES,
@@ -171,10 +172,12 @@ export function MushafReader({
   const isFull = full !== "off";
   const pageData = query.data?.page === page ? query.data : undefined;
   const provenance = pageData?.provenance;
+  const flowLayout = pageData?.layout === "verse-flow";
+  const fixedLineLayout = pageData?.layout === "fixed-lines";
 
   const commitPageInput = () => {
-    const n = Number(pageInput.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))));
-    if (Number.isFinite(n) && n >= 1) go(n);
+    const n = parsePageInput(pageInput, TOTAL_PAGES);
+    if (n !== null) go(n);
     else setPageInput(String(page));
   };
 
@@ -212,8 +215,9 @@ export function MushafReader({
               <Info className="h-4 w-4 text-info" />
               <AlertTitle className="font-extrabold text-info">{provenance.label}</AlertTitle>
               <AlertDescription className="text-sm text-muted-foreground">
-                متن عربی بدون هیچ تغییری از داده منبع آمده و قلم آن قلم رسمی مجمع ملک فهد است؛ اما قلم به‌تنهایی ضامن صحت نیست
-                و تطبیق این صفحه با مصحف چاپی مرجع هنوز توسط کارشناس انجام نشده است.
+                {flowLayout
+                  ? "متن آیات عیناً از منبع دریافت شده است. برای خوانایی، آیات به صورت روانخوانی نمایش داده می‌شوند؛ بنابراین چینش سطرها الزاماً با مصحف چاپی ۱۵ سطری یکسان نیست."
+                  : "متن عربی و شماره سطرها از منبع مصحف دریافت شده است؛ با این حال، تطبیق نهایی این صفحه با مصحف چاپی مرجع هنوز توسط کارشناس انجام نشده است."}
               </AlertDescription>
             </Alert>
           ))}
@@ -288,7 +292,7 @@ export function MushafReader({
               <Info />
             </ToolButton>
           </div>
-          {scale > 1 && (
+          {scale > 1 && !fixedLineLayout && (
             <p className="rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">
               در اندازه‌های بزرگ‌تر از ۱۰۰٪ سطرها برای خوانایی شکسته می‌شوند و چینش ۱۵ سطری استاندارد نمایش داده نمی‌شود.
             </p>
@@ -346,7 +350,7 @@ export function MushafReader({
               id="mushaf-page"
               inputMode="numeric"
               value={faNum(pageInput)}
-              onChange={(e) => setPageInput(e.target.value.replace(/[^\d۰-۹]/g, ""))}
+              onChange={(e) => setPageInput(sanitizePageInput(e.target.value))}
               onBlur={commitPageInput}
               className="h-10 w-16 text-center font-bold"
             />
