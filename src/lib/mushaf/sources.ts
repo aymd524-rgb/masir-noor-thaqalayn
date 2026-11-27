@@ -1,4 +1,5 @@
-import { backendConfig, isBackendConfigured } from "../backend/config";\nimport { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
+import { backendConfig, isBackendConfigured } from "../backend/config";
+import { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
 import { buildPageLines, type SourceVerse } from "./layout";
 import { LINES_PER_PAGE, arNum, clampPage, pageRange } from "./metadata";
 import type { MushafLine, MushafPageData, MushafSource, MushafWord } from "./types";
