@@ -1,7 +1,7 @@
 import { backendConfig, isBackendConfigured } from "../backend/config";\nimport { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
 import { buildPageLines, type SourceVerse } from "./layout";
-import { LINES_PER_PAGE, clampPage, pageRange } from "./metadata";
-import type { MushafLine, MushafPageData, MushafSource } from "./types";
+import { LINES_PER_PAGE, arNum, clampPage, pageRange } from "./metadata";
+import type { MushafLine, MushafPageData, MushafSource, MushafWord } from "./types";
 
 /**
  * Demo source: shows the 15-line frame, page/surah/juz navigation from Tanzil metadata,
@@ -51,6 +51,106 @@ export const prototypeSource: MushafSource = {
 };
 
 import { backendConfig, isBackendConfigured } from "../backend/config";
+
+type CloudAyah = {
+  number: number;
+  text: string;
+  numberInSurah: number;
+  page: number;
+  juz: number;
+  surah: { number: number; name: string; numberOfAyahs: number };
+};
+type CloudPageResponse = {
+  code: number;
+  status: string;
+  data?: { number: number; ayahs: CloudAyah[] };
+};
+
+let cloudBasmalaPromise: Promise<string[]> | null = null;
+
+async function getAlQuranCloudBasmala(): Promise<string[]> {
+  if (!cloudBasmalaPromise) {
+    cloudBasmalaPromise = fetch("https://api.alquran.cloud/v1/ayah/1:1/quran-uthmani")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load basmala");
+        const result = (await response.json()) as { code: number; data?: { text?: string } };
+        if (result.code !== 200 || !result.data?.text) throw new Error("Invalid basmala response");
+        return result.data.text.replace(/^\\uFEFF/, "").trim().split(/\\s+/);
+      })
+      .catch((error) => {
+        cloudBasmalaPromise = null;
+        throw error;
+      });
+  }
+  return cloudBasmalaPromise;
+}
+
+/**
+ * Free, public AlQuran Cloud text source. It supplies all 604 page boundaries
+ * and Uthmani ayah text, but not source line numbers, so the reader presents
+ * each ayah in a flowing layout instead of claiming an exact 15-line facsimile.
+ */
+export function alQuranCloudSource(): MushafSource {
+  return {
+    id: "alquran-cloud-uthmani",
+    demo: false,
+    name: "AlQuran Cloud — Uthmani text",
+    attribution:
+      "متن عثمانی: AlQuran Cloud API (alquran.cloud)؛ متن عیناً از منبع دریافت می‌شود و برای پیگیری تغییرات به منبع ارجاع داده شده است.",
+    async getPage(page, signal): Promise<MushafPageData> {
+      const p = clampPage(page);
+      const response = await fetch(`https://api.alquran.cloud/v1/page/${p}/quran-uthmani`, { signal });
+      if (!response.ok) throw new Error("سرویس متن قرآن در دسترس نیست.");
+      const result = (await response.json()) as CloudPageResponse;
+      if (result.code !== 200 || result.data?.number !== p || !Array.isArray(result.data.ayahs) || !result.data.ayahs.length) {
+        throw new Error("اطلاعات صفحه قرآن از منبع معتبر دریافت نشد.");
+      }
+
+      const hasBasmala = result.data.ayahs.some(
+        (ayah) => ayah.numberInSurah === 1 && ayah.surah.number !== 1 && ayah.surah.number !== 9,
+      );
+      const basmala = hasBasmala ? await getAlQuranCloudBasmala() : [];
+      const lines: MushafLine[] = [];
+
+      for (const ayah of result.data.ayahs) {
+        if (ayah.numberInSurah === 1) {
+          lines.push({ kind: "surah-header", surah: ayah.surah.number });
+          if (ayah.surah.number !== 1 && ayah.surah.number !== 9) lines.push({ kind: "basmala" });
+        }
+        const words: MushafWord[] = ayah.text
+          .replace(/^\\uFEFF/, "")
+          .trim()
+          .split(/\\s+/)
+          .filter(Boolean)
+          .map((text) => ({
+            text,
+            kind: "word",
+            surah: ayah.surah.number,
+            ayah: ayah.numberInSurah,
+          }));
+        words.push({
+          text: `۝${arNum(ayah.numberInSurah)}`,
+          kind: "end",
+          surah: ayah.surah.number,
+          ayah: ayah.numberInSurah,
+        });
+        lines.push({ kind: "ayah", words });
+      }
+
+      return {
+        page: p,
+        lines,
+        layout: "verse-flow",
+        basmala,
+        provenance: {
+          label: "متن کامل صفحه از AlQuran Cloud — رسم‌الخط عثمانی",
+          attribution:
+            "متن قرآن از AlQuran Cloud (alquran.cloud). متن عربی عیناً حفظ می‌شود؛ چینش سطرها به صورت روانخوانی است و الزاماً با خطوط مصحف چاپی یکسان نیست.",
+        },
+      };
+    },
+  };
+}
 
 interface V4Word {
   char_type_name: string;
@@ -133,6 +233,10 @@ export function quranFoundationEdgeSource(): MushafSource {
  */
 export function getMushafSource(): MushafSource {
   const env = import.meta.env;
-  if (env["VITE_MUSHAF_SOURCE"] === "prototype" || !isBackendConfigured) return prototypeSource;
-  return quranFoundationEdgeSource();
+  if (env["VITE_MUSHAF_SOURCE"] === "prototype") return prototypeSource;
+  if (env["VITE_MUSHAF_SOURCE"] === "quran-foundation-edge") {
+    if (!isBackendConfigured) return prototypeSource;
+    return quranFoundationEdgeSource();
+  }
+  return alQuranCloudSource();
 }
