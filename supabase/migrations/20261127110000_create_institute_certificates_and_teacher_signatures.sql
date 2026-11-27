@@ -15,7 +15,8 @@ create table if not exists public.institute_certificate_settings (
 create table if not exists public.teacher_signatures (
   teacher_id uuid primary key references auth.users(id) on delete cascade,
   storage_path text not null unique
-    check (storage_path ~ ('^' || teacher_id::text || '/signature/[a-f0-9-]{36}[.](png|jpg|webp)  updated_at timestamptz not null default now()
+    check (storage_path ~ ('^' || teacher_id::text || '/signature/[a-f0-9-]{36}[.](png|jpg|webp)$')),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.issued_certificates (
