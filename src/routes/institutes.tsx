@@ -65,6 +65,8 @@ function InstitutesPage() {
     if(classesResult.error) throw new Error(classesResult.error.message);
     // Some deployments intentionally restrict profile visibility. In that case
     // show a privacy-safe fallback rather than blocking institute management.
+    // Logically handle errors explicitly so a failed class lookup never silently
+    // hides enrollment requests, while profile lookup can safely fall back.
     const classById=new Map((classesResult.data??[]).map(row=>[row.id,row]));
     const profileById=new Map((profilesResult.data??[]).map(row=>[row.id,row.full_name]));
     const mappedRequests:EnrollmentRequest[]=pendingRequests.flatMap(request=>{
@@ -84,6 +86,8 @@ function InstitutesPage() {
       ? await sb.from("profiles").select("id,full_name").in("id",memberUserIds)
       : {data:[],error:null};
     const loadedNames:Record<string,string>={};
+    // Name visibility is optional; IDs remain masked if the profile query is
+    // blocked by privacy/RLS. Do not expose raw phone or contact fields here.
     for(const profile of namesResult.data??[]) {
       if(profile.full_name?.trim()) loadedNames[profile.id]=profile.full_name.trim();
     }
