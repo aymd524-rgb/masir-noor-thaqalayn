@@ -50,6 +50,8 @@ export const prototypeSource: MushafSource = {
   },
 };
 
+import { backendConfig, isBackendConfigured } from "../backend/config";
+
 interface V4Word {
   char_type_name: string;
   text_uthmani?: string;
@@ -60,74 +62,77 @@ interface V4Verse {
   verse_key: string;
   words: V4Word[];
 }
+interface MushafProxyResponse {
+  page: number;
+  verses: V4Verse[];
+  basmala: string[];
+}
 
 /**
- * Adapter for a Quran.com API v4–compatible endpoint (verses/by_page with word line numbers).
- * Disabled by default — enable only after the usage licence for the text has been obtained.
+ * Read-only browser adapter for our Supabase Edge Function.
+ * Quran Foundation client credentials are kept only in the Edge Function secrets.
  */
-export function quranComV4Source(baseUrl: string): MushafSource {
-  let basmala: Promise<string[]> | null = null;
-  const base = baseUrl.replace(/\/$/, "");
-
-  const fetchJson = async (url: string, signal?: AbortSignal) => {
-    const res = await fetch(url, { signal });
-    if (!res.ok) throw new Error(`Mushaf source responded ${res.status}`);
-    return res.json();
-  };
-
-  const toVerse = (v: V4Verse): SourceVerse => {
-    const [s = 0, a = 0] = v.verse_key.split(":").map(Number);
-    return {
-      surah: s,
-      ayah: a,
-      words: v.words
-        .filter((w) => w.char_type_name === "word" || w.char_type_name === "end")
-        .map((w) => ({
-          text: w.text_uthmani ?? w.text ?? "",
-          kind: w.char_type_name === "end" ? ("end" as const) : ("word" as const),
-          line: w.line_number,
-        })),
-    };
-  };
-
+export function quranFoundationEdgeSource(): MushafSource {
   return {
-    id: "quran-com-v4",
+    id: "quran-foundation-edge",
     demo: false,
-    name: "Quran.com API v4",
-    attribution: "متن عثمانی و شماره سطرها: Quran.com API v4 — فهرست‌ها: Tanzil.net (CC BY 3.0)",
+    name: "Quran Foundation Content API (secure proxy)",
+    attribution:
+      "متن عثمانی و شماره سطرها: Quran Foundation Content API، مصحف KFGQPC Hafs (mushaf 5)؛ فهرست صفحات و اجزا: Tanzil.net (CC BY 3.0)",
     async getPage(page, signal): Promise<MushafPageData> {
       const p = clampPage(page);
-      const verses: V4Verse[] = [];
-      let apiPage: number | null = 1;
-      while (apiPage) {
-        const j = await fetchJson(
-          `${base}/verses/by_page/${p}?words=true&word_fields=text_uthmani,line_number&per_page=50&page=${apiPage}`,
-          signal,
-        );
-        verses.push(...(j.verses as V4Verse[]));
-        apiPage = j.pagination?.next_page ?? null;
+      if (!backendConfig.url || !backendConfig.publishableKey) {
+        throw new Error("اتصال Supabase برای دریافت متن کامل مصحف پیکربندی نشده است.");
       }
-      basmala ??= fetchJson(`${base}/verses/by_key/1:1?words=true&word_fields=text_uthmani`).then((j) =>
-        (j.verse.words as V4Word[]).filter((w) => w.char_type_name === "word").map((w) => w.text_uthmani ?? ""),
+      const response = await fetch(
+        `${backendConfig.url.replace(/\/$/, "")}/functions/v1/mushaf-page?page=${p}`,
+        {
+          signal,
+          headers: { apikey: backendConfig.publishableKey },
+        },
       );
+      const result = (await response.json().catch(() => null)) as MushafProxyResponse | { error?: string } | null;
+      if (!response.ok || !result || !("verses" in result) || !Array.isArray(result.verses)) {
+        const message = result && "error" in result ? result.error : undefined;
+        throw new Error(message || "دریافت متن این صفحه از سرویس مصحف ناموفق بود.");
+      }
+
+      const toVerse = (v: V4Verse): SourceVerse => {
+        const [s = 0, a = 0] = v.verse_key.split(":").map(Number);
+        return {
+          surah: s,
+          ayah: a,
+          words: (v.words ?? [])
+            .filter((w) => w.char_type_name === "word" || w.char_type_name === "end")
+            .map((w) => ({
+              text: w.text_uthmani ?? w.text ?? "",
+              kind: w.char_type_name === "end" ? ("end" as const) : ("word" as const),
+              line: w.line_number,
+            })),
+        };
+      };
+
       return {
         page: p,
-        lines: buildPageLines(verses.map(toVerse)),
-        basmala: await basmala,
-        provenance: { label: "متن از Quran.com API v4 — هنوز با مرجع رسمی تطبیق انسانی نشده", attribution: "متن عثمانی و شماره سطرها: Quran.com API v4 — فهرست‌ها: Tanzil.net (CC BY 3.0)" },
+        lines: buildPageLines(result.verses.map(toVerse)),
+        basmala: result.basmala,
+        provenance: {
+          label: "متن از Quran Foundation Content API — صفحه‌بندی مصحف KFGQPC Hafs",
+          attribution:
+            "متن عثمانی و شماره سطرها: Quran Foundation Content API؛ مصحف KFGQPC Hafs (mushaf 5). لطفاً متن را با مصحف مرجع تطبیق دهید.",
+        },
       };
     },
   };
 }
 
 /**
- * Active source: fetches page text and source line positions for all 604 Madani pages.
- * The legacy Quran.com v4 endpoint is public and does not require embedding credentials.
- * Keep the source attribution visible; review the provider's current terms before a
- * public/commercial rollout. The two-page bundled snapshot remains only a fallback demo.
+ * Active source: secure Edge Function when Supabase is configured; the clearly
+ * labelled two-page prototype otherwise. Set VITE_MUSHAF_SOURCE=prototype
+ * to explicitly select the demo source.
  */
 export function getMushafSource(): MushafSource {
   const env = import.meta.env;
-  if (env["VITE_MUSHAF_SOURCE"] === "prototype") return prototypeSource;
-  return quranComV4Source(env["VITE_MUSHAF_API_BASE"] || "https://api.quran.com/api/v4");
+  if (env["VITE_MUSHAF_SOURCE"] === "prototype" || !isBackendConfigured) return prototypeSource;
+  return quranFoundationEdgeSource();
 }
