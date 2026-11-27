@@ -42,4 +42,50 @@ describe("fixed-line Mushaf layout", () => {
       ]),
     ).toThrow(MushafIntegrityError);
   });
+
+  it("keeps words from consecutive ayahs on the same source line in order", () => {
+    const lines = buildPageLines([
+      { surah: 2, ayah: 1, words: [{ text: "بِسْمِ", kind: "word", line: 3 }] },
+      { surah: 2, ayah: 2, words: [{ text: "الْحَمْدُ", kind: "word", line: 3 }] },
+    ]);
+
+    expect(lines[2]).toEqual({
+      kind: "ayah",
+      words: [
+        { text: "بِسْمِ", kind: "word", surah: 2, ayah: 1 },
+        { text: "الْحَمْدُ", kind: "word", surah: 2, ayah: 2 },
+      ],
+    });
+  });
+
+  it("places the opening surah header and basmala only in the free lines above its first ayah", () => {
+    const lines = buildPageLines([
+      { surah: 2, ayah: 1, words: [{ text: "الم", kind: "word", line: 3 }] },
+      { surah: 2, ayah: 2, words: [{ text: "ذَٰلِكَ", kind: "word", line: 4 }] },
+    ]);
+
+    expect(lines[0]).toEqual({ kind: "surah-header", surah: 2 });
+    expect(lines[1]).toEqual({ kind: "basmala" });
+    expect(lines[2]).toEqual({
+      kind: "ayah",
+      words: [{ text: "الم", kind: "word", surah: 2, ayah: 1 }],
+    });
+    expect(lines[3]).toEqual({
+      kind: "ayah",
+      words: [{ text: "ذَٰلِكَ", kind: "word", surah: 2, ayah: 2 }],
+    });
+  });
+
+  it("places the next surah header and basmala in the last two free lines after a short surah", () => {
+    const lines = buildPageLines([
+      { surah: 112, ayah: 4, words: [{ text: "أَحَدٌ", kind: "word", line: 13 }] },
+    ]);
+
+    expect(lines[12]).toEqual({
+      kind: "ayah",
+      words: [{ text: "أَحَدٌ", kind: "word", surah: 112, ayah: 4 }],
+    });
+    expect(lines[13]).toEqual({ kind: "surah-header", surah: 113 });
+    expect(lines[14]).toEqual({ kind: "basmala" });
+  });
 });
