@@ -10,7 +10,7 @@ The live Supabase review used read-only project, advisor, and SQL inspection. No
 - Further read-only inspection found two live BEFORE UPDATE triggers: `private.prevent_profile_role_escalation()` and `public.protect_profile_role()`. Both reject role changes unless `private.is_admin()` is true. Therefore the direct role-escalation path is already blocked by these triggers; the earlier report's wording that this was a confirmed critical vulnerability was too strong. The broader table grant is still unnecessarily permissive and should be tightened as defense in depth.
 - The branch contains migration `20261127010000_protect_profile_role_updates.sql`, which revokes broad INSERT/UPDATE grants, grants only intended profile fields, and adds admin-only `public.admin_set_profile_role(uuid,text)`.
 - `src/components/admin/AdminBackendPanel.tsx` now calls the guarded RPC instead of directly updating `profiles.role`.
-- **Not applied to production.** Test the migration and RPC in a disposable database, including signup/profile creation, profile edits, and role changes by admin and non-admin. CI for the new head is not yet confirmed.
+- **Not applied to production.** Test the migration and RPC in a disposable database, including signup/profile creation, profile edits, and role changes by admin and non-admin. GitHub Actions Build Check run `46025647346` on head `1c3d3f8ff91b69d255d0c77694aba97a691c02a2` completed successfully (tests and build passed). This CI run does not execute the migration against PostgreSQL.
 
 ## Other security observations
 
