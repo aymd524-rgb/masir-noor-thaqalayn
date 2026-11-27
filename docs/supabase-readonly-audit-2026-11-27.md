@@ -4,13 +4,13 @@ Project ref: `pxwdfwozinxipvudupbl`
 
 The live Supabase review used read-only project, advisor, and SQL inspection. No production schema, auth settings, function deployments, or data were changed. A mitigation was prepared in the repository branch only.
 
-## Critical profile-role finding
+## Profile-role authorization review
 
-- The live `public.profiles` table granted the `authenticated` role UPDATE privileges on `role`, and the `profiles_self_update` RLS policy allowed users to update their own row. RLS row ownership alone does not restrict which columns a user can change.
-- This creates a potential self-role-escalation path unless another control prevents it. Treat this as a critical release blocker.
-- The branch now contains migration `20261127010000_protect_profile_role_updates.sql`: it revokes broad INSERT/UPDATE grants, grants only safe profile fields, and adds admin-only `public.admin_set_profile_role(uuid,text)` with a `private.is_admin()` check.
+- The live `public.profiles` table grants `authenticated` UPDATE privileges on `role`, and the self-row RLS policy alone would not restrict column changes.
+- Further read-only inspection found two live BEFORE UPDATE triggers: `private.prevent_profile_role_escalation()` and `public.protect_profile_role()`. Both reject role changes unless `private.is_admin()` is true. Therefore the direct role-escalation path is already blocked by these triggers; the earlier report's wording that this was a confirmed critical vulnerability was too strong. The broader table grant is still unnecessarily permissive and should be tightened as defense in depth.
+- The branch contains migration `20261127010000_protect_profile_role_updates.sql`, which revokes broad INSERT/UPDATE grants, grants only intended profile fields, and adds admin-only `public.admin_set_profile_role(uuid,text)`.
 - `src/components/admin/AdminBackendPanel.tsx` now calls the guarded RPC instead of directly updating `profiles.role`.
-- **Not applied to production.** This migration and RPC must be tested in a disposable Supabase branch/database. Confirm signup/profile creation and profile editing still work, and test role-change calls as admin and non-admin. Build/CI for the new head has not yet been confirmed.
+- **Not applied to production.** Test the migration and RPC in a disposable database, including signup/profile creation, profile edits, and role changes by admin and non-admin. CI for the new head is not yet confirmed.
 
 ## Other security observations
 
