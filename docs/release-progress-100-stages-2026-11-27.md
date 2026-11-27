@@ -157,3 +157,11 @@
 - [x] PR #20 current head `a68850509a7d38a3bd60de036262078314b5b721` passed Build check run 46033772972 (#594), including `bun run test` and `bun run build`.
 - [ ] PR #19 documentation head `e723fa6263b4a947bd2682ab637ba4beada0f7ed` awaits its own CI result; previous code head passed.
 - [ ] Checklist execution against disposable staging Supabase is pending; no migrations or production changes were made.
+
+
+## Staging evidence preparation (2026-11-27)
+- [x] Stage 9: added `docs/staging-test-evidence-log-template-2026-11-27.md` to record test actor, expected/actual results, pass/fail, evidence, and migration execution separately.
+- [x] Latest PR #20 head `7b807ee5aab4f0ea2e1bb6dd41a6a03c6854ec5d` passed Build check run 46033967999 (#597).
+- [x] PR #19 checklist head `e723fa6263b4a947bd2682ab637ba4beada0f7ed` passed run 46033882036 (#596).
+- [ ] New PR #19 evidence-template commit `521a8767dbb247296c33536639a4aa61d8d8a172` has no CI run observed yet.
+- [ ] Staging evidence remains unfilled; no staging database execution or production deployment performed.
