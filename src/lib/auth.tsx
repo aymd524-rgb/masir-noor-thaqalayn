@@ -117,19 +117,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await sb.auth.verifyOtp({ phone, token: code, type: "sms" });
     if (error || !data.user) throw new AppError("کد تأیید نادرست یا منقضی شده است.");
     const contactEmail = input.email?.trim().toLowerCase();
-    // Do not upsert a row with email omitted during ordinary sign-in:
-    // PostgreSQL would treat the omitted column as NULL and could erase
-    // the user's previously saved optional contact email on every login.
-    if (contactEmail) {
-      const { error: contactError } = await sb
-        .from("profile_contacts")
-        .upsert(
-          { user_id: data.user.id, phone, email: contactEmail },
-          { onConflict: "user_id" },
-        );
-      if (contactError) {
-        throw new AppError("حساب تأیید شد، اما ذخیره ایمیل اختیاری انجام نشد. دوباره وارد شوید.");
-      }
+    // Always persist the verified phone in the private contact table so
+    // authorized admin contact tools can find it. Preserve an existing
+    // optional email when a user signs in without entering one.
+    const { data: previousContact, error: contactReadError } = await sb
+      .from("profile_contacts")
+      .select("email")
+      .eq("user_id", data.user.id)
+      .maybeSingle<{ email: string | null }>();
+    if (contactReadError) {
+      throw new AppError("حساب تأیید شد، اما اطلاعات تماس خوانده نشد. دوباره وارد شوید.");
+    }
+    const { error: contactError } = await sb
+      .from("profile_contacts")
+      .upsert(
+        {
+          user_id: data.user.id,
+          phone,
+          email: contactEmail || previousContact?.email || null,
+        },
+        { onConflict: "user_id" },
+      );
+    if (contactError) {
+      throw new AppError("حساب تأیید شد، اما ذخیره اطلاعات تماس انجام نشد. دوباره وارد شوید.");
     }
 
     const appUser = await resolveBackendUser(sb, data.user);
@@ -199,10 +209,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .update({ full_name: patch.fullName })
           .eq("id", activeUser.id);
         if (error) throw new AppError("ذخیره پروفایل در سرور انجام نشد.");
+        const { data: previousContact, error: contactReadError } = await sb
+          .from("profile_contacts")
+          .select("email")
+          .eq("user_id", activeUser.id)
+          .maybeSingle<{ email: string | null }>();
+        if (contactReadError) throw new AppError("خواندن اطلاعات تماس در سرور انجام نشد.");
         const { error: contactError } = await sb
           .from("profile_contacts")
           .upsert(
-            { user_id: activeUser.id, phone: patch.phone?.trim() || null },
+            {
+              user_id: activeUser.id,
+              phone: patch.phone?.trim() || null,
+              email: previousContact?.email ?? null,
+            },
             { onConflict: "user_id" },
           );
         if (contactError) throw new AppError("ذخیره اطلاعات تماس در سرور انجام نشد.");
