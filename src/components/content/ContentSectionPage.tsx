@@ -123,7 +123,7 @@ export function ContentSectionPage({
       </div>
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto overscroll-contain">
           {selected && (
             <>
               <DialogHeader>
@@ -137,7 +137,7 @@ export function ContentSectionPage({
                   </p>
                 </div>
               )}
-              <p className="leading-8 text-foreground">{selected.body}</p>
+              <p className="whitespace-pre-wrap break-words leading-8 text-foreground">{selected.body}</p>
             </>
           )}
         </DialogContent>
