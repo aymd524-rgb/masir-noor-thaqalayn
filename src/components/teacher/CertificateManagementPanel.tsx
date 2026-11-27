@@ -39,25 +39,28 @@ export function CertificateManagementPanel({
   const reload = async () => {
     const sb = getSupabase();
     if (!sb || !classInfo?.instituteId || !classInfo.id) return;
-    const [settingsResult, signatureResult, certificateResult] = await Promise.all([
+    const [settingsResult, certificateResult] = await Promise.all([
       sb.from("institute_certificate_settings")
         .select("certificate_heading,default_body")
         .eq("institute_id", classInfo.instituteId)
         .maybeSingle(),
-      classInfo.teacherId
-        ? sb.from("teacher_signatures").select("storage_path").eq("teacher_id", classInfo.teacherId).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
       sb.from("issued_certificates")
         .select("id,certificate_number,student_name_snapshot,class_title_snapshot,status,issued_at")
         .eq("class_id", classInfo.id)
         .order("issued_at", { ascending: false }),
     ]);
     if (settingsResult.error) throw new Error(settingsResult.error.message);
-    if (signatureResult.error) throw new Error(signatureResult.error.message);
     if (certificateResult.error) throw new Error(certificateResult.error.message);
+    let currentSignaturePath = "";
+    if (classInfo.teacherId) {
+      const { data, error } = await sb.from("teacher_signatures")
+        .select("storage_path").eq("teacher_id", classInfo.teacherId).maybeSingle();
+      if (error) throw new Error(error.message);
+      currentSignaturePath = data?.storage_path ?? "";
+    }
     setHeading(settingsResult.data?.certificate_heading ?? "گواهی پایان دوره");
     setBody(settingsResult.data?.default_body ?? "بدین‌وسیله گواهی می‌شود که");
-    setSignaturePath(signatureResult.data?.storage_path ?? "");
+    setSignaturePath(currentSignaturePath);
     setCertificates((certificateResult.data ?? []) as CertificateRow[]);
     setSelectedEnrollmentId((current) =>
       enrollments.some((item) => item.id === current) ? current : enrollments[0]?.id ?? "",
