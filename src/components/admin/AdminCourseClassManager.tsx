@@ -5,13 +5,14 @@ import { getSupabase } from "@/lib/backend/supabase";
 type Institute = { id: string; name: string; is_active: boolean };
 type Course = { id: string; title: string; description: string | null; price: number | string | null; is_active: boolean; institute_id: string | null };
 type Teacher = { id: string; full_name: string | null; institute_id: string };
+type Membership = { id: string; user_id: string; institute_id: string; role: "owner" | "manager" | "teacher" | "student"; status: "pending" | "active" | "suspended"; requested_at: string };
 type ClassRow = { id: string; title: string; description: string | null; course_id: string | null; teacher_id: string | null; capacity: number | null; is_active: boolean; starts_at: string | null; ends_at: string | null ; institute_id: string | null };
 
 export function AdminCourseClassManager() {
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [instituteId, setInstituteId] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);\n  const [memberships, setMemberships] = useState<Membership[]>([]);\n  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
@@ -43,7 +44,7 @@ export function AdminCourseClassManager() {
     const [i, coursesResult, memberships, classesResult] = await Promise.all([
       sb.from("institutions").select("id,name,is_active").order("name"),
       sb.from("courses").select("id,title,description,price,is_active,institute_id").order("created_at", { ascending: false }),
-      sb.from("institute_memberships").select("user_id,institute_id,role,status").eq("status", "active").in("role", ["owner", "manager", "teacher"]),
+      sb.from("institute_memberships").select("id,user_id,institute_id,role,status,requested_at").order("requested_at", { ascending: false }),
       sb.from("classes").select("id,title,description,course_id,teacher_id,capacity,is_active,starts_at,ends_at,institute_id").order("created_at", { ascending: false }),
     ]);
     for (const result of [i, coursesResult, memberships, classesResult]) {
@@ -57,7 +58,7 @@ export function AdminCourseClassManager() {
       if (error) throw new Error(error.message);
       teacherProfiles = data ?? [];
     }
-    const names = new Map(teacherProfiles.map(item => [item.id, item.full_name]));
+    const names = new Map(teacherProfiles.map(item => [item.id, item.full_name]));\n    setMemberNames(Object.fromEntries(teacherProfiles.map(item => [item.id, item.full_name || "کاربر"])));
     setInstitutes(i.data ?? []);
     setCourses(coursesResult.data ?? []);
     setTeachers(membershipRows.map(item => ({
@@ -66,6 +67,29 @@ export function AdminCourseClassManager() {
       full_name: names.get(item.user_id) ?? null,
     })));
     setClasses(classesResult.data ?? []);
+  }
+
+  async function reviewMembership(item: Membership, status: "active" | "suspended", role?: "student" | "teacher") {
+    const sb = getSupabase();
+    if (!sb) return;
+    setBusy(true);
+    try {
+      const { data: userData, error: userError } = await sb.auth.getUser();
+      if (userError) throw userError;
+      const { error } = await sb.from("institute_memberships").update({
+        status,
+        ...(role ? { role } : {}),
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: userData.user?.id ?? null,
+      }).eq("id", item.id);
+      if (error) throw error;
+      await reload();
+      toast.success(status === "active" ? "عضویت تأیید شد." : "درخواست رد/تعلیق شد.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "به‌روزرسانی عضویت انجام نشد.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => { void reload().catch((error) => toast.error(error instanceof Error ? error.message : "بارگذاری انجام نشد.")); }, []);
@@ -242,6 +266,17 @@ export function AdminCourseClassManager() {
           <div className="flex gap-2"><button disabled={busy || !editClassTitle.trim() || !editCourseId} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">ذخیره</button><button type="button" onClick={() => setEditingClass(null)} className="rounded-lg border px-3 py-2 text-xs">انصراف</button></div>
         </form> : <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold">{item.title}</p><p className="text-xs text-muted-foreground">{institutes.find(i => i.id === item.institute_id)?.name || "بدون مؤسسه"} · {courses.find(c => c.id === item.course_id)?.title || "بدون دوره"} · {teachers.find(t => t.id === item.teacher_id)?.full_name || "استاد تعیین نشده"} · ظرفیت {item.capacity ?? "نامحدود"} · {item.is_active ? "فعال" : "غیرفعال"}</p><p className="mt-1 text-xs text-muted-foreground">زمان: {item.starts_at ? new Date(item.starts_at).toLocaleString("fa-IR") : "تعیین‌نشده"} تا {item.ends_at ? new Date(item.ends_at).toLocaleString("fa-IR") : "تعیین‌نشده"}</p></div><div className="flex gap-2"><button type="button" disabled={busy} onClick={() => beginClassEdit(item)} className="rounded-lg border px-3 py-2 text-xs">ویرایش</button><button type="button" disabled={busy} onClick={() => void toggleClass(item)} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50">{item.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</button></div></div>}
       </li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز کلاسی تعریف نشده است.</p>}
+    </div>
+    <div className="border-t pt-4">
+      <h3 className="font-bold">درخواست‌های عضویت مؤسسه</h3>
+      <p className="mt-1 text-xs text-muted-foreground">درخواست‌ها را برای مؤسسهٔ انتخاب‌شده بررسی کنید. مدیر مؤسسه فقط می‌تواند نقش دانش‌پژوه یا استاد را تعیین کند؛ اعطای نقش مالک/مدیر ارشد محدود به مالک یا مدیر سامانه است.</p>
+      {!instituteId ? <p className="mt-3 text-sm text-muted-foreground">ابتدا مؤسسه را در بالای پنل انتخاب کنید.</p> : (() => {
+        const pending = memberships.filter(item => item.institute_id === instituteId && item.status === "pending");
+        return pending.length ? <ul className="mt-3 divide-y">{pending.map(item => <li key={item.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="font-semibold">{memberNames[item.user_id] || "کاربر"}</p><p className="text-xs text-muted-foreground">درخواست: {new Date(item.requested_at).toLocaleDateString("fa-IR")} · نقش درخواستی: {item.role === "teacher" ? "استاد" : "دانش‌پژوه"}</p></div>
+          <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void reviewMembership(item, "active", item.role === "teacher" ? "teacher" : "student")} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">تأیید عضویت</button><button type="button" disabled={busy} onClick={() => void reviewMembership(item, "suspended")} className="rounded-lg border px-3 py-2 text-xs disabled:opacity-50">رد درخواست</button></div>
+        </li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">درخواست منتظر برای این مؤسسه وجود ندارد.</p>;
+      })()}
     </div>
     <p className="text-xs text-muted-foreground">این عملیات با حساب مدیر و سیاست‌های RLS پایگاه داده انجام می‌شود؛ هیچ کلید مدیریتی در مرورگر استفاده نمی‌شود.</p>
   </section>;
