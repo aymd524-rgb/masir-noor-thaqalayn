@@ -76,7 +76,7 @@ async function getAlQuranCloudBasmala(): Promise<string[]> {
         if (!response.ok) throw new Error("Unable to load basmala");
         const result = (await response.json()) as { code: number; data?: { text?: string } };
         if (result.code !== 200 || !result.data?.text) throw new Error("Invalid basmala response");
-        return result.data.text.replace(/^\\uFEFF/, "").trim().split(/\\s+/);
+        return result.data.text.replace(/^\\uFEFF/, "").trim().split(/\s+/);
       })
       .catch((error) => {
         cloudBasmalaPromise = null;
@@ -121,7 +121,7 @@ export function alQuranCloudSource(): MushafSource {
         const words: MushafWord[] = ayah.text
           .replace(/^\\uFEFF/, "")
           .trim()
-          .split(/\\s+/)
+          .split(/\s+/)
           .filter(Boolean)
           .map((text) => ({
             text,
