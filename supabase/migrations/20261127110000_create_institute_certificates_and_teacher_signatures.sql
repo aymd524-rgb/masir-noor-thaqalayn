@@ -60,7 +60,8 @@ stable
 security definer
 set search_path = ''
 as $function$
-  select exists (
+  select (select auth.uid()) is not null
+    and exists (
     select 1
     from public.classes c
     where c.id = p_class_id
@@ -165,6 +166,7 @@ with check (
       and c.institute_id = issued_certificates.institute_id
       and e.id = issued_certificates.enrollment_id
       and e.student_id = issued_certificates.student_id
+      and private.user_is_institute_member(e.student_id, c.institute_id, array['student'])
       and private.can_manage_class_certificates(c.id)
   )
 );
@@ -234,6 +236,11 @@ as $function$
 declare
   class_row record;
 begin
+  if (select auth.uid()) is null then
+    raise exception 'signed-in user required for certificate changes'
+      using errcode = '42501';
+  end if;
+
   if tg_op = 'INSERT' then
     select c.id, c.institute_id, c.teacher_id, c.is_active
       into class_row
