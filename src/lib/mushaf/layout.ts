@@ -1,4 +1,4 @@
-import { LINES_PER_PAGE, TOTAL_SURAHS, ayahCount } from "./metadata";
+import { isValidVerse, LINES_PER_PAGE, TOTAL_SURAHS, ayahCount } from "./metadata";
 import type { MushafLine, MushafWord } from "./types";
 
 export interface SourceVerse {
@@ -18,7 +18,16 @@ export function buildPageLines(verses: SourceVerse[]): MushafLine[] {
   const slots: (MushafLine | null)[] = Array.from({ length: LINES_PER_PAGE }, () => null);
 
   for (const v of verses) {
+    if (!isValidVerse(v.surah, v.ayah)) {
+      throw new MushafIntegrityError(`invalid verse reference ${v.surah}:${v.ayah}`);
+    }
     for (const w of v.words) {
+      if (typeof w.text !== "string" || !w.text.trim()) {
+        throw new MushafIntegrityError(`empty text for ${v.surah}:${v.ayah}`);
+      }
+      if (w.kind !== "word" && w.kind !== "end") {
+        throw new MushafIntegrityError(`invalid word type for ${v.surah}:${v.ayah}`);
+      }
       if (!Number.isInteger(w.line) || w.line < 1 || w.line > LINES_PER_PAGE) {
         throw new MushafIntegrityError(`line ${w.line} out of range for ${v.surah}:${v.ayah}`);
       }
