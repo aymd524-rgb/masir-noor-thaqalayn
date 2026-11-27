@@ -50,3 +50,5 @@ Run these checks only against a disposable/staging Supabase project after applyi
 34. A pending or rejected enrollment cannot receive a certificate through `issue_course_certificate`; only an `approved` enrollment in an active class and active institute may be issued one.
 
 35. Verify the certificate insert RLS policy independently requires `enrollments.status = 'approved'` as defense in depth, even though authenticated direct writes are revoked and the issuance RPC also checks status.
+
+36. When a staff member saves certificate settings with `updated_by` set to another user's UUID, the audit trigger must overwrite it with the authenticated actor and refresh `updated_at`; unauthenticated writes must fail.
