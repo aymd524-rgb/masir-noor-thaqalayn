@@ -171,3 +171,12 @@
 - [x] Stage 10: the staging evidence-log template commit passed GitHub Actions Build check #598 (run 46034070216).
 - [x] The tracker and PR notes now reflect the successful CI result.
 - [ ] This is still source-level CI only; staging evidence has not been collected and no migration was executed.
+
+
+## Mushaf page navigation validation (2026-11-27)
+- [x] Stage 11: page input now accepts Persian and Arabic-Indic digits and normalizes them before parsing.
+- [x] Rejects empty, zero, non-numeric, and out-of-range page numbers (valid range 1–604); invalid submission restores the current page.
+- [x] Added unit tests for digit normalization and range validation.
+- [x] PR #19 integration head `80537dde3234b2abe6622848607aa1adfee3a040` passed Build check #606 (run 46034778439).
+- [x] Earlier Mushaf input commit `126e794fe9b2c1c1a30eab6f63d4c2ad77bd5d63` passed Build check #603 (run 46034582514).
+- [ ] This improves page navigation only; it does not supply or verify the complete fixed 15-line page data. Staging and publication remain pending.
