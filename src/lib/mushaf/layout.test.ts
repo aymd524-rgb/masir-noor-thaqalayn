@@ -43,6 +43,28 @@ describe("fixed-line Mushaf layout", () => {
     ).toThrow(MushafIntegrityError);
   });
 
+  it("rejects invalid surah and ayah references from an external source", () => {
+    expect(() =>
+      buildPageLines([
+        { surah: 115, ayah: 1, words: [{ text: "invalid", kind: "word", line: 1 }] },
+      ]),
+    ).toThrow(/invalid verse reference/);
+
+    expect(() =>
+      buildPageLines([
+        { surah: 2, ayah: 287, words: [{ text: "invalid", kind: "word", line: 1 }] },
+      ]),
+    ).toThrow(/invalid verse reference/);
+  });
+
+  it("rejects blank word text instead of rendering an empty source word", () => {
+    expect(() =>
+      buildPageLines([
+        { surah: 2, ayah: 1, words: [{ text: "  ", kind: "word", line: 1 }] },
+      ]),
+    ).toThrow(/empty text/);
+  });
+
   it("keeps words from consecutive ayahs on the same source line in order", () => {
     const lines = buildPageLines([
       { surah: 2, ayah: 1, words: [{ text: "بِسْمِ", kind: "word", line: 3 }] },
