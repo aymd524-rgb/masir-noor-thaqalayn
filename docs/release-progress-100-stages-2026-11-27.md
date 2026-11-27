@@ -196,3 +196,12 @@
 - [ ] لازم است شاخهٔ گواهی‌ها با آخرین تغییرات PR #19 هماهنگ و CI یکپارچهٔ جدید اجرا شود.
 - [ ] staging، ارسال SMS واقعی، منبع کامل مصحف ۱۵ خطی، و چاپ گواهی روی Android همچنان تأیید نشده‌اند.
 - هیچ PR ادغام نشده، migration تولید اجرا نشده و سایت عمومی در این مرحله منتشر/به‌روزرسانی نشده است.
+
+
+## Sync of certificate branch with latest institute integration (2026-11-27)
+- [x] Stage 12: synchronized PR #20 certificate work onto the latest PR #19 integration head `02eef1f139373020d437239361c965395ebe9447`.
+- [x] Sync commit: `9c36006f709baa649e74bd5ad7375382a20c902d`; PR #20 now points to this merge commit.
+- [x] GitHub Actions Build #617 (run `46042630682`) passed for the exact sync commit: dependency installation, application tests, and production build succeeded.
+- [ ] Cloudflare preview deployment for the sync commit has not been confirmed; the preview bot still reports older commit `3d24dae`.
+- [ ] Staging Supabase/RLS, actual SMS delivery, full verified 15-line Uthmani mushaf source, and Android certificate print acceptance remain pending.
+- PR #20 remains Draft; no merge to main, live migration, or production deployment.
