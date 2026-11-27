@@ -172,6 +172,7 @@ export function MushafReader({
   const pageData = query.data?.page === page ? query.data : undefined;
   const provenance = pageData?.provenance;
   const flowLayout = pageData?.layout === "verse-flow";
+  const fixedLineLayout = pageData?.layout === "fixed-lines";
 
   const commitPageInput = () => {
     const n = Number(pageInput.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))));
@@ -290,7 +291,7 @@ export function MushafReader({
               <Info />
             </ToolButton>
           </div>
-          {scale > 1 && (
+          {scale > 1 && !fixedLineLayout && (
             <p className="rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">
               در اندازه‌های بزرگ‌تر از ۱۰۰٪ سطرها برای خوانایی شکسته می‌شوند و چینش ۱۵ سطری استاندارد نمایش داده نمی‌شود.
             </p>
