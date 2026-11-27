@@ -12,11 +12,20 @@ This is a read-only validation record for draft PR #19. No production writes wer
 
 ## Release blockers / not yet verified
 
-1. Combined GitHub Actions Build Check for PR #19 head `18b7def69ffa252dbe60fdd2e93d19aaa2625b8c` has not produced a recorded run.
-2. Actual SMS delivery and OTP verification have not been tested with a configured SMS provider.
-3. The email-column migration has not been applied to a disposable database or production.
-4. The 604-page fixed 15-line hifz mushaf and its Edge Function remain unverified for release.
+1. GitHub Actions Build Check for PR #19 latest head `a461f7e007952702540316580582edc7f2c2cdca` passed run 46033411384 (#592), including application tests and build.
+2. PR #20 stacked on the integration branch passed run 46033448170 (#593), including application tests and build.
+3. Actual SMS delivery and OTP verification have not been tested with a configured SMS provider.
+4. The email-column and institute migrations have not been applied to a disposable database or production.
+5. The 604-page fixed 15-line hifz mushaf and its Edge Function remain unverified for release.
 
 ## Safety boundary
 
 PR #19 remains Draft. No PR was merged, no production migration was applied, and the public site was not deployed.
+
+
+## CI status update (2026-11-27)
+The latest source-level CI checks are green:
+- PR #19 head `a461f7e007952702540316580582edc7f2c2cdca`: run 46033411384.
+- PR #20 head `e985381666fe6979f81d54a0dd0a8af91c68f931`: run 46033448170.
+
+These runs execute dependency installation, `bun run test`, and `bun run build`. They do not execute SQL migrations against a staging database or verify live SMS delivery, fixed-line Quran page data, or mobile print output. PRs remain Draft; no merge or deployment was performed.
