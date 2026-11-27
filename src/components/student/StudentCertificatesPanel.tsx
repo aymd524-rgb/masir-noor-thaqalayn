@@ -52,6 +52,7 @@ export function StudentCertificatesPanel({ user }: { user: User }) {
       return;
     }
     setBusyId(certificate.id);
+    printWindow.onload = () => setTimeout(() => printWindow.print(), 350);
     try {
       let signatureUrl = "";
       if (certificate.status === "issued" && certificate.signature_storage_path_snapshot) {
@@ -102,7 +103,7 @@ h1{font-size:28px;margin:0 0 22px}
 <div class="footer"><div><p>تاریخ صدور</p><b>${escapeHtml(dateText)}</b></div>${signatureMarkup}</div>
 <p class="number">شمارهٔ گواهی: ${escapeHtml(certificate.certificate_number)}</p>
 </main>
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));</script>
+
 </body>
 </html>`;
       printWindow.document.open();
