@@ -11,3 +11,11 @@ export function normalizePageDigits(value: string): string {
 export function sanitizePageInput(value: string): string {
   return normalizePageDigits(value).replace(/[^0-9]/g, "");
 }
+
+/** Parse a page number only when it falls within the available Mushaf range. */
+export function parsePageInput(value: string, maxPage = 604): number | null {
+  const normalized = normalizePageDigits(value).trim();
+  if (!normalized || !/^\d+$/.test(normalized)) return null;
+  const page = Number(normalized);
+  return Number.isSafeInteger(page) && page >= 1 && page <= maxPage ? page : null;
+}
