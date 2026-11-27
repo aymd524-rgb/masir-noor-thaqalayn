@@ -116,7 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data, error } = await sb.auth.verifyOtp({ phone, token: code, type: "sms" });
     if (error || !data.user) throw new AppError("کد تأیید نادرست یا منقضی شده است.");
-    const contactEmail = input.email?.trim().toLowerCase();
+    const metadataEmail = (data.user.user_metadata?.contact_email as string | undefined)?.trim().toLowerCase();
+    const contactEmail = input.email?.trim().toLowerCase() || metadataEmail;
     // Always persist the verified phone in the private contact table so
     // authorized admin contact tools can find it. Preserve an existing
     // optional email when a user signs in without entering one.
