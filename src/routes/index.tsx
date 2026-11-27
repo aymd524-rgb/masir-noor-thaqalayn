@@ -79,15 +79,15 @@ function HomePage() {
       <section className="pb-8">
         <div className="mb-5 flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-extrabold sm:text-2xl">دوره‌های آموزشی</h2>
-            <p className="mt-2 text-sm text-muted-foreground">برای یادگیری، یک کلاس را انتخاب کنید</p>
+            <h2 className="text-xl font-extrabold sm:text-2xl">پیشنهاد دوره برای شروع</h2>
+            <p className="mt-2 text-sm text-muted-foreground">با اولویت سطح مقدماتی و ظرفیت باقی‌مانده؛ انتخاب نهایی با شماست.</p>
           </div>
           <Link to="/courses" className="shrink-0 text-sm font-bold text-primary">همه دوره‌ها</Link>
         </div>
         {courses.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
-              <Link key={course.id} to="/courses" className="rounded-2xl border bg-card p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
+            {courses.map(({ course, enrolled, hasSeat }) => (
+              <Link key={course.id} to="/courses/$courseId" params={{ courseId: course.id }} className="rounded-2xl border bg-card p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">
                 <p className="text-xs font-bold text-primary">{categoryLabel[course.category]}</p>
                 <h3 className="mt-2 font-extrabold">{course.title}</h3>
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{course.description}</p>
@@ -95,6 +95,9 @@ function HomePage() {
                   <span>{levelLabel[course.level]}</span>
                   <span>{faNum(course.durationWeeks)} هفته</span>
                 </div>
+                <p className="mt-3 text-xs font-medium text-muted-foreground">
+                  {hasSeat ? `ظرفیت باقی‌مانده: ${faNum(course.capacity - enrolled)} نفر` : "ظرفیت تکمیل شده"}
+                </p>
               </Link>
             ))}
           </div>
