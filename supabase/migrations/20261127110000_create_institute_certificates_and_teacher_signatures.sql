@@ -167,6 +167,7 @@ with check (
       and c.institute_id = issued_certificates.institute_id
       and e.id = issued_certificates.enrollment_id
       and e.student_id = issued_certificates.student_id
+      and e.status = 'approved'
       and private.user_is_institute_member(e.student_id, c.institute_id, array['student'])
       and private.can_manage_class_certificates(c.id)
   )
