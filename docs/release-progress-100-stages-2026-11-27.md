@@ -205,3 +205,9 @@
 - [ ] Cloudflare preview deployment for the sync commit has not been confirmed; the preview bot still reports older commit `3d24dae`.
 - [ ] Staging Supabase/RLS, actual SMS delivery, full verified 15-line Uthmani mushaf source, and Android certificate print acceptance remain pending.
 - PR #20 remains Draft; no merge to main, live migration, or production deployment.
+
+
+## Tracker CI verification (2026-11-27)
+- [x] Stage 13: tracker update commit `f29d3ec128d5e43c07851760d0023738b299016e` passed Build #618 (run `46042793254`) for the exact SHA; dependency installation, application tests, and production build all succeeded.
+- [ ] Cloudflare preview bot still reports latest deployed preview as commit `3d24dae`; the synced integration commit and tracker commit do not yet have a confirmed preview deployment.
+- [ ] No staging validation or production deployment. Full fixed 15-line Mushaf source and real SMS acceptance remain unresolved.
