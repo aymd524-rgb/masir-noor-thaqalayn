@@ -127,6 +127,31 @@ export function StudentBackendPanel({ user }: { user: User }) {
     hifzRecords: workspace.hifzRecords.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
     hifzAssignments: workspace.hifzAssignments.filter((item) => workspace.enrollments.find((enrollment) => enrollment.id === item.enrollmentId)?.instituteId === activeInstituteId),
   } : { ...workspace, enrollments: [], requests: [], attendance: [], grades: [], hifzRecords: [], hifzAssignments: [] };
+  const instituteLearningSummaries = institutes.map((institute) => {
+    const instituteEnrollments = workspace.enrollments.filter((item) => item.instituteId === institute.id);
+    const enrollmentIds = new Set(instituteEnrollments.map((item) => item.id));
+    const attendance = workspace.attendance.filter((item) => enrollmentIds.has(item.enrollmentId));
+    const grades = workspace.grades.filter((item) => enrollmentIds.has(item.enrollmentId));
+    const hifzRecords = workspace.hifzRecords.filter((item) => enrollmentIds.has(item.enrollmentId));
+    const hifzAssignments = workspace.hifzAssignments.filter((item) => enrollmentIds.has(item.enrollmentId));
+    const requests = workspace.requests.filter((item) =>
+      workspace.classes.find((cls) => cls.id === item.classId)?.instituteId === institute.id
+    );
+    const presentCount = attendance.filter((item) => item.status === "present" || item.status === "late").length;
+    const pendingCount = requests.filter((item) => item.status === "pending").length;
+    const completedAssignments = hifzAssignments.filter((item) => item.status === "completed").length;
+    return {
+      ...institute,
+      enrollmentCount: instituteEnrollments.length,
+      pendingCount,
+      attendanceRate: attendance.length ? Math.round(presentCount / attendance.length * 100) : null,
+      gradeCount: grades.length,
+      hifzRecordCount: hifzRecords.length,
+      assignmentCount: hifzAssignments.length,
+      completedAssignments,
+    };
+  });
+
   const present = panelWorkspace.attendance.filter((a) => a.status === "present" || a.status === "late").length;
   const attendanceRate = panelWorkspace.attendance.length ? Math.round(present / panelWorkspace.attendance.length * 100) : null;
   const memorizationRecords = panelWorkspace.hifzRecords.filter((record) => record.recordType === "memorization");
@@ -184,6 +209,27 @@ export function StudentBackendPanel({ user }: { user: User }) {
         {!institute.active ? <p className="mt-3 rounded-lg bg-muted p-2 text-sm text-muted-foreground">این مؤسسه غیرفعال است و فعلاً نمی‌توان آن را انتخاب کرد.</p> : activeInstituteId === institute.id ? <p className="mt-3 text-sm font-semibold text-primary">مؤسسهٔ فعال فعلی</p> : <Button className="mt-3 w-full" variant="outline" size="sm" disabled={!!busyInstitute} onClick={() => void chooseInstitute(institute.id)}>{busyInstitute === institute.id ? "در حال ذخیره…" : "انتخاب برای ثبت‌نام و مشاهدهٔ دوره‌ها"}</Button>}
         <Button asChild variant="link" className="mt-1 px-0"><Link to="/courses">رفتن به فهرست دوره‌ها</Link></Button>
       </article>)}</div> : <p className="mt-3 text-sm text-muted-foreground">هنوز عضویت فعال در مؤسسه‌ای ندارید. پس از تأیید عضویت، کارت مؤسسه در این قسمت ظاهر می‌شود.</p>}
+    </section>
+    <section className="rounded-2xl border bg-card p-5">
+      <h2 className="font-extrabold">پیشرفت من در هر مؤسسه</h2>
+      <p className="mt-1 text-sm text-muted-foreground">اطلاعات هر مؤسسه در کارت مستقل آمده است؛ انتخاب مؤسسهٔ فعال فقط بخش ثبت‌نام و جزئیات جاری را تغییر می‌دهد.</p>
+      {instituteLearningSummaries.length ? <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {instituteLearningSummaries.map((institute) => <article key={institute.id} className="rounded-xl border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-bold">{institute.name}</h3>
+            {activeInstituteId === institute.id ? <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">مؤسسهٔ فعال</span> : <span className="text-xs text-muted-foreground">{institute.role === "teacher" ? "استاد" : institute.role === "owner" ? "مالک" : institute.role === "manager" ? "مدیر" : "دانش‌پژوه"}</span>}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.enrollmentCount}</p><p className="text-xs text-muted-foreground">ثبت‌نام قطعی</p></div>
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.pendingCount}</p><p className="text-xs text-muted-foreground">درخواست منتظر</p></div>
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.attendanceRate === null ? "—" : institute.attendanceRate + "٪"}</p><p className="text-xs text-muted-foreground">حضور مؤثر</p></div>
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.gradeCount}</p><p className="text-xs text-muted-foreground">نمره</p></div>
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.hifzRecordCount}</p><p className="text-xs text-muted-foreground">رکورد حفظ</p></div>
+            <div className="rounded-lg bg-muted/50 p-3"><p className="font-extrabold">{institute.completedAssignments}/{institute.assignmentCount}</p><p className="text-xs text-muted-foreground">برنامهٔ حفظ انجام‌شده</p></div>
+          </div>
+          {activeInstituteId !== institute.id && institute.active ? <Button className="mt-3 w-full" variant="outline" size="sm" disabled={!!busyInstitute} onClick={() => void chooseInstitute(institute.id)}>{busyInstitute === institute.id ? "در حال ذخیره…" : "فعال‌کردن این مؤسسه"}</Button> : null}
+        </article>)}
+      </div> : <p className="mt-3 text-sm text-muted-foreground">برای نمایش گزارش، ابتدا عضویت فعال یک مؤسسه تأیید شود.</p>}
     </section>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <Metric label="کلاس‌های قطعی" value={panelWorkspace.enrollments.length}/>
