@@ -121,13 +121,13 @@ export function quranComV4Source(baseUrl: string): MushafSource {
 }
 
 /**
- * Active source. Default is the prototype (real text on pages 1–2 only, demo frame elsewhere). Set VITE_MUSHAF_SOURCE=quran-com-v4 (and optionally
- * VITE_MUSHAF_API_BASE) only once the text licence is in place.
+ * Active source: fetches page text and source line positions for all 604 Madani pages.
+ * The legacy Quran.com v4 endpoint is public and does not require embedding credentials.
+ * Keep the source attribution visible; review the provider's current terms before a
+ * public/commercial rollout. The two-page bundled snapshot remains only a fallback demo.
  */
 export function getMushafSource(): MushafSource {
   const env = import.meta.env;
-  if (env["VITE_MUSHAF_SOURCE"] === "quran-com-v4") {
-    return quranComV4Source(env["VITE_MUSHAF_API_BASE"] || "https://api.quran.com/api/v4");
-  }
-  return prototypeSource;
+  if (env["VITE_MUSHAF_SOURCE"] === "prototype") return prototypeSource;
+  return quranComV4Source(env["VITE_MUSHAF_API_BASE"] || "https://api.quran.com/api/v4");
 }
