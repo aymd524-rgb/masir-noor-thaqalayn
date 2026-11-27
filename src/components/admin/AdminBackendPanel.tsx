@@ -108,9 +108,9 @@ export function AdminBackendPanel() {
   if(!sb)return;
   setSavingId(profile.id);
   try{
-   const {data:updated,error}=await sb.from("profiles").update({role:nextRole}).eq("id",profile.id).select("id").maybeSingle();
+   const {data:updated,error}=await sb.rpc("admin_set_profile_role",{p_user_id:profile.id,p_role:nextRole});
    if(error)throw new Error(error.message);
-   if(!updated)throw new Error("تغییر نقش انجام نشد؛ مجوز مدیر یا وضعیت حساب را بررسی کنید.");
+   if(updated!==true)throw new Error("تغییر نقش انجام نشد؛ مجوز مدیر یا وضعیت حساب را بررسی کنید.");
    await loadData();
    toast.success("نقش کاربر تغییر کرد.");
   }catch(error){toast.error(error instanceof Error?error.message:"تغییر نقش انجام نشد.");}
