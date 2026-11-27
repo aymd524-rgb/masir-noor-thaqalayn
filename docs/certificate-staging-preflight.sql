@@ -57,6 +57,31 @@ begin
     raise exception 'Missing revoke_course_certificate RPC';
   end if;
 
+  if has_function_privilege('anon', 'public.issue_course_certificate(uuid,boolean,boolean)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.revoke_course_certificate(uuid,text)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.issue_course_certificate(uuid,boolean,boolean)', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.revoke_course_certificate(uuid,text)', 'EXECUTE') then
+    raise exception 'Certificate RPC execution grants are not restricted as expected';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'issued_certificates'
+      and policyname = 'issued_certificates_read_scope'
+  ) then
+    raise exception 'Missing issued certificate read-scope policy';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'teacher_signature_certificate_recipient_read'
+  ) then
+    raise exception 'Missing certificate recipient signature policy';
+  end if;
+
   if has_table_privilege('authenticated', 'public.issued_certificates', 'INSERT')
      or has_table_privilege('authenticated', 'public.issued_certificates', 'UPDATE')
      or has_table_privilege('authenticated', 'public.issued_certificates', 'DELETE') then
