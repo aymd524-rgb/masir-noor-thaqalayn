@@ -228,3 +228,74 @@ comment on table public.issued_certificates is
   'Institute-scoped issued certificates. Students may read their own; issuance/revocation is staff-controlled and records are not client-deletable.';
 comment on table public.teacher_signatures is
   'Private signature image pointer owned by the teacher. Signature image objects live in the private teacher-signatures storage bucket.';
+
+-- Protect the immutable certificate snapshot and validate the selected signature.
+create or replace function private.guard_issued_certificate_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  class_row record;
+begin
+  if tg_op = 'INSERT' then
+    select c.id, c.institute_id, c.teacher_id, c.is_active
+      into class_row
+    from public.classes c
+    where c.id = new.class_id;
+
+    if not found
+       or class_row.institute_id is distinct from new.institute_id
+       or class_row.is_active is not true then
+      raise exception 'certificate class is inactive or institute does not match'
+        using errcode = '23514';
+    end if;
+
+    if new.signature_teacher_id is not null then
+      if new.signature_teacher_id is distinct from class_row.teacher_id
+         or not exists (
+           select 1 from public.teacher_signatures ts
+           where ts.teacher_id = new.signature_teacher_id
+         ) then
+        raise exception 'signature must belong to the assigned teacher and have an uploaded signature'
+          using errcode = '23514';
+      end if;
+    end if;
+
+    return new;
+  end if;
+
+  -- Issued certificate content and identity are a permanent snapshot.
+  if new.id is distinct from old.id
+     or new.institute_id is distinct from old.institute_id
+     or new.class_id is distinct from old.class_id
+     or new.enrollment_id is distinct from old.enrollment_id
+     or new.student_id is distinct from old.student_id
+     or new.certificate_number is distinct from old.certificate_number
+     or new.heading_snapshot is distinct from old.heading_snapshot
+     or new.body_snapshot is distinct from old.body_snapshot
+     or new.issued_by is distinct from old.issued_by
+     or new.signature_teacher_id is distinct from old.signature_teacher_id
+     or new.issued_at is distinct from old.issued_at then
+    raise exception 'certificate identity and issued content are immutable'
+      using errcode = '42501';
+  end if;
+
+  if old.status <> 'issued' or new.status <> 'revoked'
+     or new.revoked_at is null
+     or new.revoked_by is distinct from (select auth.uid()) then
+    raise exception 'a certificate may only be revoked once by an authorized staff member'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function private.guard_issued_certificate_changes() from public, anon, authenticated;
+drop trigger if exists issued_certificates_guard_changes on public.issued_certificates;
+create trigger issued_certificates_guard_changes
+before insert or update on public.issued_certificates
+for each row execute function private.guard_issued_certificate_changes();
+
