@@ -187,3 +187,12 @@
 - [ ] PR #20 certificate integration must run CI again against the current PR #19 base before it is considered validated. Its previous successful Build #607 used an earlier base.
 - [ ] Staging database, SMS delivery, Quran Foundation page source, and Android certificate print acceptance remain pending.
 - No merge, production migration, or public deployment was performed.
+
+
+## بازبینی مجدد وضعیت یکپارچه‌سازی (2026-11-27، به‌روزرسانی)
+- [x] PR #19 آخرین head `02eef1f139373020d437239361c965395ebe9447` را در Build #615 (run 46040367375) با موفقیت گذراند؛ نصب وابستگی‌ها، تست‌ها و build موفق بودند.
+- [x] PR #20 هنوز Draft است و head آن `3d24dae5d95349b73b54a34bd46989b5e463dad1` است.
+- [ ] PR #20 هنوز بر پایهٔ SHA قدیمی `91694053d09adb61034ad82025b535f18e14521e` قرار دارد؛ Build #614 (run 46040031892) برای head قبلی موفق بود، اما تغییرات تازهٔ PR #19 را اعتبارسنجی نمی‌کند.
+- [ ] لازم است شاخهٔ گواهی‌ها با آخرین تغییرات PR #19 هماهنگ و CI یکپارچهٔ جدید اجرا شود.
+- [ ] staging، ارسال SMS واقعی، منبع کامل مصحف ۱۵ خطی، و چاپ گواهی روی Android همچنان تأیید نشده‌اند.
+- هیچ PR ادغام نشده، migration تولید اجرا نشده و سایت عمومی در این مرحله منتشر/به‌روزرسانی نشده است.
