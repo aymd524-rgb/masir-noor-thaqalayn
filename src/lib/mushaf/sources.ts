@@ -216,6 +216,7 @@ export function quranFoundationEdgeSource(): MushafSource {
       return {
         page: p,
         lines: buildPageLines(result.verses.map(toVerse)),
+        layout: "fixed-lines",
         basmala: result.basmala,
         provenance: {
           label: "متن از Quran Foundation Content API — صفحه‌بندی مصحف KFGQPC Hafs",
