@@ -25,4 +25,16 @@ describe("Mushaf page number bounds", () => {
     expect(parsePageInput("۰")).toBeNull();
     expect(parsePageInput("۶۰۵")).toBeNull();
   });
+
+  it("rejects mixed text and decimal page numbers", () => {
+    expect(parsePageInput("صفحه ۱۲")).toBeNull();
+    expect(parsePageInput("12.5")).toBeNull();
+    expect(parsePageInput("1e2")).toBeNull();
+  });
+
+  it("accepts surrounding whitespace and honors a supplied page limit", () => {
+    expect(parsePageInput(" ۱۲ ")).toBe(12);
+    expect(parsePageInput("۱۲", 10)).toBeNull();
+    expect(parsePageInput("۱۰", 10)).toBe(10);
+  });
 });
