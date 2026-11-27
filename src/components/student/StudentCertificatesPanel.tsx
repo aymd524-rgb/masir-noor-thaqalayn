@@ -54,7 +54,7 @@ export function StudentCertificatesPanel({ user }: { user: User }) {
     setBusyId(certificate.id);
     try {
       let signatureUrl = "";
-      if (certificate.signature_storage_path_snapshot) {
+      if (certificate.status === "issued" && certificate.signature_storage_path_snapshot) {
         const sb = getSupabase();
         if (!sb) throw new Error("اتصال پایگاه داده در دسترس نیست.");
         const { data, error } = await sb.storage.from("teacher-signatures")
