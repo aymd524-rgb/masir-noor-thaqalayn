@@ -40,17 +40,32 @@ export function AdminCourseClassManager() {
   async function reload() {
     const sb = getSupabase();
     if (!sb) throw new Error("اتصال پایگاه داده فعال نیست.");
-    const [i, c, memberships, cl] = await Promise.all([
+    const [i, coursesResult, memberships, classesResult] = await Promise.all([
       sb.from("institutions").select("id,name,is_active").order("name"),
       sb.from("courses").select("id,title,description,price,is_active,institute_id").order("created_at", { ascending: false }),
       sb.from("institute_memberships").select("user_id,institute_id,role,status").eq("status", "active").in("role", ["owner", "manager", "teacher"]),
       sb.from("classes").select("id,title,description,course_id,teacher_id,capacity,is_active,starts_at,ends_at,institute_id").order("created_at", { ascending: false }),
     ]);
-    for (const result of [i, c, t, cl]) if (result.error) throw new Error(result.error.message);
+    for (const result of [i, coursesResult, memberships, classesResult]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+    const membershipRows = memberships.data ?? [];
+    const memberIds = [...new Set(membershipRows.map(item => item.user_id))];
+    let teacherProfiles: { id: string; full_name: string | null }[] = [];
+    if (memberIds.length) {
+      const { data, error } = await sb.from("profiles").select("id,full_name").in("id", memberIds);
+      if (error) throw new Error(error.message);
+      teacherProfiles = data ?? [];
+    }
+    const names = new Map(teacherProfiles.map(item => [item.id, item.full_name]));
     setInstitutes(i.data ?? []);
-    setCourses(c.data ?? []);
-    setTeachers(t.data ?? []);
-    setClasses(cl.data ?? []);
+    setCourses(coursesResult.data ?? []);
+    setTeachers(membershipRows.map(item => ({
+      id: item.user_id,
+      institute_id: item.institute_id,
+      full_name: names.get(item.user_id) ?? null,
+    })));
+    setClasses(classesResult.data ?? []);
   }
 
   useEffect(() => { void reload().catch((error) => toast.error(error instanceof Error ? error.message : "بارگذاری انجام نشد.")); }, []);
