@@ -63,7 +63,10 @@ async function getJson(url: string) {
 async function versesOnPage(page: number, mushaf: number): Promise<ApiVerse[]> {
   const out: ApiVerse[] = [];
   let p: number | null = 1;
+  const visitedPages = new Set<number>();
   while (p) {
+    if (visitedPages.has(p)) throw new Error(`Repeated pagination page ${p} for mushaf page ${page}`);
+    visitedPages.add(p);
     const j = await getJson(
       `${API}/verses/by_page/${page}?mushaf=${mushaf}&words=true&word_fields=text_qpc_hafs,line_number,page_number&per_page=50&page=${p}`,
     );
@@ -97,6 +100,9 @@ for (const page of PAGES) {
     keys.add(key);
     const rawVerse = rawMain.find((v) => v.verse_key === key);
     if (!rawVerse || rawVerse.page_number !== page) throw new Error(`Unexpected page metadata for ${key}; expected page ${page}`);
+    if (rawVerse.words.some((word) => word.page_number !== page)) {
+      throw new Error(`Word page metadata mismatch for ${key}; expected page ${page}`);
+    }
     if (!verse.words.length) throw new Error(`No word/end markers for ${key} on page ${page}`);
     for (const word of verse.words) {
       if (!word.text.trim()) throw new Error(`Empty word text in ${key} on page ${page}`);
