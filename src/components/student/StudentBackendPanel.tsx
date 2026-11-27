@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/backend/supabase";
 import { toLocalDateInputValue } from "@/lib/date";
 import { loadStudentWorkspace, requestStudentEnrollment, resolveActiveInstituteId, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
+import { StudentCertificatesPanel } from "./StudentCertificatesPanel";
 
 const statusLabel = { pending: "در انتظار بررسی", approved: "تأیید شده", rejected: "رد شده" } as const;
 const attendanceLabel = { present: "حاضر", absent: "غایب", late: "با تأخیر", excused: "غیبت موجه" } as const;
@@ -231,6 +232,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
         </article>)}
       </div> : <p className="mt-3 text-sm text-muted-foreground">برای نمایش گزارش، ابتدا عضویت فعال یک مؤسسه تأیید شود.</p>}
     </section>
+    <StudentCertificatesPanel user={user}/>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <Metric label="کلاس‌های قطعی" value={panelWorkspace.enrollments.length}/>
       <Metric label="درخواست‌های منتظر" value={panelWorkspace.requests.filter((r) => r.status === "pending").length}/>
