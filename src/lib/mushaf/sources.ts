@@ -51,7 +51,7 @@ export const prototypeSource: MushafSource = {
   },
 };
 
-import { backendConfig, isBackendConfigured } from "../backend/config";
+
 
 type CloudAyah = {
   number: number;
