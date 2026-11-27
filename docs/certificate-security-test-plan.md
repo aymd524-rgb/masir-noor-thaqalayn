@@ -31,3 +31,10 @@ Run these checks only against a disposable/staging Supabase project after applyi
 20. Teacher panel saves institute heading/body, uploads a personal signature, issues a certificate, and revokes it.
 21. Student panel displays issued/revoked state and opens a print view. Test Save as PDF on Android and desktop.
 22. Verify Persian/Arabic shaping, date, long names, page margins, signature image, and revoked status watermark/label.
+
+## Completion attestation and print readiness
+23. The issue button stays disabled until an authorized staff member explicitly confirms completion after reviewing the course criteria; unchecking confirmation prevents issuance.
+24. Confirm the interface clearly states that completion is manually attested and not automatically calculated from attendance, grades, quizzes, or hifz progress.
+25. On a slow connection, the print dialog waits for the signature image to load before opening; if the image fails, printing still opens without a permanently blocked window.
+26. A revoked certificate prints with a visible revoked/invalid status and does not request an issued-only signature URL.
+27. On Android mobile, verify browser Save as PDF, Persian/Arabic shaping, date and page margins; record any browser-specific limitations.
