@@ -15,7 +15,7 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
 type TokenResult = { access_token: string; expires_in: number };
 let tokenValue: string | null = null;
 let tokenExpiresAt = 0;
-let tokenInFlight: Promise<string> | null = null;
+let tokenInFlight: Promise<string> | null = null;\nlet basmalaInFlight: Promise<string[]> | null = null;
 
 function endpoints() {
   const env = Deno.env.get("QF_ENV") ?? "prelive";
@@ -100,21 +100,41 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
-    const [pageResult, basmalaResult] = await Promise.all([
-      qfGet(`/verses/by_page/${page}?mushaf=5&words=true&word_fields=text_uthmani,line_number&per_page=50&page=1`),
-      qfGet("/verses/by_key/1:1?words=true&word_fields=text_uthmani"),
-    ]);
+    const pageResult = await qfGet(
+      `/verses/by_page/${page}?mushaf=5&words=true&word_fields=text_uthmani,line_number&per_page=50&page=1`,
+    );
 
-    const pageData = pageResult as { verses?: unknown[]; pagination?: { next_page?: number | null } };
-    const basmalaData = basmalaResult as { verse?: { words?: { char_type_name?: string; text_uthmani?: string }[] } };
+    const pageData = pageResult as {
+      verses?: { verse_key?: string; words?: unknown[] }[];
+      pagination?: { next_page?: number | null };
+    };
     if (!Array.isArray(pageData.verses) || pageData.verses.length === 0) {
       return json({ error: "No verses returned for this page" }, 502);
     }
 
-    const basmala = (basmalaData.verse?.words ?? [])
-      .filter((word) => word.char_type_name === "word")
-      .map((word) => word.text_uthmani ?? "")
-      .filter(Boolean);
+    // Basmala is fetched only for pages that begin a surah requiring it.
+    const needsBasmala = pageData.verses.some((verse) => {
+      const [surah, ayah] = (verse.verse_key ?? "").split(":").map(Number);
+      return ayah === 1 && surah > 1 && surah !== 9;
+    });
+    let basmala: string[] = [];
+    if (needsBasmala) {
+      if (!basmalaInFlight) {
+        basmalaInFlight = qfGet("/verses/by_key/1:1?words=true&word_fields=text_uthmani")
+          .then((data) => {
+            const response = data as { verse?: { words?: { char_type_name?: string; text_uthmani?: string }[] } };
+            return (response.verse?.words ?? [])
+              .filter((word) => word.char_type_name === "word")
+              .map((word) => word.text_uthmani ?? "")
+              .filter(Boolean);
+          })
+          .catch((error) => {
+            basmalaInFlight = null;
+            throw error;
+          });
+      }
+      basmala = await basmalaInFlight;
+    }
 
     return json(
       { page, verses: pageData.verses, basmala },
