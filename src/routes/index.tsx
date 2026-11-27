@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, GraduationCap, Heart, Library, ScrollText, Sparkles } from "lucide-react";
+import { approvedCount } from "@/lib/domain/actions";
 import { useDb } from "@/lib/store";
 import { categoryLabel, faNum, levelLabel } from "@/lib/format";
 
@@ -22,7 +23,18 @@ const features = [
 
 function HomePage() {
   const db = useDb();
-  const courses = db.courses.filter((course) => course.published).slice(0, 3);
+  const courses = db.courses
+    .filter((course) => course.published)
+    .map((course) => {
+      const enrolled = approvedCount(db, course.id);
+      const hasSeat = enrolled < course.capacity;
+      // A transparent starter recommendation: beginner level first, then
+      // courses with remaining seats, then actual approved enrollment count.
+      const score = (course.level === "beginner" ? 4 : 0) + (hasSeat ? 3 : 0) + Math.min(enrolled, 20) / 20;
+      return { course, enrolled, hasSeat, score };
+    })
+    .sort((a, b) => b.score - a.score || a.course.title.localeCompare(b.course.title, "fa"))
+    .slice(0, 3);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
