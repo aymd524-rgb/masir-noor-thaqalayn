@@ -23,8 +23,9 @@ export function MushafPageView({
   const { start } = pageRange(page);
   const juz = juzHint ?? juzOfPage(page);
   const hasText = !!data?.provenance;
-  // Pages 1–2 of the Madani mushaf are short, centred opening pages (not 15 full lines).
-  const opening = page <= 2 && hasText;
+  const flow = data?.layout === "verse-flow";
+  // Printed opening-page framing is used only when the source supplies exact line positions.
+  const opening = page <= 2 && hasText && !flow;
   const allLines = data?.lines ?? [];
   const lines = opening ? trimEmpty(allLines) : allLines;
 
@@ -33,8 +34,8 @@ export function MushafPageView({
       key={i}
       n={i + 1}
       line={line}
-      standard={standard}
-      centered={page <= 2}
+      standard={standard && !flow}
+      centered={page <= 2 && !flow}
       highlight={highlight}
       basmala={data?.basmala}
     />
@@ -75,6 +76,8 @@ export function MushafPageView({
                   ))}
                 </div>
               </div>
+            ) : flow ? (
+              <div className="space-y-3 py-4">{lines.map(renderLine)}</div>
             ) : standard ? (
               <div className="grid aspect-[5/7.6] grid-rows-[repeat(15,minmax(0,1fr))]">{lines.map(renderLine)}</div>
             ) : (
