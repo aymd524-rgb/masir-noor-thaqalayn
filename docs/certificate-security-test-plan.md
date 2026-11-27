@@ -38,3 +38,6 @@ Run these checks only against a disposable/staging Supabase project after applyi
 25. On a slow connection, the print dialog waits for the signature image to load before opening; if the image fails, printing still opens without a permanently blocked window.
 26. A revoked certificate prints with a visible revoked/invalid status and does not request an issued-only signature URL.
 27. On Android mobile, verify browser Save as PDF, Persian/Arabic shaping, date and page margins; record any browser-specific limitations.
+
+28. If the signature image has already failed before print readiness is checked, the broken image element is removed; print proceeds without a broken-image icon.
+29. If the browser blocks the print popup, the student receives a clear message and the certificate is not silently reported as printed.
