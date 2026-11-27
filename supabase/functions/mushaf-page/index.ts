@@ -15,7 +15,8 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
 type TokenResult = { access_token: string; expires_in: number };
 let tokenValue: string | null = null;
 let tokenExpiresAt = 0;
-let tokenInFlight: Promise<string> | null = null;\nlet basmalaInFlight: Promise<string[]> | null = null;
+let tokenInFlight: Promise<string> | null = null;
+let basmalaInFlight: Promise<string[]> | null = null;
 
 function endpoints() {
   const env = Deno.env.get("QF_ENV") ?? "prelive";
