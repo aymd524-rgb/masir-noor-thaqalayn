@@ -12,7 +12,9 @@ export function AdminCourseClassManager() {
   const [institutes, setInstitutes] = useState<Institute[]>([]);
   const [instituteId, setInstituteId] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);\n  const [memberships, setMemberships] = useState<Membership[]>([]);\n  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
@@ -58,10 +60,11 @@ export function AdminCourseClassManager() {
       if (error) throw new Error(error.message);
       teacherProfiles = data ?? [];
     }
-    const names = new Map(teacherProfiles.map(item => [item.id, item.full_name]));\n    setMemberNames(Object.fromEntries(teacherProfiles.map(item => [item.id, item.full_name || "کاربر"])));
+    const names = new Map(teacherProfiles.map(item => [item.id, item.full_name]));
+    setMemberNames(Object.fromEntries(teacherProfiles.map(item => [item.id, item.full_name || "کاربر"])));
     setInstitutes(i.data ?? []);
     setCourses(coursesResult.data ?? []);
-    setTeachers(membershipRows.map(item => ({
+    setTeachers(membershipRows.filter(item => item.status === "active" && ["owner", "manager", "teacher"].includes(item.role)).map(item => ({
       id: item.user_id,
       institute_id: item.institute_id,
       full_name: names.get(item.user_id) ?? null,
