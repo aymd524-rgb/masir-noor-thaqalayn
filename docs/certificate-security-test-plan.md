@@ -38,6 +38,11 @@ Run these checks only against a disposable/staging Supabase project after applyi
 25. On a slow connection, the print dialog waits for the signature image to load before opening; if the image fails, printing still opens without a permanently blocked window.
 26. A revoked certificate prints with a visible revoked/invalid status and does not request an issued-only signature URL.
 27. On Android mobile, verify browser Save as PDF, Persian/Arabic shaping, date and page margins; record any browser-specific limitations.
-
 28. If the signature image has already failed before print readiness is checked, the broken image element is removed; print proceeds without a broken-image icon.
 29. If the browser blocks the print popup, the student receives a clear message and the certificate is not silently reported as printed.
+
+## Upload failure and multi-institute edge cases
+30. If the image upload succeeds but saving the signature pointer fails, verify the previous pointer remains unchanged, the newly uploaded object stays private and cannot be read by another user; document any orphan object for authorized staging cleanup (do not enable client-side delete).
+31. A teacher who belongs to multiple institutes can issue/manage certificates only for a class they are assigned to or an institute they are authorized to manage; membership in a second institute must not grant access to the first.
+32. A student who belongs to two institutes sees the appropriate certificate records in their single account without duplicate accounts or cross-institute disclosure.
+33. If the teacher's active institute membership is removed after a signature upload, verify they cannot update the signature pointer or upload new signature objects; existing issued certificate snapshots should follow the intended recipient-access policy.
