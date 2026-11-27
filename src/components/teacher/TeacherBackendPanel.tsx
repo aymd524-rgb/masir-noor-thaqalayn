@@ -173,9 +173,10 @@ export function TeacherBackendPanel({ user }: { user: User }) {
       {workspace.classes.length ? <div className="mt-3">
         <label className="text-sm font-semibold">انتخاب کلاس
           <select value={classId} onChange={(event) => setClassId(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">
-            {workspace.classes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            {workspace.classes.map((item) => <option key={item.id} value={item.id}>{item.instituteName ? item.instituteName + " — " : ""}{item.title}</option>)}
           </select>
         </label>
+        {activeClass?.instituteName && <p className="mt-2 text-sm font-semibold text-primary">مؤسسه: {activeClass.instituteName}</p>}
         {activeClass?.description && <p className="mt-2 text-sm text-muted-foreground">{activeClass.description}</p>}
       </div> : <p className="mt-3 text-sm text-muted-foreground">هنوز کلاسی برای این حساب تعریف نشده است.</p>}
     </section>
