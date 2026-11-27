@@ -7,6 +7,8 @@ export type TeacherClass = {
   title: string;
   courseId: string | null;
   teacherId: string | null;
+  instituteId: string | null;
+  instituteName: string | null;
   description: string | null;
   capacity: number | null;
 };
@@ -98,19 +100,31 @@ export async function loadTeacherWorkspace(sb: SupabaseClient, userId: string, i
   }
   let classQuery = sb
     .from("classes")
-    .select("id,title,course_id,teacher_id,description,capacity")
+    .select("id,title,course_id,teacher_id,institute_id,description,capacity")
     .eq("is_active", true);
   if (!isAdmin) classQuery = classQuery.eq("teacher_id", userId);
 
   const classRows = await readAllPages<{
     id: string; title: string; course_id: string | null; teacher_id: string | null;
-    description: string | null; capacity: number | null;
+    institute_id: string | null; description: string | null; capacity: number | null;
   }>(classQuery.order("created_at", { ascending: false }));
+  const instituteIds = [...new Set((classRows ?? []).map((row) => row.institute_id).filter((id): id is string => !!id))];
+  const instituteNames = new Map<string, string>();
+  if (instituteIds.length) {
+    const { data: instituteRows, error: instituteError } = await sb
+      .from("institutions")
+      .select("id,name")
+      .in("id", instituteIds);
+    fail(instituteError);
+    for (const institute of instituteRows ?? []) instituteNames.set(institute.id, institute.name);
+  }
   const classes: TeacherClass[] = (classRows ?? []).map((row) => ({
     id: row.id,
     title: row.title,
     courseId: row.course_id,
     teacherId: row.teacher_id,
+    instituteId: row.institute_id,
+    instituteName: row.institute_id ? instituteNames.get(row.institute_id) ?? null : null,
     description: row.description,
     capacity: row.capacity,
   }));
