@@ -29,3 +29,11 @@ The latest source-level CI checks are green:
 - PR #20 head `e985381666fe6979f81d54a0dd0a8af91c68f931`: run 46033448170.
 
 These runs execute dependency installation, `bun run test`, and `bun run build`. They do not execute SQL migrations against a staging database or verify live SMS delivery, fixed-line Quran page data, or mobile print output. PRs remain Draft; no merge or deployment was performed.
+
+
+## Latest verified source checks (2026-11-27, 17:11 UTC)
+- PR #19 commit `a4d0f5347677a62e1b6c4c9086f414616759ec45` passed Build #610 (run 46039582580).
+- PR #19 commit `3b92af637a28193abbb596bc20799bbc9e8a82ac` passed Build #611 (run 46039705362). This adds runtime validation for invalid surah/ayah references, empty word text, invalid word kind, and line numbers outside 1–15.
+- PR #19 commit `2e5fe49d265b909f81b46527a236a4f7071cc2ff` passed Build #612 (run 46039738412), including tests for invalid verse references and blank text.
+- PR #20 remains Draft and its last successful Build #607 ran against an older base. It has not yet been revalidated against the latest PR #19 base commits.
+- These are source-level checks only. The licensed 604-page fixed-line Quran source, Quran Foundation Edge Function deployment, SMS delivery, staging migrations/isolation tests, Android certificate print, and public production release remain pending.
