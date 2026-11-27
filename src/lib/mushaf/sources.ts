@@ -1,4 +1,4 @@
-import { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
+import { backendConfig, isBackendConfigured } from "../backend/config";\nimport { QPC_HAFS_SNAPSHOT } from "./data/qpc-hafs-snapshot";
 import { buildPageLines, type SourceVerse } from "./layout";
 import { LINES_PER_PAGE, clampPage, pageRange } from "./metadata";
 import type { MushafLine, MushafPageData, MushafSource } from "./types";
@@ -92,7 +92,7 @@ export function quranFoundationEdgeSource(): MushafSource {
         },
       );
       const result = (await response.json().catch(() => null)) as MushafProxyResponse | { error?: string } | null;
-      if (!response.ok || !result || !("verses" in result) || !Array.isArray(result.verses)) {
+      if (!response.ok || !result || !("verses" in result) || !Array.isArray(result.verses) || result.page !== p) {
         const message = result && "error" in result ? result.error : undefined;
         throw new Error(message || "دریافت متن این صفحه از سرویس مصحف ناموفق بود.");
       }
