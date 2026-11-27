@@ -180,3 +180,10 @@
 - [x] PR #19 integration head `80537dde3234b2abe6622848607aa1adfee3a040` passed Build check #606 (run 46034778439).
 - [x] Earlier Mushaf input commit `126e794fe9b2c1c1a30eab6f63d4c2ad77bd5d63` passed Build check #603 (run 46034582514).
 - [ ] This improves page navigation only; it does not supply or verify the complete fixed 15-line page data. Staging and publication remain pending.
+
+
+## Revalidation after Mushaf integrity changes (2026-11-27)
+- [x] PR #19 integration branch now includes source validation and tests for malformed Mushaf data; latest test commit `2e5fe49d265b909f81b46527a236a4f7071cc2ff` passed Build #612 (run 46039738412).
+- [ ] PR #20 certificate integration must run CI again against the current PR #19 base before it is considered validated. Its previous successful Build #607 used an earlier base.
+- [ ] Staging database, SMS delivery, Quran Foundation page source, and Android certificate print acceptance remain pending.
+- No merge, production migration, or public deployment was performed.
