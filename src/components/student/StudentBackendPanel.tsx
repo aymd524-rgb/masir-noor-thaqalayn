@@ -57,7 +57,13 @@ export function StudentBackendPanel({ user }: { user: User }) {
       } : null;
     }).filter((item): item is StudentInstituteCard => item !== null);
     setInstitutes(cards);
-    setActiveInstituteId(cards.some((item) => item.id === preferenceResult.data?.institute_id && item.active) ? preferenceResult.data!.institute_id! : "");
+    const preferredInstitute = cards.find(
+      (item) => item.id === preferenceResult.data?.institute_id && item.active,
+    );
+    const firstActiveInstitute = cards.find((item) => item.active);
+    // A student with an active membership should not see an empty workspace
+    // merely because they have not saved an institute preference yet.
+    setActiveInstituteId(preferredInstitute?.id ?? firstActiveInstitute?.id ?? "");
     setWorkspace(workspaceData);
   }, [user.id]);
   useEffect(() => {
