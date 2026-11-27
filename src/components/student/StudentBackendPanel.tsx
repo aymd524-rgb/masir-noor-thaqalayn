@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/backend/supabase";
 import { toLocalDateInputValue } from "@/lib/date";
 import { loadStudentWorkspace, requestStudentEnrollment, saveStudentHifzAssignmentStatus } from "@/lib/backend/student";
 import type { User } from "@/lib/domain/types";
+import { StudentCertificatesPanel } from "./StudentCertificatesPanel";
 
 const statusLabel = { pending: "در انتظار بررسی", approved: "تأیید شده", rejected: "رد شده" } as const;
 const attendanceLabel = { present: "حاضر", absent: "غایب", late: "با تأخیر", excused: "غیبت موجه" } as const;
@@ -263,6 +264,7 @@ export function StudentBackendPanel({ user }: { user: User }) {
       <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین نمره‌ها</h2>{panelWorkspace.grades.length ? <ul className="mt-3 space-y-2">{panelWorkspace.grades.slice(-5).reverse().map((g) => <li key={g.id} className="flex justify-between gap-3 text-sm"><span>{g.title}</span><b>{g.score}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">هنوز نمره‌ای ثبت نشده است.</p>}</section>
       <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">حضور و غیاب</h2>{panelWorkspace.attendance.length ? <ul className="mt-3 space-y-2">{panelWorkspace.attendance.slice(-6).reverse().map((a) => <li key={a.id} className="flex justify-between gap-3 text-sm"><span>{a.sessionDate}</span><b>{attendanceLabel[a.status]}</b></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">گزارشی ثبت نشده است.</p>}</section>
     </div>
+    <StudentCertificatesPanel user={user}/>
   </div>;
 }
 function Metric({ label, value }: { label: string; value: number | string }) {
