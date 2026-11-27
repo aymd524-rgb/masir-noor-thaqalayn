@@ -52,3 +52,5 @@ Run these checks only against a disposable/staging Supabase project after applyi
 35. Verify the certificate insert RLS policy independently requires `enrollments.status = 'approved'` as defense in depth, even though authenticated direct writes are revoked and the issuance RPC also checks status.
 
 36. When a staff member saves certificate settings with `updated_by` set to another user's UUID, the audit trigger must overwrite it with the authenticated actor and refresh `updated_at`; unauthenticated writes must fail.
+
+37. Confirm GitHub Actions runs `bun run test` and `bun run build` for pull requests targeting the stacked institute integration branch; do not treat an absent workflow run as a passing check.
