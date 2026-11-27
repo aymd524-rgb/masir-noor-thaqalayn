@@ -46,3 +46,5 @@ Run these checks only against a disposable/staging Supabase project after applyi
 31. A teacher who belongs to multiple institutes can issue/manage certificates only for a class they are assigned to or an institute they are authorized to manage; membership in a second institute must not grant access to the first.
 32. A student who belongs to two institutes sees the appropriate certificate records in their single account without duplicate accounts or cross-institute disclosure.
 33. If the teacher's active institute membership is removed after a signature upload, verify they cannot update the signature pointer or upload new signature objects; existing issued certificate snapshots should follow the intended recipient-access policy.
+
+34. A pending or rejected enrollment cannot receive a certificate through `issue_course_certificate`; only an `approved` enrollment in an active class and active institute may be issued one.
