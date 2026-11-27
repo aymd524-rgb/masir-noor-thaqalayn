@@ -12,7 +12,19 @@ import { writeFileSync } from "node:fs";
 const API = "https://api.quran.com/api/v4";
 const MUSHAF_ID = 5; // KFGQPC Hafs
 const CHECK_MUSHAF_ID = 1; // QCF V2 (Madani 1421)
-const PAGES = [1, 2];
+// Default to the two-page prototype. Use `--all` to fetch all 604 pages, or
+// `--pages=1,2,50,604` for a selected verification batch.
+const args = process.argv.slice(2);
+const allPages = args.includes("--all");
+const pagesArg = args.find((arg) => arg.startsWith("--pages="))?.slice("--pages=".length);
+const PAGES = allPages
+  ? Array.from({ length: 604 }, (_, i) => i + 1)
+  : pagesArg
+    ? [...new Set(pagesArg.split(",").map(Number))]
+    : [1, 2];
+if (!PAGES.length || PAGES.some((page) => !Number.isInteger(page) || page < 1 || page > 604)) {
+  throw new Error("Pages must be integers from 1 to 604; use --all or --pages=1,2,604");
+}
 
 interface ApiWord {
   char_type_name: string;
