@@ -117,15 +117,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await sb.auth.verifyOtp({ phone, token: code, type: "sms" });
     if (error || !data.user) throw new AppError("کد تأیید نادرست یا منقضی شده است.");
     const contactEmail = input.email?.trim().toLowerCase();
-    const contactPayload: { user_id: string; phone: string; email?: string } = {
-      user_id: data.user.id,
-      phone,
-      ...(contactEmail ? { email: contactEmail } : {}),
-    };
-    const { error: contactError } = await sb
-      .from("profile_contacts")
-      .upsert(contactPayload, { onConflict: "user_id" });
-    if (contactError) throw new AppError("حساب تأیید شد، اما ذخیره اطلاعات تماس انجام نشد. دوباره وارد شوید.");
+    // Do not upsert a row with email omitted during ordinary sign-in:
+    // PostgreSQL would treat the omitted column as NULL and could erase
+    // the user's previously saved optional contact email on every login.
+    if (contactEmail) {
+      const { error: contactError } = await sb
+        .from("profile_contacts")
+        .upsert(
+          { user_id: data.user.id, phone, email: contactEmail },
+          { onConflict: "user_id" },
+        );
+      if (contactError) {
+        throw new AppError("حساب تأیید شد، اما ذخیره ایمیل اختیاری انجام نشد. دوباره وارد شوید.");
+      }
+    }
 
     const appUser = await resolveBackendUser(sb, data.user);
     commit((d) => upsertVerifiedUser(d, appUser));
