@@ -4,7 +4,7 @@ import { getSupabase } from "@/lib/backend/supabase";
 
 type Institute = { id: string; name: string; is_active: boolean };
 type Course = { id: string; title: string; description: string | null; price: number | string | null; is_active: boolean; institute_id: string | null };
-type Teacher = { id: string; full_name: string | null };
+type Teacher = { id: string; full_name: string | null; institute_id: string };
 type ClassRow = { id: string; title: string; description: string | null; course_id: string | null; teacher_id: string | null; capacity: number | null; is_active: boolean; starts_at: string | null; ends_at: string | null ; institute_id: string | null };
 
 export function AdminCourseClassManager() {
@@ -40,10 +40,10 @@ export function AdminCourseClassManager() {
   async function reload() {
     const sb = getSupabase();
     if (!sb) throw new Error("اتصال پایگاه داده فعال نیست.");
-    const [i, c, t, cl] = await Promise.all([
+    const [i, c, memberships, cl] = await Promise.all([
       sb.from("institutions").select("id,name,is_active").order("name"),
       sb.from("courses").select("id,title,description,price,is_active,institute_id").order("created_at", { ascending: false }),
-      sb.from("profiles").select("id,full_name").eq("role", "teacher").order("full_name"),
+      sb.from("institute_memberships").select("user_id,institute_id,role,status").eq("status", "active").in("role", ["owner", "manager", "teacher"]),
       sb.from("classes").select("id,title,description,course_id,teacher_id,capacity,is_active,starts_at,ends_at,institute_id").order("created_at", { ascending: false }),
     ]);
     for (const result of [i, c, t, cl]) if (result.error) throw new Error(result.error.message);
@@ -206,7 +206,7 @@ export function AdminCourseClassManager() {
       <form onSubmit={createClass} className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-semibold">نام کلاس<input required maxLength={120} value={classTitle} onChange={e => setClassTitle(e.target.value)} className={field} placeholder="مثلاً حفظ جزء سی‌ام"/></label>
         <label className="text-sm font-semibold">دوره<select required value={courseId} onChange={e => setCourseId(e.target.value)} className={field}><option value="">انتخاب دوره</option>{courses.filter(c => c.institute_id === instituteId).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label>
-        <label className="text-sm font-semibold">استاد<select value={teacherId} onChange={e => setTeacherId(e.target.value)} className={field}><option value="">بدون تعیین استاد</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || "استاد"}</option>)}</select></label>
+        <label className="text-sm font-semibold">استاد<select value={teacherId} onChange={e => setTeacherId(e.target.value)} className={field}><option value="">بدون تعیین استاد</option>{teachers.filter(t => t.institute_id === instituteId).map(t => <option key={`${t.id}-${t.institute_id}`} value={t.id}>{t.full_name || "استاد"}</option>)}</select></label>
         <label className="text-sm font-semibold">ظرفیت<input required type="number" min="1" max="500" value={capacity} onChange={e => setCapacity(e.target.value)} className={field}/></label>
         <label className="text-sm font-semibold">شروع کلاس<input type="datetime-local" value={classStartsAt} onChange={e => setClassStartsAt(e.target.value)} className={field}/></label>
         <label className="text-sm font-semibold">پایان کلاس<input type="datetime-local" min={classStartsAt || undefined} value={classEndsAt} onChange={e => setClassEndsAt(e.target.value)} className={field}/></label>
@@ -219,7 +219,7 @@ export function AdminCourseClassManager() {
         {editingClass === item.id ? <form onSubmit={saveClassEdit} className="grid gap-2 sm:grid-cols-2">
           <label>نام کلاس<input required maxLength={120} value={editClassTitle} onChange={e => setEditClassTitle(e.target.value)} className={field}/></label>
           <label>دوره<select required value={editCourseId} onChange={e => setEditCourseId(e.target.value)} className={field}><option value="">انتخاب دوره</option>{courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label>
-          <label>استاد<select value={editTeacherId} onChange={e => setEditTeacherId(e.target.value)} className={field}><option value="">بدون تعیین استاد</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || "استاد"}</option>)}</select></label>
+          <label>استاد<select value={editTeacherId} onChange={e => setEditTeacherId(e.target.value)} className={field}><option value="">بدون تعیین استاد</option>{teachers.filter(t => t.institute_id === classes.find(row => row.id === editingClass)?.institute_id).map(t => <option key={`${t.id}-${t.institute_id}`} value={t.id}>{t.full_name || "استاد"}</option>)}</select></label>
           <label>ظرفیت<input required type="number" min="1" max="500" value={editCapacity} onChange={e => setEditCapacity(e.target.value)} className={field}/></label>
           <label>شروع کلاس<input type="datetime-local" value={editStartsAt} onChange={e => setEditStartsAt(e.target.value)} className={field}/></label>
           <label>پایان کلاس<input type="datetime-local" min={editStartsAt || undefined} value={editEndsAt} onChange={e => setEditEndsAt(e.target.value)} className={field}/></label>
