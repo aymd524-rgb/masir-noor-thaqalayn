@@ -115,11 +115,17 @@ h1{font-size:28px;margin:0 0 22px}
           .then(() => printWindow.print())
           .catch(() => printWindow.print());
       };
-      const signatureImage = printDocument.querySelector("img");
+      const signatureImage = printDocument.querySelector<HTMLImageElement>(".signature img");
       if (signatureImage && !signatureImage.complete) {
         signatureImage.addEventListener("load", printWhenReady, { once: true });
-        signatureImage.addEventListener("error", printWhenReady, { once: true });
+        signatureImage.addEventListener("error", () => {
+          signatureImage.closest(".signature")?.remove();
+          printWhenReady();
+        }, { once: true });
       } else {
+        if (signatureImage && signatureImage.naturalWidth === 0) {
+          signatureImage.closest(".signature")?.remove();
+        }
         printWhenReady();
       }
     } catch (error) {
