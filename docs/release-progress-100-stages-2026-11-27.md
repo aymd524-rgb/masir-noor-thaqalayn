@@ -271,3 +271,10 @@
 - [x] مرحلهٔ ۲۹: Build #630 / run `46045865330` برای head دقیق `a89268c23203ba902773aaa9c78449f062672b4b` موفق؛ install، tests و production build همگی گذشتند.
 - [x] راهنمای اجرای workflow دستی و بررسی artifact به `docs/mushaf-snapshot-download-guide.md` افزوده شد؛ commit راهنما `364d3d88f0f8c7a9a469aa26e358fb768e3af6b1`.
 - [ ] مرحلهٔ ۳۰ هنوز نیازمند اجرای دستی workflow از رابط GitHub Actions و artifact واقعی است. از این محیط امکان dispatch مستقیم workflow تأیید نشده؛ بنابراین دریافت نمونه یا کل مصحف ادعا نمی‌شود.
+
+
+## اصلاح اسکریپت دریافت مصحف (2026-11-27)
+- [x] هنگام بازبینی کد، قالب‌بندی نادرست پیام خطای HTTP در `scripts/fetch-mushaf-snapshot.ts` پیدا شد.
+- [x] اصلاح شد؛ commit `2050be82ec457ccfaa068e2f142bc01809b5ca10`.
+- [ ] CI برای این اصلاح جدید باید تأیید شود.
+- [ ] دریافت صفحات نمونه و دریافت کامل ۶۰۴ صفحه هنوز به اجرای دستی workflow نیاز دارند.
