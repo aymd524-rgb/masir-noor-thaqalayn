@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { faNum } from "@/lib/format";
+import { normalizePageDigits, sanitizePageInput } from "@/lib/mushaf/page-input";
 import {
   TOTAL_JUZ,
   TOTAL_PAGES,
@@ -175,7 +176,7 @@ export function MushafReader({
   const fixedLineLayout = pageData?.layout === "fixed-lines";
 
   const commitPageInput = () => {
-    const n = Number(pageInput.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))));
+    const n = Number(normalizePageDigits(pageInput));
     if (Number.isFinite(n) && n >= 1) go(n);
     else setPageInput(String(page));
   };
@@ -349,7 +350,7 @@ export function MushafReader({
               id="mushaf-page"
               inputMode="numeric"
               value={faNum(pageInput)}
-              onChange={(e) => setPageInput(e.target.value.replace(/[^\d۰-۹]/g, ""))}
+              onChange={(e) => setPageInput(sanitizePageInput(e.target.value))}
               onBlur={commitPageInput}
               className="h-10 w-16 text-center font-bold"
             />
