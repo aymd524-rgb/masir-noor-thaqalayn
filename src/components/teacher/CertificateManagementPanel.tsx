@@ -214,6 +214,6 @@ export function CertificateManagementPanel({
         {item.status === "issued" && <button type="button" disabled={busy} onClick={() => void revoke(item)} className="rounded-lg border px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50">ابطال</button>}
       </li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">هنوز گواهی‌ای برای این کلاس صادر نشده است.</p>}
     </div>
-    <p className="text-xs text-muted-foreground">فعلاً صدور و ثبت امن گواهی آماده می‌شود؛ فایل PDF و دانلود نهایی پس از تکمیل بخش نمایش و چاپ اضافه خواهد شد.</p>
+    <p className="text-xs text-muted-foreground">دانش‌پژوه می‌تواند گواهی صادرشده را از پنل خود چاپ یا با گزینهٔ «ذخیره به‌صورت PDF» نگه‌داری کند. نمایش و چاپ فارسی/عربی هنوز نیازمند آزمون نهایی روی موبایل است.</p>
   </section>;
 }
