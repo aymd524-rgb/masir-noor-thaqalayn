@@ -17,10 +17,10 @@ export const Route = createFileRoute("/quran_/mushaf")({
   },
   head: () => ({
     meta: [
-      { title: "مصحف ۱۵ سطری | مسیر نور ثقلین" },
-      { name: "description", content: "نمایشگر مصحف حفظی ۱۵ سطری با ورق زدن، انتخاب سوره و جزء، جست‌وجوی آیه و نشانک." },
+      { title: "مصحف قرآن کریم | مسیر نور ثقلین" },
+      { name: "description", content: "مطالعه صفحه‌به‌صفحه قرآن کریم در ۶۰۴ صفحه، با رسم‌الخط عثمانی، انتخاب سوره و جزء، جست‌وجوی آیه و نشانک." },
       { property: "og:title", content: "مصحف ۱۵ سطری | مسیر نور ثقلین" },
-      { property: "og:description", content: "نمایشگر مصحف حفظی ۱۵ سطری برای تلاوت و حفظ قرآن کریم." },
+      { property: "og:description", content: "مصحف صفحه‌به‌صفحه قرآن کریم برای تلاوت و حفظ." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

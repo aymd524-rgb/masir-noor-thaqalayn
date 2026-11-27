@@ -171,6 +171,8 @@ export function MushafReader({
   const isFull = full !== "off";
   const pageData = query.data?.page === page ? query.data : undefined;
   const provenance = pageData?.provenance;
+  const flowLayout = pageData?.layout === "verse-flow";
+  const fixedLineLayout = pageData?.layout === "fixed-lines";
 
   const commitPageInput = () => {
     const n = Number(pageInput.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))));
@@ -212,8 +214,9 @@ export function MushafReader({
               <Info className="h-4 w-4 text-info" />
               <AlertTitle className="font-extrabold text-info">{provenance.label}</AlertTitle>
               <AlertDescription className="text-sm text-muted-foreground">
-                متن عربی بدون هیچ تغییری از داده منبع آمده و قلم آن قلم رسمی مجمع ملک فهد است؛ اما قلم به‌تنهایی ضامن صحت نیست
-                و تطبیق این صفحه با مصحف چاپی مرجع هنوز توسط کارشناس انجام نشده است.
+                {flowLayout
+                  ? "متن آیات عیناً از منبع دریافت شده است. برای خوانایی، آیات به صورت روانخوانی نمایش داده می‌شوند؛ بنابراین چینش سطرها الزاماً با مصحف چاپی ۱۵ سطری یکسان نیست."
+                  : "متن عربی و شماره سطرها از منبع مصحف دریافت شده است؛ با این حال، تطبیق نهایی این صفحه با مصحف چاپی مرجع هنوز توسط کارشناس انجام نشده است."}
               </AlertDescription>
             </Alert>
           ))}
@@ -288,7 +291,7 @@ export function MushafReader({
               <Info />
             </ToolButton>
           </div>
-          {scale > 1 && (
+          {scale > 1 && !fixedLineLayout && (
             <p className="rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">
               در اندازه‌های بزرگ‌تر از ۱۰۰٪ سطرها برای خوانایی شکسته می‌شوند و چینش ۱۵ سطری استاندارد نمایش داده نمی‌شود.
             </p>

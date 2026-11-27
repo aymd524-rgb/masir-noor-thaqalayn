@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, GraduationCap, Heart, Library, ScrollText, Sparkles } from "lucide-react";
 import { useDb } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { categoryLabel, faNum, levelLabel } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
@@ -22,6 +23,7 @@ const features = [
 
 function HomePage() {
   const db = useDb();
+  const { mode } = useAuth();
   const courses = db.courses.filter((course) => course.published).slice(0, 3);
 
   return (
@@ -44,6 +46,17 @@ function HomePage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border bg-card p-5 shadow-soft sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-7">
+        <div className="flex items-center gap-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary"><BookOpen className="h-7 w-7" /></span>
+          <div>
+            <h2 className="text-xl font-extrabold">مصحف کامل قرآن کریم</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">همه ۶۰۴ صفحه با رسم‌الخط عثمان طه؛ ورق‌زدن و رفتن مستقیم به شماره صفحه</p>
+          </div>
+        </div>
+        <Link to="/quran/mushaf" className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground sm:mt-0">باز کردن مصحف <ArrowLeft className="h-4 w-4" /></Link>
       </section>
 
       <section className="py-10">
@@ -72,7 +85,16 @@ function HomePage() {
           </div>
           <Link to="/courses" className="shrink-0 text-sm font-bold text-primary">همه دوره‌ها</Link>
         </div>
-        {courses.length ? (
+        {mode === "backend" ? (
+          <div className="rounded-2xl border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">فهرست دوره‌های واقعی از پایگاه داده دریافت می‌شود.</p>
+            <Link to="/courses" className="mt-3 inline-flex text-sm font-bold text-primary">مشاهده دوره‌های فعال</Link>
+          </div>
+        ) : mode === "unavailable" ? (
+          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            پس از پیکربندی اتصال امن سامانه، دوره‌های فعال در این بخش نمایش داده می‌شوند.
+          </div>
+        ) : courses.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
               <Link key={course.id} to="/courses" className="rounded-2xl border bg-card p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-elegant">

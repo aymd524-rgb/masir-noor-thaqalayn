@@ -173,9 +173,10 @@ export function TeacherBackendPanel({ user }: { user: User }) {
       {workspace.classes.length ? <div className="mt-3">
         <label className="text-sm font-semibold">انتخاب کلاس
           <select value={classId} onChange={(event) => setClassId(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 font-normal">
-            {workspace.classes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            {workspace.classes.map((item) => <option key={item.id} value={item.id}>{item.instituteName ? item.instituteName + " — " : ""}{item.title}</option>)}
           </select>
         </label>
+        {activeClass?.instituteName && <p className="mt-2 text-sm font-semibold text-primary">مؤسسه: {activeClass.instituteName}</p>}
         {activeClass?.description && <p className="mt-2 text-sm text-muted-foreground">{activeClass.description}</p>}
       </div> : <p className="mt-3 text-sm text-muted-foreground">هنوز کلاسی برای این حساب تعریف نشده است.</p>}
     </section>
@@ -320,6 +321,11 @@ export function TeacherBackendPanel({ user }: { user: User }) {
         {workspace.hifzRecords.filter((record) => enrollments.some((item) => item.id === record.enrollmentId)).slice(0, 12).map((record) => <p key={record.id} className="border-t pt-2 text-sm"><b>{enrollments.find((item) => item.id === record.enrollmentId)?.studentName}</b><span className="text-muted-foreground"> · {record.recordType === "memorization" ? "حفظ جدید" : "مرور"} · سوره {record.surahNumber}، آیات {record.ayahStart} تا {record.ayahEnd} · {record.assessment}</span></p>)}
       </section>
       <section id="student-report-print-root" className="print-report-area space-y-4 rounded-2xl border bg-card p-5">
+        <div className="print-report-header rounded-xl border p-3">
+          <h2 className="text-center font-extrabold">مسیر نور ثقلین</h2>
+          {activeClass?.instituteName && <p className="mt-1 text-center text-sm">مؤسسه: {activeClass.instituteName}</p>}
+          <p className="mt-1 text-center text-sm">کلاس: {activeClass?.title ?? "—"}</p>
+        </div>
         <div>
           <h2 className="font-extrabold">کارنامه تفصیلی دانش‌پژوهان</h2>
           <p className="mt-1 text-sm text-muted-foreground">گزارش هر ثبت‌نام شامل محفوظات، ارزیابی استاد، حضور و غیاب، نمرات و برنامه‌های هفتگی است. برای مشاهده جزئیات، نام دانش‌پژوه را باز کنید.</p>

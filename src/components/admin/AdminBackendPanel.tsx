@@ -108,9 +108,9 @@ export function AdminBackendPanel() {
   if(!sb)return;
   setSavingId(profile.id);
   try{
-   const {data:updated,error}=await sb.from("profiles").update({role:nextRole}).eq("id",profile.id).select("id").maybeSingle();
+   const {data:updated,error}=await sb.rpc("admin_set_profile_role",{p_user_id:profile.id,p_role:nextRole});
    if(error)throw new Error(error.message);
-   if(!updated)throw new Error("تغییر نقش انجام نشد؛ مجوز مدیر یا وضعیت حساب را بررسی کنید.");
+   if(updated!==true)throw new Error("تغییر نقش انجام نشد؛ مجوز مدیر یا وضعیت حساب را بررسی کنید.");
    await loadData();
    toast.success("نقش کاربر تغییر کرد.");
   }catch(error){toast.error(error instanceof Error?error.message:"تغییر نقش انجام نشد.");}
@@ -153,14 +153,31 @@ export function AdminBackendPanel() {
   if(!sb) return;
   setSavingId(id);
   try{
+   if(status==="approved"){
+    const request=data?.requests.find(item=>item.id===id);
+    if(!request) throw new Error("درخواست در داده‌های مدیر پیدا نشد؛ صفحه را تازه‌سازی کنید.");
+    const {data:availabilityRows,error:availabilityError}=await sb.rpc("get_active_class_availability");
+    if(availabilityError) throw new Error(availabilityError.message);
+    const availability=(availabilityRows??[]).find((item:{class_id:string;remaining_seats:number|null})=>item.class_id===request.class_id);
+    if(!availability) throw new Error("ظرفیت کلاس قابل بررسی نیست؛ درخواست تأیید نشد.");
+    if(availability.remaining_seats!==null&&Number(availability.remaining_seats)<=0) throw new Error("ظرفیت کلاس تکمیل شده است؛ درخواست را تأیید نکنید.");
+   }
    const update=status==="approved"
     ? {status,payment_status:payment}
     : {status};
    const {data:updated,error}=await sb.from("enrollment_requests").update(update).eq("id",id).eq("status","pending").select("id").maybeSingle();
    if(error) throw new Error(error.message);
    if(!updated) throw new Error("درخواست تغییر نکرد؛ ممکن است قبلاً بررسی شده باشد یا دسترسی کافی وجود نداشته باشد.");
+   if(status==="approved"){
+    const request=data?.requests.find(item=>item.id===id);
+    if(!request) throw new Error("درخواست تأیید شد، اما اطلاعات کلاس برای بررسی ثبت‌نام در دسترس نیست؛ صفحه را تازه‌سازی کنید.");
+    const {data:enrollment,error:enrollmentError}=await sb.from("enrollments")
+     .select("id").eq("student_id",request.student_id).eq("class_id",request.class_id).maybeSingle();
+    if(enrollmentError) throw new Error("وضعیت ثبت‌نام قابل بررسی نیست: "+enrollmentError.message);
+    if(!enrollment) throw new Error("درخواست تغییر وضعیت یافت، اما ثبت‌نام قطعی در پایگاه داده پیدا نشد. تأیید نهایی را بررسی کنید.");
+   }
    await loadData();
-   toast.success(status==="approved"?"درخواست تأیید و ثبت‌نام قطعی شد.":"درخواست ثبت‌نام رد شد.");
+   toast.success(status==="approved"?"درخواست تأیید و ثبت‌نام در پایگاه داده بررسی شد.":"درخواست ثبت‌نام رد شد.");
   }catch(error){
    toast.error(error instanceof Error?error.message:"بررسی درخواست انجام نشد.");
   }finally{setSavingId(null);}
@@ -264,7 +281,7 @@ export function AdminBackendPanel() {
      <button type="button" disabled={savingId===req.id} onClick={()=>void reviewRequest(req.id,"rejected")} className="rounded-lg border px-3 py-2 font-semibold disabled:opacity-50">رد درخواست</button>
     </div>
    </li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواست منتظر بررسی وجود ندارد.</p>}
-   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. تأیید نهایی توسط سیاست امنیتی پایگاه داده کنترل می‌شود و ظرفیت کلاس نیز بررسی خواهد شد.</p>
+   <p className="mt-3 text-xs text-muted-foreground">گزینه «پرداخت تأیید شده» را فقط پس از بررسی واقعی پرداخت انتخاب کنید. بررسی ظرفیت در این پنل صرفاً کنترل اولیه است؛ قاعدهٔ پایگاه داده هنگام تأیید نهایی، ظرفیت را با قفل کلاس به‌صورت اتمی بررسی می‌کند و از ثبت‌نام بیش از ظرفیت جلوگیری می‌کند.</p>
   </section>
   <section className="rounded-2xl border bg-card p-5"><h2 className="font-extrabold">آخرین درخواست‌ها</h2>
    {data.requests.length?<ul className="mt-3 divide-y">{data.requests.slice(0,12).map(req=><li key={req.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span>{profileNames.get(req.student_id)??"دانش‌پژوه"} — {classNames.get(req.class_id)??"کلاس"}</span><b>{req.status==="pending"?"در انتظار":req.status==="approved"?"تأیید شده":req.status==="rejected"?"رد شده":req.status}</b></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">درخواستی ثبت نشده است.</p>}
