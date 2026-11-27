@@ -10,9 +10,18 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  // Cloudflare Workers Builds requires a previews block in Wrangler's generated config.
+  // An empty block keeps preview-specific bindings unset and does not change production settings.
+  nitro: {
+    cloudflare: {
+      wrangler: {
+        previews: {},
+      },
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
-    server: { entry: "server" },
+      server: { entry: "server" },
   },
 });
