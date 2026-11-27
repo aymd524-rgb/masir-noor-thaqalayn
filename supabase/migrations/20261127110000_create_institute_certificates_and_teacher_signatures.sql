@@ -242,14 +242,16 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    select c.id, c.institute_id, c.teacher_id, c.is_active
+    select c.id, c.institute_id, c.teacher_id, c.is_active, i.is_active as institute_active
       into class_row
     from public.classes c
+    join public.institutions i on i.id = c.institute_id
     where c.id = new.class_id;
 
     if not found
        or class_row.institute_id is distinct from new.institute_id
-       or class_row.is_active is not true then
+       or class_row.is_active is not true
+       or class_row.institute_active is not true then
       raise exception 'certificate class is inactive or institute does not match'
         using errcode = '23514';
     end if;
@@ -268,6 +270,7 @@ begin
       end if;
     end if;
 
+    new.issued_at := now();
     return new;
   end if;
 
@@ -287,12 +290,14 @@ begin
       using errcode = '42501';
   end if;
 
-  if old.status <> 'issued' or new.status <> 'revoked'
-     or new.revoked_at is null
-     or new.revoked_by is distinct from (select auth.uid()) then
+  if old.status <> 'issued' or new.status <> 'revoked' then
     raise exception 'a certificate may only be revoked once by an authorized staff member'
       using errcode = '42501';
   end if;
+
+  -- Server-stamp revocation so the client cannot backdate or impersonate it.
+  new.revoked_at := now();
+  new.revoked_by := (select auth.uid());
 
   return new;
 end;
