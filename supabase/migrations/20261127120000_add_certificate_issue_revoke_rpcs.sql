@@ -38,6 +38,7 @@ grant select on public.issued_certificates to authenticated;
 
 create or replace function public.issue_course_certificate(
   p_enrollment_id uuid,
+  p_completion_confirmed boolean,
   p_include_signature boolean default true
 )
 returns table (
@@ -61,6 +62,11 @@ begin
   if actor_id is null then
     raise exception 'sign-in required'
       using errcode = '42501';
+  end if;
+
+  if p_completion_confirmed is not true then
+    raise exception 'authorized staff must confirm course completion before issuing the certificate'
+      using errcode = '23514';
   end if;
 
   select e.id, e.student_id, e.class_id, c.institute_id, c.teacher_id,
@@ -146,8 +152,8 @@ begin
 end;
 $function$;
 
-revoke all on function public.issue_course_certificate(uuid, boolean) from public, anon, authenticated;
-grant execute on function public.issue_course_certificate(uuid, boolean) to authenticated;
+revoke all on function public.issue_course_certificate(uuid, boolean, boolean) from public, anon, authenticated;
+grant execute on function public.issue_course_certificate(uuid, boolean, boolean) to authenticated;
 
 create or replace function public.revoke_course_certificate(
   p_certificate_id uuid,
@@ -201,7 +207,7 @@ $function$;
 revoke all on function public.revoke_course_certificate(uuid, text) from public, anon, authenticated;
 grant execute on function public.revoke_course_certificate(uuid, text) to authenticated;
 
-comment on function public.issue_course_certificate(uuid, boolean) is
-  'Issues one institute-scoped certificate after validating active enrollment, active student membership, and authorized staff. Snapshots heading, body and student name; optional signature is the assigned teacher only.';
+comment on function public.issue_course_certificate(uuid, boolean, boolean) is
+  'Issues one institute-scoped certificate after validating active enrollment, active student membership, authorized staff, and staff completion attestation. Snapshots heading, body, student and class names; optional signature is the assigned teacher only.';
 comment on function public.revoke_course_certificate(uuid, text) is
   'Revokes an issued certificate once. Only authorized class staff can revoke; database trigger stamps actor and timestamp.';
