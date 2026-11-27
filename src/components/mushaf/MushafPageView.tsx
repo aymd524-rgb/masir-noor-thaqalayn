@@ -19,7 +19,8 @@ export function MushafPageView({
   highlight: VerseRef | null;
   juzHint?: number;
 }) {
-  const standard = scale <= 1;
+  const fixedLines = data?.layout === "fixed-lines";
+  const standard = fixedLines || scale <= 1;
   const { start } = pageRange(page);
   const juz = juzHint ?? juzOfPage(page);
   const hasText = !!data?.provenance;
