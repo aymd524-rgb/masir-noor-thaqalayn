@@ -129,6 +129,15 @@ export async function loadStudentWorkspace(sb: SupabaseClient, userId: string) {
   return { classes, requests, enrollments, attendance, grades, hifzRecords, hifzAssignments };
 }
 
+/** Resolve a stable active institute selection without dropping other memberships. */
+export function resolveActiveInstituteId<T extends { id: string; active: boolean }>(
+  institutes: T[],
+  preferredId: string | null | undefined,
+): string {
+  const preferred = institutes.find((item) => item.id === preferredId && item.active);
+  return preferred?.id ?? institutes.find((item) => item.active)?.id ?? "";
+}
+
 /** RLS permits students to create only their own pending requests for active classes. */
 export async function requestStudentEnrollment(sb: SupabaseClient, userId: string, classId: string) {
   // Match the supplied student ID to the authenticated session before any
