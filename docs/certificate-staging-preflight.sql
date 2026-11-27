@@ -76,6 +76,35 @@ begin
     raise exception 'Certificate RPC execution grants are not restricted as expected';
   end if;
 
+  -- SECURITY DEFINER RPCs and trigger functions must use an empty search_path.
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where (
+      (n.nspname = 'public' and p.proname in ('issue_course_certificate','revoke_course_certificate'))
+      or (n.nspname = 'private' and p.proname in ('guard_teacher_signature_pointer','guard_issued_certificate_changes'))
+    )
+    and (
+      not p.prosecdef
+      or not coalesce(p.proconfig, array[]::text[]) @> array['search_path=""']::text[]
+    )
+  ) then
+    raise exception 'A certificate SECURITY DEFINER function is missing an empty search_path';
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'teacher_signature_object_boundary_update'
+  ) or not exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'teacher_signature_object_boundary_delete'
+  ) then
+    raise exception 'Missing restrictive Storage update/delete boundary policies';
+  end if;
+
   if not exists (
     select 1 from pg_policies
     where schemaname = 'public'
