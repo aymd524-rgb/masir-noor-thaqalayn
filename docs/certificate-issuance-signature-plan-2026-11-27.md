@@ -1,7 +1,7 @@
 # Certificate issuance and teacher signature — implementation plan
 
 ## Status
-A first database-schema migration has been added on this branch. The UI, authenticated issuance workflow, PDF rendering, and integration tests are not yet implemented. The migration has not been applied to any database or live app.
+Database migrations, authenticated issuance/revocation RPCs, teacher controls, and student print-to-PDF view have been added on this branch. The PDF is currently generated through the browser print dialog; embedded-font PDF rendering and staging integration tests are still pending. No migration has been applied to a database or live app.
 
 ## Existing behavior confirmed at the institute feature branch
 - The demo/local data model already has a `Certificate` record with `id`, `courseId`, `studentId`, `issuedAt`, and `code`.
