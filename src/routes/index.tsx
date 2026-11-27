@@ -52,8 +52,8 @@ function HomePage() {
         <div className="flex items-center gap-4">
           <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary"><BookOpen className="h-7 w-7" /></span>
           <div>
-            <h2 className="text-xl font-extrabold">مصحف کامل قرآن کریم</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">همه ۶۰۴ صفحه با رسم‌الخط عثمان طه؛ ورق‌زدن و رفتن مستقیم به شماره صفحه</p>
+            <h2 className="text-xl font-extrabold">مصحف قرآن کریم</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">پیمایش صفحات قرآن؛ نسخهٔ حفظی ۱۵ سطری در حال تکمیل اتصال و بررسی منبع صفحات است.</p>
           </div>
         </div>
         <Link to="/quran/mushaf" className="mt-4 inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground sm:mt-0">باز کردن مصحف <ArrowLeft className="h-4 w-4" /></Link>
