@@ -219,6 +219,18 @@ using (
   )
 );
 
+create policy teacher_signature_certificate_recipient_read on storage.objects
+for select to authenticated
+using (
+  bucket_id = 'teacher-signatures'
+  and exists (
+    select 1 from public.issued_certificates cert
+    where cert.student_id = (select auth.uid())
+      and cert.status = 'issued'
+      and cert.signature_storage_path_snapshot = storage.objects.name
+  )
+);
+
 create policy teacher_signature_object_owner_upload on storage.objects
 for insert to authenticated
 with check (
@@ -240,13 +252,23 @@ as restrictive for select to authenticated
 using (
   bucket_id <> 'teacher-signatures'
   or (
-    (storage.foldername(name))[1] = (select auth.uid())::text
-    and (storage.foldername(name))[2] = 'signature'
-    and storage.filename(name) ~ '^[a-f0-9-]{36}[.](png|jpg|webp)$'
-    and exists (
-      select 1 from public.institute_memberships im
-      where im.user_id = (select auth.uid())
-        and im.role = 'teacher' and im.status = 'active'
+    (
+      (
+        (storage.foldername(name))[1] = (select auth.uid())::text
+        and (storage.foldername(name))[2] = 'signature'
+        and storage.filename(name) ~ '^[a-f0-9-]{36}[.](png|jpg|webp)$'
+        and exists (
+          select 1 from public.institute_memberships im
+          where im.user_id = (select auth.uid())
+            and im.role = 'teacher' and im.status = 'active'
+        )
+      )
+      or exists (
+        select 1 from public.issued_certificates cert
+        where cert.student_id = (select auth.uid())
+          and cert.status = 'issued'
+          and cert.signature_storage_path_snapshot = storage.objects.name
+      )
     )
   )
 );
