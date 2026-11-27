@@ -45,7 +45,7 @@ async function getJson(url: string) {
       const res = await fetch(url, { headers: { Accept: "application/json" } });
       if (res.ok) return await res.json();
       const retryable = res.status === 429 || res.status >= 500;
-      if (!retryable || attempt === 3) throw new Error(`${res.status} for `${url}`);
+      if (!retryable || attempt === 3) throw new Error(`${res.status} for ${url}`);
       const retryAfter = Number(res.headers.get("retry-after"));
       const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
         ? Math.min(retryAfter * 1000, 30000)
