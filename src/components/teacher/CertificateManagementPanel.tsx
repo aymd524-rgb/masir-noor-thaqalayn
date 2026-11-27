@@ -202,7 +202,7 @@ export function CertificateManagementPanel({
 
     <div className="space-y-3 rounded-xl border p-3">
       <label className="block text-sm"><span className="mb-1 block font-semibold">دانش‌پژوه</span><select value={selectedEnrollment?.id ?? ""} onChange={(event) => setSelectedEnrollmentId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2" disabled={!enrollments.length}><option value="">انتخاب ثبت‌نام</option>{enrollments.map((item) => <option key={item.id} value={item.id}>{item.studentName}</option>)}</select></label>
-      <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={completionConfirmed} onChange={(event) => setCompletionConfirmed(event.target.checked)} className="mt-1"/><span>تکمیل دوره و استحقاق دریافت گواهی را تأیید می‌کنم.</span></label>
+      <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={completionConfirmed} onChange={(event) => setCompletionConfirmed(event.target.checked)} className="mt-1"/><span>پس از بررسی معیارهای دوره، حضور، نمره‌ها و تکالیف مربوط، تکمیل و استحقاق دریافت گواهی را به‌صورت دستی تأیید می‌کنم.</span></label>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={includeSignature} onChange={(event) => setIncludeSignature(event.target.checked)} className="mt-1"/><span>در صورت وجود، امضای استادِ همین کلاس روی گواهی ثبت شود.</span></label>
       <button type="button" disabled={busy || !selectedEnrollment || !completionConfirmed} onClick={() => void issue()} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">صدور گواهی</button>
     </div>
