@@ -211,3 +211,20 @@
 - [x] Stage 13: tracker update commit `f29d3ec128d5e43c07851760d0023738b299016e` passed Build #618 (run `46042793254`) for the exact SHA; dependency installation, application tests, and production build all succeeded.
 - [ ] Cloudflare preview bot still reports latest deployed preview as commit `3d24dae`; the synced integration commit and tracker commit do not yet have a confirmed preview deployment.
 - [ ] No staging validation or production deployment. Full fixed 15-line Mushaf source and real SMS acceptance remain unresolved.
+
+
+## پیگیری ده مرحلهٔ بعدی (مراحل ۱۴ تا ۲۳، 2026-11-27)
+درخواست مالک پروژه: «تا ۱۰ مرحله ادامه بده». این بخش ده مرحلهٔ متوالی را مشخص می‌کند؛ هر مرحله فقط با شواهد واقعی تیک می‌خورد.
+
+14. [x] افزودن گزینهٔ دریافت همهٔ ۶۰۴ صفحه و انتخاب صفحات مشخص در اسکریپت snapshot؛ commit `d3b5ecb40eb1a488f423985db1f090b69c523272`.
+15. [x] افزودن کنترل صفحه، آیهٔ تکراری، متن خالی، شمارهٔ خط ۱–۱۵، تطبیق متن/خط و پوشش کامل ۶۰۴ صفحه در اسکریپت؛ commit `1e1e76ab1acf152ded80d04564900a763ab06c44`.
+16. [x] Build #621 / run `46045328147` برای commit مرحلهٔ ۱۵ موفق؛ نصب، تست و build موفق.
+17. [ ] افزودن تست خودکار سلامت snapshot همراه برنامه؛ commit `73aeb6df6f6bd322f41a93ac5c32c23c24186b12`، CI در حال بررسی هنگام ثبت این یادداشت.
+18. [ ] بررسی نتیجهٔ CI مرحلهٔ ۱۷ و رفع هر خطای احتمالی.
+19. [ ] اجرای اسکریپت دریافت روی صفحات نمونهٔ ۱، ۲، ۵۰ و ۶۰۴ با منبع آنلاین؛ نیازمند اجرای محیطی دارای اینترنت.
+20. [ ] مقایسهٔ بصری نمونه‌ها با مصحف مرجع ۱۵ خطی و تأیید خطوط/سرصفحه‌ها.
+21. [ ] دریافت کامل ۶۰۴ صفحه و ثبت تعداد صفحات و آیات دریافت‌شده.
+22. [ ] بررسی نبود صفحهٔ مفقود/تکراری و تطبیق دادهٔ دریافت‌شده.
+23. [ ] اتصال دادهٔ کامل تأییدشده به نمایشگر و بررسی صفحهٔ اصلی روی موبایل.
+
+مراحل ۱۹ تا ۲۳ هنوز اجرا نشده‌اند؛ CI یا تغییر کد جایگزین دریافت و بررسی واقعی داده نمی‌شود. این ده مرحله، برنامهٔ کاری مشخص است و به معنی اتمام ده مرحله نیست.
