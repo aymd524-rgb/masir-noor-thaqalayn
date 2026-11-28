@@ -1,0 +1,53 @@
+name: Verify and fetch 15-line Mushaf snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_mushaf:
+        description: Fetch all 604 pages (long-running)
+        required: true
+        type: boolean
+        default: false
+      pages:
+        description: Comma-separated pages when full_mushaf is false
+        required: true
+        type: string
+        default: "1,2,50,604"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Fetch selected Mushaf pages
+        env:
+          FULL_MUSHAF: ${{ inputs.full_mushaf }}
+          MUSHAF_PAGES: ${{ inputs.pages }}
+        run: |
+          if [ "$FULL_MUSHAF" = "true" ]; then
+            bun scripts/fetch-mushaf-snapshot.ts --all
+          else
+            bun scripts/fetch-mushaf-snapshot.ts "--pages=$MUSHAF_PAGES"
+          fi
+      - name: Run application tests
+        run: bun run test
+      - name: Build application
+        run: bun run build
+      - name: Upload generated snapshot for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: qpc-hafs-mushaf-snapshot
+          path: src/lib/mushaf/data/qpc-hafs-snapshot.ts
+          if-no-files-found: error
+          retention-days: 7
