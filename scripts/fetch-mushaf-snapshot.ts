@@ -12,7 +12,19 @@ import { writeFileSync } from "node:fs";
 const API = "https://api.quran.com/api/v4";
 const MUSHAF_ID = 5; // KFGQPC Hafs
 const CHECK_MUSHAF_ID = 1; // QCF V2 (Madani 1421)
-const PAGES = [1, 2];
+const pagesArg = process.argv.find((arg) => arg.startsWith("--pages="))?.slice("--pages=".length);
+const PAGES = process.argv.includes("--all")
+  ? Array.from({ length: 604 }, (_, index) => index + 1)
+  : pagesArg
+    ? [...new Set(pagesArg.split(",").map((value) => Number(value.trim())))].sort((a, b) => a - b)
+    : [1, 2];
+
+if (
+  PAGES.length === 0 ||
+  PAGES.some((page) => !Number.isInteger(page) || page < 1 || page > 604)
+) {
+  throw new Error("Pages must be comma-separated integers from 1 to 604.");
+}
 
 interface ApiWord {
   char_type_name: string;
