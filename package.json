@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mushaf:fetch": "bun scripts/fetch-mushaf-snapshot.ts",
+    "mushaf:fetch:sample": "bun scripts/fetch-mushaf-snapshot.ts --pages=1,2,50,604",
+    "mushaf:fetch:all": "bun scripts/fetch-mushaf-snapshot.ts --all"
   },
   "overrides": {
     "rolldown": "1.2.1"

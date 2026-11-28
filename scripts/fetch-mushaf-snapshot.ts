@@ -12,7 +12,19 @@ import { writeFileSync } from "node:fs";
 const API = "https://api.quran.com/api/v4";
 const MUSHAF_ID = 5; // KFGQPC Hafs
 const CHECK_MUSHAF_ID = 1; // QCF V2 (Madani 1421)
-const PAGES = [1, 2];
+// Default to the two-page prototype. Use `--all` to fetch all 604 pages, or
+// `--pages=1,2,50,604` for a selected verification batch.
+const args = process.argv.slice(2);
+const allPages = args.includes("--all");
+const pagesArg = args.find((arg) => arg.startsWith("--pages="))?.slice("--pages=".length);
+const PAGES = allPages
+  ? Array.from({ length: 604 }, (_, i) => i + 1)
+  : pagesArg
+    ? [...new Set(pagesArg.split(",").map(Number))]
+    : [1, 2];
+if (!PAGES.length || PAGES.some((page) => !Number.isInteger(page) || page < 1 || page > 604)) {
+  throw new Error("Pages must be integers from 1 to 604; use --all or --pages=1,2,604");
+}
 
 interface ApiWord {
   char_type_name: string;
@@ -27,15 +39,41 @@ interface ApiVerse {
 }
 
 async function getJson(url: string) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} for ${url}`);
-  return res.json();
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { Accept: "application/json" } });
+    } catch (error) {
+      // Retry transport failures, but do not mask or repeat permanent HTTP errors.
+      lastError = error;
+      if (attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 800 * 2 ** attempt));
+      continue;
+    }
+
+    if (res.ok) return await res.json();
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === 3) {
+      throw new Error(`${res.status} for ${url}`);
+    }
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1000, 30000)
+      : 800 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    lastError = new Error(`${res.status} for ${url}`);
+  }
+  throw lastError instanceof Error ? lastError : new Error("Quran API request failed");
 }
 
 async function versesOnPage(page: number, mushaf: number): Promise<ApiVerse[]> {
   const out: ApiVerse[] = [];
   let p: number | null = 1;
+  const visitedPages = new Set<number>();
   while (p) {
+    if (visitedPages.has(p)) throw new Error(`Repeated pagination page ${p} for mushaf page ${page}`);
+    visitedPages.add(p);
     const j = await getJson(
       `${API}/verses/by_page/${page}?mushaf=${mushaf}&words=true&word_fields=text_qpc_hafs,line_number,page_number&per_page=50&page=${p}`,
     );
@@ -58,11 +96,35 @@ const toSource = (v: ApiVerse) => {
 
 const pages: Record<number, ReturnType<typeof toSource>[]> = {};
 for (const page of PAGES) {
-  const main = (await versesOnPage(page, MUSHAF_ID)).map(toSource);
+  const rawMain = await versesOnPage(page, MUSHAF_ID);
+  const main = rawMain.map(toSource);
   const check = (await versesOnPage(page, CHECK_MUSHAF_ID)).map(toSource);
-  const sig = (vs: typeof main) => vs.map((v) => `${v.surah}:${v.ayah}=` + v.words.map((w) => w.line).join(",")).join("|");
-  if (sig(main) !== sig(check)) throw new Error(`Layout mismatch on page ${page} between mushaf ${MUSHAF_ID} and ${CHECK_MUSHAF_ID}`);
+  if (!main.length) throw new Error(`No verses returned for page ${page}`);
+  const keys = new Set<string>();
+  for (const verse of main) {
+    const key = `${verse.surah}:${verse.ayah}`;
+    if (keys.has(key)) throw new Error(`Duplicate verse ${key} on page ${page}`);
+    keys.add(key);
+    const rawVerse = rawMain.find((v) => v.verse_key === key);
+    if (!rawVerse || rawVerse.page_number !== page) throw new Error(`Unexpected page metadata for ${key}; expected page ${page}`);
+    if (rawVerse.words.some((word) => word.page_number !== page)) {
+      throw new Error(`Word page metadata mismatch for ${key}; expected page ${page}`);
+    }
+    if (!verse.words.length) throw new Error(`No word/end markers for ${key} on page ${page}`);
+    for (const word of verse.words) {
+      if (!word.text.trim()) throw new Error(`Empty word text in ${key} on page ${page}`);
+      if (!Number.isInteger(word.line) || word.line < 1 || word.line > 15) {
+        throw new Error(`Invalid 15-line source line ${word.line} in ${key} on page ${page}`);
+      }
+    }
+  }
+  const sig = (vs: typeof main) => vs.map((v) => `${v.surah}:${v.ayah}=` + v.words.map((w) => `${w.line}:${w.text}`).join(",")).join("|");
+  if (sig(main) !== sig(check)) throw new Error(`Text/layout mismatch on page ${page} between mushaf ${MUSHAF_ID} and ${CHECK_MUSHAF_ID}`);
   pages[page] = main;
+}
+
+if (allPages && (Object.keys(pages).length !== 604 || Array.from({ length: 604 }, (_, i) => i + 1).some((page) => !pages[page]))) {
+  throw new Error("Full mushaf snapshot incomplete: expected all 604 pages");
 }
 
 const basmalaVerse = (await getJson(`${API}/verses/by_key/1:1?words=true&word_fields=text_qpc_hafs`)).verse as ApiVerse;
