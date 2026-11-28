@@ -41,21 +41,28 @@ interface ApiVerse {
 async function getJson(url: string) {
   let lastError: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
+    let res: Response;
     try {
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (res.ok) return await res.json();
-      const retryable = res.status === 429 || res.status >= 500;
-      if (!retryable || attempt === 3) throw new Error(`${res.status} for ${url}`);
-      const retryAfter = Number(res.headers.get("retry-after"));
-      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(retryAfter * 1000, 30000)
-        : 800 * 2 ** attempt;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      res = await fetch(url, { headers: { Accept: "application/json" } });
     } catch (error) {
+      // Retry transport failures, but do not mask or repeat permanent HTTP errors.
       lastError = error;
       if (attempt === 3) throw error;
       await new Promise((resolve) => setTimeout(resolve, 800 * 2 ** attempt));
+      continue;
     }
+
+    if (res.ok) return await res.json();
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === 3) {
+      throw new Error(`${res.status} for ${url}`);
+    }
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1000, 30000)
+      : 800 * 2 ** attempt;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    lastError = new Error(`${res.status} for ${url}`);
   }
   throw lastError instanceof Error ? lastError : new Error("Quran API request failed");
 }
